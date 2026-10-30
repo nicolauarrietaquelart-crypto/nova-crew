@@ -725,3 +725,31 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 @media(prefers-reduced-motion:reduce){#page-clock .nova-clock-actions .btn{transition:none!important}}
 
 .nova-scan-direction{border:0;margin:16px 0;padding:0;min-width:0}.nova-scan-direction legend{font-size:13px;font-weight:800;margin-bottom:9px;color:#282a30}.nova-scan-direction-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.nova-scan-direction-options label{cursor:pointer;position:relative;display:block}.nova-scan-direction-options input{position:absolute;opacity:0;width:1px;height:1px}.nova-scan-direction-options span{display:flex;justify-content:center;align-items:center;min-height:49px;border-radius:13px;border:1px solid #dfe1e5;background:#f7f8fa;font-size:14px;font-weight:800;color:#3d4149;transition:background .15s,border-color .15s}.nova-scan-direction-options input:checked+span{background:#17181e;border-color:#17181e;color:#fff}.nova-scan-direction-options input:focus-visible+span{outline:3px solid #ff982f;outline-offset:2px}
+
+/* NOVA Crew · iPhone interaction refinement. */
+@media(max-width:900px){
+ :root{--nova-ease:cubic-bezier(.22,1,.36,1)}
+ html{-webkit-text-size-adjust:100%;scroll-padding-top:16px}
+ body{overscroll-behavior-y:contain}
+ button,a,select,input[type=checkbox],input[type=radio]{-webkit-tap-highlight-color:transparent}
+ button,.nav-btn,.icon-btn,.btn,.profile-chip{touch-action:manipulation}
+ button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #ff9a43;outline-offset:3px}
+ .btn,.icon-btn,.nav-btn,.profile-chip,.logout,.back-btn,.nova-qr-choice{transition:transform .22s var(--nova-ease),background-color .22s ease,box-shadow .22s ease,opacity .22s ease!important}
+ .nova-touch-down:not(:disabled){transform:scale(.965)!important;filter:brightness(.97)}
+ .sidebar{transition:transform .34s var(--nova-ease),opacity .3s ease,visibility .3s!important;will-change:transform}
+ .sidebar.open{transform:translateX(0)!important}
+ .page.active{animation:novaMobilePage .32s var(--nova-ease) both!important}
+ .service-card,.glass.card,.v10-calendar-panel,.v10-grid>div{transition:transform .25s var(--nova-ease),box-shadow .25s ease}
+ #novaQrOverlay:not(.hidden),.nova-qr-overlay:not(.hidden){animation:novaOverlayFade .23s ease both}
+ .nova-qr-overlay:not(.hidden) .nova-qr-modal{animation:novaSheetUp .36s var(--nova-ease) both;max-height:calc(100dvh - 30px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+ .nova-qr-modal button,.nova-inbox button{min-height:42px}
+ .nova-qr-modal select,.nova-qr-modal input:not([type=radio]),#page-clock select{font-size:16px!important}
+ .notifications-dropdown:not(.hidden),.v15-alert-panel:not(.hidden){animation:novaSheetUp .3s var(--nova-ease) both}
+ .v15-alert-item{touch-action:pan-y}
+ .v15-dismiss{display:grid!important;place-items:center!important;line-height:1!important;padding:0!important;min-width:36px;min-height:36px}
+ .toast:not(.hidden){transition:transform .25s var(--nova-ease),opacity .25s}
+}
+@keyframes novaMobilePage{from{opacity:.3;transform:translate3d(0,12px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes novaOverlayFade{from{opacity:0}to{opacity:1}}
+@keyframes novaSheetUp{from{opacity:.55;transform:translate3d(0,22px,0) scale(.985)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.page.active,.nova-qr-overlay:not(.hidden),.nova-qr-overlay:not(.hidden) .nova-qr-modal,.notifications-dropdown:not(.hidden),.v15-alert-panel:not(.hidden){animation:none!important}.sidebar,.btn,.nav-btn,.icon-btn,.profile-chip{transition:none!important}}
