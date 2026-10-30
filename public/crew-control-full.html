@@ -14281,7 +14281,7 @@ window.addEventListener('scroll',closeTeamColorPalette,true);
     const el=document.getElementById('serviceCodeInput');if(el)el.value=code;
     Promise.resolve().then(()=>firebaseLoadService(code)).then(service=>{
       if(service){openServiceData(service);window.parent?.postMessage({type:'NOVA_CC_READY',service:code},location.origin)}
-    }).catch(err=>{window.parent?.postMessage({type:'NOVA_CC_ERROR',service:code,error:String(err?.message||err)},location.origin);{const t=document.getElementById('startStatus');if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}});
+    }).catch(err=>{window.parent?.postMessage({type:'NOVA_CC_ERROR',service:code,error:String(err?.message||err)},location.origin);const t=document.getElementById('startStatus');if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
