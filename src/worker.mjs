@@ -82,6 +82,28 @@ export function createDemoApi(storage) {
       const actor=await auth(request);
       if(!actor)return bad('Sesión caducada. Entra de nuevo.',401);
       if(op==='me')return json({ok:true,user:actor,profile:await profile(actor)});
+      if(op==='confirmations'){
+        const confirmations={};
+        for(const id of DEMO_ACCOUNTS[actor].assigned){
+          const value=await get(`confirmation/${actor}/${id}`);
+          if(value)confirmations[id]=value;
+        }
+        return json({ok:true,confirmations});
+      }
+      if(op==='confirmAssignment'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        const id=st(body.serviceId,24),status=st(body.status,24);
+        if(!assigned(actor,id))return bad('Servicio no asignado.',403);
+        if(!['CONFIRMADO','NO DISPONIBLE','PENDIENTE'].includes(status))return bad('Estado de confirmación incorrecto.');
+        const key=`confirmation/${actor}/${id}`;
+        const current=await get(key);
+        if(current?.status==='CONFIRMADO'&&status!=='CONFIRMADO')return bad('Servicio ya confirmado. Contacta con oficina para cambios.',409);
+        const reason=st(body.reason,500);
+        if(status==='NO DISPONIBLE'&&!reason)return bad('Indica el motivo de no disponibilidad.');
+        const record={status,reason,updatedAt:new Date().toISOString()};
+        await put(key,record);
+        return json({ok:true,serviceId:id,confirmation:record});
+      }
       if(op==='crew'){
         if(request.method!=='POST')return bad('Método no permitido.',405);
         const result=await handleCrewStore(storage,actor,body,id=>manager(actor,id));
