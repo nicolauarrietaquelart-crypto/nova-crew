@@ -291,30 +291,7 @@ function mountProfileMenu(){
   });
 }
 
-function addSelfShiftControls(){
-  const s=window.homeNextService;if(!s)return;
-  const card=$id('serviceDetail'),root=card?.querySelector('.side-stack');if(!root||card.querySelector('#v15ShiftCard'))return;
-  const uid=window.novaActiveAccount||'demo';
-  const worker=window.novaCloudShifts?.[s.id+'/'+uid];
-  const start=worker?.start||s.time.split('–')[0],end=worker?.end||s.time.split('–')[1];
-  root.insertAdjacentHTML('beforeend',`<article id="v15ShiftCard" class="glass card"><h4>Mi turno</h4><p class="muted" style="font-size:11px">Modifica tu horario si terminas antes o tu turno cambia. Se refleja en tu ficha.</p><div class="v15-shift-times"><label>Inicio<input type="time" id="v15Start" value="${esc(start)}"></label><label>Fin<input type="time" id="v15End" value="${esc(end)}"></label></div><button class="btn light" type="button" id="v15SaveShift">Guardar mi horario</button></article>`);
-  $id('v15SaveShift').onclick=async()=>{try{const result=await window.NOVA_API.updateShift(s.id,uid,$id('v15Start').value,$id('v15End').value);window.novaCloudShifts=window.novaCloudShifts||{};window.novaCloudShifts[s.id+'/'+uid]={start:result.start,end:result.end};toast('Horario guardado','El turno de este trabajador ha sido actualizado en la demo.');if(typeof updateDemoWorkerFromServer==='function')updateDemoWorkerFromServer();}catch(e){toast('Horario',e.message);}};
-}
-
 function patchFunctions(){
-  const previousDetail=window.renderServiceDetail;
-  if(typeof previousDetail==='function')window.renderServiceDetail=function(s){
-    previousDetail(s);
-    const root=$id('serviceDetail')?.querySelector('.side-stack');if(!root)return;
-    const current=$id('v15ShiftCard');if(current)current.remove();
-    const uid=window.novaActiveAccount||'demo';
-    const assigned=currentServices().some(x=>x.id===s.id);if(!assigned)return;
-    const override=window.novaCloudShifts?.[s.id+'/'+uid];
-    const start=override?.start||s.time.split('–')[0],end=override?.end||s.time.split('–')[1];
-    root.insertAdjacentHTML('beforeend',`<article class="glass card" id="v15ShiftCard"><h4>Mi turno</h4><p class="muted">Puedes actualizar tu horario real de la demo.</p><div class="v15-shift-times"><label>Inicio<input id="v15Start" type="time" value="${esc(start)}"></label><label>Fin<input id="v15End" type="time" value="${esc(end)}"></label></div><button class="btn light" id="v15SaveShift" type="button">Guardar horario</button></article>`);
-    $id('v15SaveShift').onclick=async()=>{try{const d=await window.NOVA_API.updateShift(s.id,uid,$id('v15Start').value,$id('v15End').value);window.novaCloudShifts=window.novaCloudShifts||{};window.novaCloudShifts[s.id+'/'+uid]={start:d.start,end:d.end};toast('Turno actualizado','Horario guardado para tu trabajador demo.');renderServiceDetail(s);}catch(e){toast('Turno',e.message);}};
-  };
-
   const oldEnter=window.enterApp;
   if(typeof oldEnter==='function')window.enterApp=function(){
     oldEnter();

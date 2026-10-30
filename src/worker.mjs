@@ -168,7 +168,7 @@ export function createDemoApi(storage) {
       if(op==='updateShift'){
         if(request.method!=='POST')return bad('Método no permitido.',405);
         const id=st(body.serviceId,20),who=st(body.workerId||actor,20);
-        if(!assigned(who,id)||(!manager(actor,id)&&actor!==who))return bad('No puedes modificar este turno.',403);
+        if(!assigned(who,id)||!manager(actor,id))return bad('Solo el coordinador o un Crew Head autorizado puede modificar turnos.',403);
         const start=st(body.start,5),end=st(body.end,5);
         if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end))return bad('Horario incorrecto.');
         await put(`shift/${id}/${who}`,{start,end,updatedAt:new Date().toISOString(),updatedBy:actor});

@@ -145,14 +145,21 @@ test('free-shift interest never assigns a shift and cannot be withdrawn',async()
   const retained=await call(api,'openShifts',{session:a.session});assert.equal(retained.shifts[0].interest.status,'ENVIADO');
 });
 
-test('workers can adjust their own shift, but not another worker shift',async()=>{
-  const api=createDemoApi(mockStorage());const a=await login(api,'demo','crew2026'),b=await login(api,'coord','coord2026');
-  const changed=await call(api,'updateShift',{session:a.session,body:{serviceId:'svc2',workerId:'demo',start:'08:30',end:'16:00'}});
-  assert.equal(changed.status,200);
+test('ordinary workers cannot edit even their own shift, while an authorized coordinator can',async()=>{
+  const api=createDemoApi(mockStorage());
+  const a=await login(api,'demo','crew2026'),b=await login(api,'coord','coord2026');
+  const forbiddenSelf=await call(api,'updateShift',{session:a.session,body:{serviceId:'svc2',workerId:'demo',start:'08:30',end:'16:00'}});
+  assert.equal(forbiddenSelf.status,403);
+  const forbiddenOther=await call(api,'updateShift',{session:a.session,body:{serviceId:'svc2',workerId:'coord',start:'09:00',end:'17:00'}});
+  assert.equal(forbiddenOther.status,403);
+  const allowedOther=await call(api,'updateShift',{session:b.session,body:{serviceId:'svc2',workerId:'demo',start:'07:00',end:'15:00'}});
+  assert.equal(allowedOther.status,200);
+  const allowedOwn=await call(api,'updateShift',{session:b.session,body:{serviceId:'svc2',workerId:'coord',start:'07:30',end:'17:30'}});
+  assert.equal(allowedOwn.status,200);
+  const crewHeadSelf=await call(api,'updateShift',{session:b.session,body:{serviceId:'svc4',workerId:'coord',start:'06:30',end:'18:00'}});
+  assert.equal(crewHeadSelf.status,200);
   const roster=await call(api,'roster',{session:a.session});
-  assert.equal(roster.shifts['svc2/demo'].end,'16:00');
-  const denied=await call(api,'updateShift',{session:a.session,body:{serviceId:'svc2',workerId:'coord',start:'09:00',end:'17:00'}});
-  assert.equal(denied.status,403);
-  const fromManager=await call(api,'updateShift',{session:b.session,body:{serviceId:'svc2',workerId:'demo',start:'07:00',end:'15:00'}});
-  assert.equal(fromManager.status,200);
+  assert.equal(roster.shifts['svc2/demo'].end,'15:00');
+  assert.equal(roster.shifts['svc2/coord'].end,'17:30');
+  assert.equal(roster.shifts['svc4/coord'].end,'18:00');
 });
