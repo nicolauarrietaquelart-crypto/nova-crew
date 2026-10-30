@@ -3,14 +3,33 @@
 (function(){
   'use strict';
   const KEY=()=>`novaCrewV15-${window.novaActiveAccount||'demo'}`;
+  let syncing=false;
   function safeLoad(){try{const x=JSON.parse(localStorage.getItem(KEY())||'{}');return x&&typeof x==='object'?x:{}}catch(e){return {}}}
   let stored=safeLoad();
   let data={confirmations:stored.confirmations||{},notes:stored.notes||{}};
   function syncAccount(){const next=safeLoad();data={confirmations:next.confirmations||{},notes:next.notes||{}};}
-  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>data.confirmations[id]?.status||'PENDIENTE',pending:()=>assignedServices().filter(s=>(data.confirmations[s.id]?.status||'PENDIENTE')==='PENDIENTE').length,refresh:()=>{syncAccount();refreshServiceDecorations();renderCalendar();renderNotifications();}};
+  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>data.confirmations[id]?.status||'PENDIENTE',pending:()=>assignedServices().filter(s=>(data.confirmations[s.id]?.status||'PENDIENTE')==='PENDIENTE').length,refresh:()=>{refreshFromServer();}};
   const fmt=(t)=>typeof escV9==='function'?escV9(t):String(t);
   const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify(data))}catch(e){console.warn('Guardado local no disponible',e)}};
   const statusOf=(id)=>data.confirmations[id]?.status||'PENDIENTE';
+  async function refreshFromServer(){
+    if(syncing||!window.NOVA_API?.account)return;
+    syncing=true;
+    try{
+      const response=await window.NOVA_API.confirmations();
+      if(response?.ok){
+        data.confirmations=response.confirmations||{};
+        save();
+        refreshServiceDecorations();renderCalendar();
+        if(typeof renderNotifications==='function')renderNotifications();
+      }
+    }catch(error){console.warn('No se pudo sincronizar confirmaciones',error);}
+    finally{syncing=false;}
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshFromServer()});
+  window.addEventListener('focus',refreshFromServer);
+  document.addEventListener('nova-account-changed',refreshFromServer);
+  setInterval(()=>{if(!document.hidden)refreshFromServer()},30000);
   const statusLabel=(st)=>st==='CONFIRMADO'?'CONFIRMADO':st==='NO DISPONIBLE'?'NO DISPONIBLE':'POR CONFIRMAR';
   const badge=(id)=>`<span class="v10-status ${statusOf(id)==='CONFIRMADO'?'confirmado':statusOf(id)==='NO DISPONIBLE'?'rechazado':'pendiente'}">${statusLabel(statusOf(id))}</span>`;
   const findService=(id)=>services.find(s=>s.id===id);
@@ -35,7 +54,22 @@
       document.getElementById('v10Decline').onclick=()=>{const reason=document.getElementById('v10Reason').value.trim();if(!reason){toast('Motivo requerido','Indica brevemente por qué no puedes acudir.');return}setConfirmed(id,status,reason);closeDemoModal();};
     }else setConfirmed(id,status,'');
   }
-  function setConfirmed(id,status,reason){if(statusOf(id)==='CONFIRMADO'&&status!=='CONFIRMADO')return;data.confirmations[id]={status,reason,updatedAt:new Date().toISOString()};save();refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();window.NOVA_V15?.updateAlerts?.();toast('Asignación',status==='CONFIRMADO'?'Asistencia confirmada en la demo.':status==='PENDIENTE'?'Confirmación restablecida.':'No disponibilidad registrada en la demo.');}
+  async function setConfirmed(id,status,reason){
+    if(statusOf(id)==='CONFIRMADO'&&status!=='CONFIRMADO')return;
+    if(!window.NOVA_API?.account){toast('Sin sesión','Inicia sesión para confirmar el servicio.');return;}
+    try{
+      const result=await window.NOVA_API.confirmAssignment(id,status,reason);
+      if(!result?.ok)throw new Error('No se ha guardado la confirmación.');
+      data.confirmations[id]=result.confirmation;
+      save();refreshServiceDecorations();renderCalendar();
+      if(typeof renderNotifications==='function')renderNotifications();
+      window.NOVA_V15?.updateAlerts?.();
+      toast('Asignación',status==='CONFIRMADO'?'Servicio confirmado.':status==='PENDIENTE'?'Estado restablecido.':'No disponibilidad registrada.');
+    }catch(error){
+      toast('No se pudo guardar',error.message||'Comprueba tu conexión.');
+      await refreshFromServer();
+    }
+  }
   function serviceControls(s,detail=false){
     const status=statusOf(s.id);
     const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${badge(s.id)}${status==='CONFIRMADO'?'':`<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}`}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
@@ -97,4 +131,5 @@
   document.getElementById('v10CalendarNext').onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendar()};
   document.getElementById('v10CalendarToday').onclick=()=>{calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderCalendar()};
   refreshServiceDecorations();renderCalendar();renderNotifications();
+  setTimeout(refreshFromServer,500);
 })();
