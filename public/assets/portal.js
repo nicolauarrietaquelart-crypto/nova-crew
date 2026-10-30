@@ -742,7 +742,7 @@ function crewMetrics(){
   };
 }
 
-function renderCrewControl(s){
+function renderLegacyCrewControl(s){
   crewState.service=s;
   crewState.workers=makeCrewWorkers(s);
   crewState.workFilter='TODO';
@@ -1671,14 +1671,14 @@ function editBasicWorker(id){
 }
 
 /* Crew Control demo: selección por fila/nombre, estados inline y edición completa */
-function renderCrewControl(s){
+function renderLegacyCrewControl(s){
   crewState.service=s;
   crewState.workers=makeCrewWorkers(s).map(normalizeCrewWorkerV8);
   crewState.workFilter='TODO';crewState.statusFilter='ALL';crewState.search='';crewState.arrival=false;crewState.collapsed={};loadCrewMeta(s);
   $('#crewControlRoot').innerHTML=`
     <div class="crew-shell">
       <header class="crew-header">
-        <div class="crew-brand"><div class="crew-brand-mark">N</div><div><strong>CREW CONTROL</strong><span>Operaciones de personal · demo v11.2.30</span></div></div>
+        <div class="crew-brand"><div class="crew-brand-mark">N</div><div><strong>CREW CONTROL</strong><span>Operaciones de personal · demo · sustituido por v11.2.35</span></div></div>
         <div class="crew-header-actions"><button id="crewBack" class="light">← Área empleado</button><button id="crewControlView" class="light">◉ Control</button><button id="crewDuplicate" class="light">Duplicar</button><button id="crewCloseService" class="dark">${crewState.closed?'Reabrir':'Cerrar'}</button><button id="crewExit" class="light">Salir</button></div>
       </header>
       <div class="crew-workspace">
