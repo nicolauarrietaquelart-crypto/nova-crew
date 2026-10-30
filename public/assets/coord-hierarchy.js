@@ -170,6 +170,13 @@ function edit(ids){
  },0);
 }
 document.addEventListener('click',e=>{
+ const serviceSheet=e.target.closest('#openWorkerCoordServiceSheet');
+ if(serviceSheet){
+  if(!active)return;
+  if(typeof renderServiceDetail==='function')renderServiceDetail(active);
+  if(typeof navigate==='function')navigate('service-detail');
+  return;
+ }
  const modalStar=e.target.closest('[data-nova-modalstar][data-nova-rating-field]');
  if(modalStar){
   const field=modalStar.dataset.novaRatingField,n=Number(modalStar.dataset.novaModalstar);
