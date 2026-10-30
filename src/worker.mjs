@@ -77,7 +77,7 @@ export function createDemoApi(storage) {
         if(!DEMO_ACCOUNTS[id]||!equals(st(body.password,100),DEMO_ACCOUNTS[id].password))return bad('Usuario o contraseña incorrectos.',401);
         const session=tokenHex();
         await put('session/'+await sha(session),{user:id,expiresAt:Date.now()+TTL_SESSION});
-        return json({ok:true,session,user:id,display:visible(await profile(id)).name});
+        return json({ok:true,session,user:id,display:visible(defaults(id)).name});
       }
       const actor=await auth(request);
       if(!actor)return bad('Sesión caducada. Entra de nuevo.',401);
