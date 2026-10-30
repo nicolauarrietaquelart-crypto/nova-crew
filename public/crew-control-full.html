@@ -6833,6 +6833,17 @@ body > header > .wrap{max-width:none!important}
 body{padding-top:88px!important}
 @media(max-width:900px){body{padding-top:82px!important}body > header,body > header.crew-header-floating-v11233{top:6px!important;left:7px!important;right:7px!important;width:calc(100% - 14px)!important;height:65px!important;min-height:65px!important;border-radius:16px!important}}
 @media(prefers-reduced-motion:reduce){.nova-crew-open-loader{animation:none}}
+
+/* NOVA mobile header: minimal back, existing QR, operational toggle */
+@media(max-width:900px){
+ body>header,body>header.crew-header-floating-v11233{height:62px!important;min-height:62px!important;padding:0!important}
+ body>header>.wrap.cc-demo-header{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;width:100%!important;max-width:none!important;height:100%!important;gap:8px!important;padding:0 10px!important;box-sizing:border-box!important}
+ .cc-demo-header .brand{display:none!important}
+ .cc-portal-actions{display:flex!important;align-items:center!important;gap:8px!important;flex:0 1 auto!important;min-width:0!important}
+ .cc-portal-actions .cc-portal-back{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;font-size:0!important;overflow:hidden!important;white-space:nowrap!important}
+ .cc-portal-actions .cc-portal-back::before{content:"←";font-size:22px!important;line-height:1!important;font-weight:800!important;color:#fff!important}
+ #mobileOperationalToggleV11234{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;margin-left:auto!important}
+}
 </style>
 </head>
 <body>
@@ -6842,7 +6853,7 @@ body{padding-top:88px!important}
 <header>
   <div class="wrap cc-demo-header">
     <div class="cc-portal-actions">
-      <button type="button" class="cc-portal-back" id="ccReturnEmployee">← Volver al Área de Empleado</button>
+      <button type="button" class="cc-portal-back" id="ccReturnEmployee" aria-label="Volver al Área de Empleado">← Volver al Área de Empleado</button>
       <button type="button" class="cc-portal-qr nova-qr-quick icon-btn" id="ccScanWorker" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg></button>
     </div>
     <div class="brand">
