@@ -375,7 +375,7 @@ body.crew-mode .app-layout{display:block;padding:6px;height:100vh}body.crew-mode
 #novaQrTimePanel h3{font-size:22px;margin:6px 0 10px}
 #novaQrTimePanel .clock-row{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
 #novaQrTimePanel small{color:#727983}
-#page-clock .clock-layout{display:none!important}
+#page-clock .clock-layout{display:grid!important;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr)!important}
 .nova-scan-inline{margin:10px 0;display:flex;gap:8px;align-items:center}
 .nova-scan-inline .btn{font-size:12px}
 .nova-qr-attended{font-size:12px;color:#1b8748;font-weight:800;margin-top:9px}
@@ -710,3 +710,6 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 }
 @keyframes novaPageArrive{from{opacity:.65;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.page.active{animation:none!important}.nav-btn,.btn,.icon-btn,.notification-item,.service-card{transition:none!important}}
+
+/* Restore geolocation check-in formerly hidden by legacy QR-only layout. */
+@media(max-width:900px){#page-clock .clock-layout{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important}#page-clock .clock-main{min-width:0!important;padding:18px!important}#page-clock .clock-side{display:none!important}#page-clock .location-compare{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}#page-clock .distance-circle{width:100px;height:100px}#page-clock .clock-service{flex-wrap:wrap}#page-clock .clock-service h3{font-size:18px}#page-clock .inline-actions{display:grid!important;grid-template-columns:minmax(0,1fr)!important}#page-clock .inline-actions button{width:100%}}
