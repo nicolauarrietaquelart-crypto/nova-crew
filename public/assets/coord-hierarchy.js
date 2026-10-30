@@ -5,6 +5,7 @@ const el=id=>document.getElementById(id);
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statuses=['PENDIENTE','CONTACTADO','NO CONTACTADO','PRESENTE','NO PRESENTADO'];
 let active=null,workers=[],selected=new Set(),query='',statusFilter='ALL',timeFilter='ALL',busy=false;
+let expandedCoordSections={attendance:false,entry:false,selection:false};
 const account=()=>window.novaActiveAccount||window.NOVA_API?.account||'demo';
 const service=id=>typeof services!=='undefined'?services.find(x=>x.id===id):null;
 const toastMessage=(title,msg)=>{if(typeof toast==='function')toast(title,msg)};
@@ -71,20 +72,20 @@ function sidebar(){
  '<div class="nova-coord-sidehead"><span>CONTROL OPERATIVO</span><strong>'+escape(roleTitle(active))+'</strong><small>'+escape(active.time)+' · '+workers.length+' trabajadores</small></div>'+
  '<div class="nova-coord-sidebody">'+
  '<div class="nova-coord-metrics">'+metrics.map(([label,count])=>'<div><b>'+count+'</b><span>'+label+'</span></div>').join('')+'</div>'+
- '<div class="nova-coord-side-title">Estado de asistencia</div>'+
+ '<button type="button" class="nova-coord-fold" data-nova-fold="attendance" aria-expanded="'+expandedCoordSections.attendance+'">Estado de asistencia <span>⌄</span></button>'+ (expandedCoordSections.attendance?
  '<div class="nova-coord-filters">'+
  filterButton('Todos','status','ALL')+
  filterButton('Presentes','status','PRESENTE')+
  filterButton('Contactados','status','CONTACTADO')+
  filterButton('No contactados','status','NO CONTACTADO')+
  filterButton('No presentados','status','NO PRESENTADO')+
- filterButton('Pendientes','status','PENDIENTE')+'</div>'+
- '<div class="nova-coord-side-title">Hora de entrada</div>'+
- '<div class="nova-coord-filters">'+filterButton('Todas','time','ALL')+times.map(v=>filterButton(v,'time',v)).join('')+'</div>'+
- '<div class="nova-coord-side-title">Selección</div>'+
+ filterButton('Pendientes','status','PENDIENTE')+'</div>':'')+
+ '<button type="button" class="nova-coord-fold" data-nova-fold="entry" aria-expanded="'+expandedCoordSections.entry+'">Hora de entrada <span>⌄</span></button>'+ (expandedCoordSections.entry?
+ '<div class="nova-coord-filters">'+filterButton('Todas','time','ALL')+times.map(v=>filterButton(v,'time',v)).join('')+'</div>':'')+
+ '<button type="button" class="nova-coord-fold" data-nova-fold="selection" aria-expanded="'+expandedCoordSections.selection+'">Selección <span>⌄</span></button>'+ (expandedCoordSections.selection?
  '<div class="nova-coord-side-actions"><button data-nova-select-visible type="button">Seleccionar visibles</button><button data-nova-clear type="button">Limpiar selección</button></div>'+
  '<div class="nova-coord-selected">'+selected.size+' seleccionados</div>'+
- '<button class="btn dark nova-coord-edit" type="button" data-nova-bulk>Editar selección</button>'+
+ '<button class="btn dark nova-coord-edit" type="button" data-nova-bulk>Editar selección</button>':'')+
  '<div class="nova-coord-sidebar-foot">Incidencias: '+workers.filter(w=>w.incident).length+' · Dietas: '+workers.filter(w=>w.diet==='Sí').length+'</div>'+
  '</div></aside>';
 }
@@ -143,19 +144,20 @@ function edit(ids){
  if(!ids.length){toastMessage('Coordinación','Selecciona uno o más trabajadores pulsando sus nombres.');return}
  const first=workers.find(w=>w.id===ids[0]);if(!first||typeof openDemoModal!=='function')return;
  const multi=ids.length>1;
+ const optionsRoles=[...new Set([...workers.map(w=>w.role).filter(Boolean),'HAND A','HAND B','CREW HEAD','COORDINADOR','FORKLIFTER','RUNNER','SITE','CATERING'])];
  const row=(id,label,val)=>'<label>'+label+'<input type="time" id="'+id+'" value="'+escape(val||'')+'"></label>';
  openDemoModal(multi?'Editar '+ids.length+' trabajadores':'Ficha de '+first.name,
- '<div class="basic-modal-grid">'+row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
+ '<div class="basic-modal-grid">'+'<label>Puesto<select id="novaEditRole"><option value="">'+(multi?'Mantener':'Elegir puesto')+'</option>'+optionsRoles.map(v=>'<option value="'+escape(v)+'" '+(!multi&&v===first.role?'selected':'')+'>'+escape(v)+'</option>').join('')+'</select></label>'+row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
  '<label>Estado<select id="novaEditStatus"><option value="">Mantener</option>'+statuses.map(v=>'<option value="'+v+'" '+(!multi&&v===first.status?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
- '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','00:15','00:30','00:45','01:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
- '<label>Dieta<select id="novaEditDiet"><option value="">Mantener</option><option '+(!multi&&first.diet==='Sí'?'selected':'')+'>Sí</option><option '+(!multi&&first.diet==='No'?'selected':'')+'>No</option></select></label>'+
+ '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','00:15','00:30','00:45','01:00','01:30','02:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
+ '<label>Dietas<select id="novaEditDiet"><option value="">Mantener</option>'+['0','1','2','3'].map(n=>'<option value="'+n+'" '+(!multi&&String(first.diet)===(n==='0'?'No':n==='1'?'Sí':n)?'selected':'')+'>'+n+'</option>').join('')+'</select></label>'+
  ratingModalRows(first,multi)+
  '<label class="nova-incident-field">Incidencia / observaciones<input type="text" maxlength="200" id="novaEditIncident" value="'+(multi?'':escape(first.incident||''))+'"></label>'+
  '</div><div class="crew-modal-actions"><button type="button" class="btn light" id="novaEditCancel">Cancelar</button><button type="button" class="btn primary" id="novaEditSubmit">Guardar cambios</button></div>');
  setTimeout(()=>{
   el('novaEditCancel').onclick=()=>closeDemoModal();
   el('novaEditSubmit').onclick=async()=>{
-   const fields={start:el('novaEditStart').value,end:el('novaEditEnd').value,status:el('novaEditStatus').value,pause:el('novaEditPause').value,diet:el('novaEditDiet').value,incident:el('novaEditIncident').value};
+   const fields={role:el('novaEditRole').value,start:el('novaEditStart').value,end:el('novaEditEnd').value,status:el('novaEditStatus').value,pause:el('novaEditPause').value,diet:el('novaEditDiet').value,incident:el('novaEditIncident').value};
    for(const [field] of ratingFields)fields[field]=document.querySelector('[data-nova-rating-input="'+field+'"]')?.value||'';
    const c=Object.fromEntries(Object.entries(fields).filter(([k,v])=>v!==''));for(const [field] of ratingFields){if(field in c)c[field]=Number(c[field]);}
    if(!Object.keys(c).length){closeDemoModal();return}
@@ -190,6 +192,7 @@ document.addEventListener('click',e=>{
   return;
  }
  if(!e.target.closest('#workerCoordDetail')||!active)return;
+ const fold=e.target.closest('[data-nova-fold]');if(fold){const key=fold.dataset.novaFold;expandedCoordSections[key]=!expandedCoordSections[key];render();return}
  const action=e.target.closest('[data-nova-edit]');
  if(action){edit([action.dataset.novaEdit]);return}
  if(e.target.closest('[data-nova-refresh]')){load(active,true);return}
