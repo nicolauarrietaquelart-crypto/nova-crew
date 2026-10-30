@@ -8,7 +8,7 @@
   let stored=safeLoad();
   let data={confirmations:stored.confirmations||{},notes:stored.notes||{}};
   function syncAccount(){const next=safeLoad();data={confirmations:next.confirmations||{},notes:next.notes||{}};}
-  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>statusOf(id),pending:()=>assignedServices().filter(s=>statusOf(s.id)==='PENDIENTE').length,refresh:()=>{refreshFromServer();}};
+  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>statusOf(id),pending:()=>assignedServices().filter(s=>statusOf(s.id)==='PENDIENTE').length,refresh:()=>{refreshFromServer();},confirm:(id)=>confirmAssignment(id,'CONFIRMADO'),decline:(id)=>confirmAssignment(id,'NO DISPONIBLE')};
   const fmt=(t)=>typeof escV9==='function'?escV9(t):String(t);
   const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify(data))}catch(e){console.warn('Guardado local no disponible',e)}};
   const DEMO_SERVICE='svc5';
@@ -81,12 +81,12 @@
   }
   function serviceControls(s,detail=false){
     const status=statusOf(s.id);
-    const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${s.id===DEMO_SERVICE?'<span class="nova-demo-reset-label">DEMO · se reinicia al recargar</span>':''}${badge(s.id)}${status==='CONFIRMADO'?'':`<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}`}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
+    const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${s.id===DEMO_SERVICE?'<span class="nova-demo-reset-label">DEMO · se reinicia al recargar</span>':''}${badge(s.id)}${status==='CONFIRMADO'?'':`<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}" onclick="window.NOVA_V15_CONFIRM.confirm(this.dataset.v10Confirm);return false">✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}" onclick="window.NOVA_V15_CONFIRM.decline(this.dataset.v10Decline);return false">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}`}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
     return buttons;
   }
   function decorateServiceCards(){
     document.querySelectorAll('#servicesList .service-card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;const existing=card.querySelector('.nova-mobile-confirm,.v10-inline-tools');const s=findService(b.dataset.openService);if(s){if(existing)existing.outerHTML=serviceControls(s).replace('class="v10-inline-tools"','class="v10-inline-tools nova-mobile-confirm"');else card.insertAdjacentHTML('beforeend',serviceControls(s).replace('class="v10-inline-tools"','class="v10-inline-tools nova-mobile-confirm"'));}});
-    document.querySelectorAll('#homeServices .card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;card.querySelector('.v10-inline-tools')?.remove();const s=findService(b.dataset.openService);if(s)card.insertAdjacentHTML('beforeend',`<div class="v10-inline-tools v16-home-confirm">${badge(s.id)}${statusOf(s.id)==='PENDIENTE'?`<button class="btn dark" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button>`:''}</div>`);});
+    document.querySelectorAll('#homeServices .card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;card.querySelector('.v10-inline-tools')?.remove();const s=findService(b.dataset.openService);if(s)card.insertAdjacentHTML('beforeend',`<div class="v10-inline-tools v16-home-confirm">${badge(s.id)}${statusOf(s.id)==='PENDIENTE'?`<button class="btn dark" type="button" data-v10-confirm="${fmt(s.id)}" onclick="window.NOVA_V15_CONFIRM.confirm(this.dataset.v10Confirm);return false">✓ Confirmar</button>`:''}</div>`);});
   }
   function decorateServiceDetail(){
     // Confirmation remains on the service cards; no duplicate notes / confirmation panel in the ficha.
@@ -128,8 +128,8 @@
   document.addEventListener('click',ev=>{
     const node=ev.target.closest('[data-v10-confirm],[data-v10-decline],[data-v10-pending],[data-v10-ics],[data-v10-open],[data-v10-note-save],[data-v10-export]');if(!node)return;
     const ds=node.dataset;
-    if(ds.v10Confirm){ev.preventDefault();ev.stopImmediatePropagation();confirmAssignment(ds.v10Confirm,'CONFIRMADO')}
-    else if(ds.v10Decline){ev.preventDefault();ev.stopImmediatePropagation();confirmAssignment(ds.v10Decline,'NO DISPONIBLE')}
+    if(ds.v10Confirm){return;}
+    else if(ds.v10Decline){return;}
     else if(ds.v10Pending){ev.preventDefault();ev.stopImmediatePropagation();confirmAssignment(ds.v10Pending,'PENDIENTE')}
     else if(ds.v10Ics){ev.stopPropagation();exportICS(ds.v10Ics)}
     else if(ds.v10Open){ev.stopPropagation();const s=findService(ds.v10Open);if(s){renderServiceDetail(s);navigate('service-detail')}}
