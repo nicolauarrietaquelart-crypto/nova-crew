@@ -1221,7 +1221,7 @@ function bind(){
   $('#loginForm').addEventListener('submit',e=>{
     e.preventDefault();
     const u=$('#username').value.trim(),p=$('#password').value;
-    const finish=ok=>{if(ok){window.novaActiveAccount=u.toLowerCase()==='coord'?'coord':'demo';enterApp();}else $('#loginError').classList.add('show')};
+    const finish=ok=>{if(ok){window.novaActiveAccount=u.toLowerCase()==='coord'?'coord':'demo';window.NOVA_V15_CONFIRM?.syncAccount?.();enterApp();window.NOVA_V15_CONFIRM?.refresh?.();}else $('#loginError').classList.add('show')};
     if(window.NOVA_API){
       const submit=$('#loginForm button[type="submit"]'); if(submit){submit.disabled=true;submit.textContent='Accediendo…';}
       window.NOVA_API.login(u,p).then(()=>finish(true)).catch(error=>{
