@@ -4,6 +4,7 @@
   'use strict';
   const KEY_TOKEN='nova-v11-qr-tokens', KEY_ACTIVE='nova-v11-qr-current', KEY_ATT='nova-v11-qr-attendance';
   const TTL=90000;
+  let scanDirection='entrada';
   let activeService='svc2',scannerRunning=false,scannerStream=null,scanTimer=0,expiresTimer=0,activeToken='';
   let agendaCursor=new Date(2026,9,1);
   const root=document.getElementById('novaQrContent');
@@ -48,12 +49,13 @@
       return {token,expiresAt:now+TTL,serviceName:s.name,workerName:workerId==='coord'?coordinatorProfileName():latestDemoProfile().name};
     }
     if(method==='novaRedeemQr'){
+      const direction=args[3]==='salida'?'salida':'entrada';
       let [token,actor]=args;token=String(token).replace(/^NOVAQR:/,'').trim();
       if(!['coord','demo'].includes(actor))throw Error('Cuenta sin permiso de escaneo.');
       const d=tokens[token];if(!d||d.expiresAt<now||active[d.workerId+'_'+d.serviceId]!==token)throw Error('QR caducado, sustituido o ya utilizado.');
       if(actor!==OWNERS[d.serviceId]&&!(actor==='coord'&&d.serviceId==='svc4'))throw Error('No gestionas Crew Control en este servicio.');
       delete tokens[token];delete active[d.workerId+'_'+d.serviceId];lsWrite(KEY_TOKEN,tokens);lsWrite(KEY_ACTIVE,active);
-      return {ok:true,record:savePreviewAttendance(d.workerId,d.serviceId,'QR',actor==='coord'?coordinatorProfileName():latestDemoProfile().name)};
+      return {ok:true,record:savePreviewAttendance(d.workerId,d.serviceId,'QR',actor==='coord'?coordinatorProfileName():latestDemoProfile().name,direction)};
     }
     if(method==='novaDirectClock'){
       const [workerId,serviceId]=args,s=services.find(x=>x.id===serviceId);
@@ -64,14 +66,14 @@
     if(method==='novaGetAttendance')return records.filter(x=>!args[0]||x.serviceId===args[0]);
     throw Error('Acción desconocida: '+method);
   }
-  function savePreviewAttendance(workerId,serviceId,method,scannedBy){
+  function savePreviewAttendance(workerId,serviceId,method,scannedBy,direction='entrada'){
     const s=services.find(x=>x.id===serviceId),rows=lsRead(KEY_ATT,[]);
     const saved=lsRead(workerId==='coord'?'novaProfileCoordV11':'novaProfileV7',{});
     const workerName=workerId==='coord' ? String(saved.name||'Álvaro Costa') : latestDemoProfile().name;
     const mine=OWNERS[serviceId]===workerId;
     const role=workerId==='coord'&&serviceId==='svc4'?'CREW HEAD':mine?'COORDINADOR':workerId==='coord'&&serviceId==='svc3'?'HAND A':s.role;
     const team=workerId==='coord'&&serviceId==='svc4'?'OPERACIONES':mine?'COORDINACIÓN':workerId==='coord'&&serviceId==='svc3'?'LUCES':s.team;
-    const record={eventId:'EV-'+Date.now(),workerId,serviceId,workerName,category:role,team,start:s.time.split('–')[0],end:s.time.split('–')[1],method,scannedBy,time:new Date().toISOString(),status:'PRESENTE'};
+    const record={eventId:'EV-'+Date.now(),workerId,serviceId,workerName,category:role,team,start:s.time.split('–')[0],end:s.time.split('–')[1],method,scannedBy,time:new Date().toISOString(),direction,status:direction==='salida'?'SALIDA':'PRESENTE'};
     rows.push(record);lsWrite(KEY_ATT,rows);return record;
   }
   function latestDemoProfile(){
@@ -211,11 +213,11 @@
     title.textContent='Escanear QR de trabajador';
     const eligible=scannableServices();
     if(!eligible.some(s=>s.id===activeService)&&eligible.length)activeService=eligible[0].id;
-    root.innerHTML=`<div class="nova-qr-form">${renderModeSwitch('scan')}<p class="nova-qr-hint">Pulsa Escanear para abrir la cámara. Si no funciona, revisa el permiso de cámara del navegador.</p><label>Servicio que coordino<select id="qrScanService">${eligible.map(s=>`<option value="${s.id}" ${s.id===activeService?'selected':''}>${qescape(s.name)}</option>`).join('')}</select></label><div class="nova-qr-actions"><button type="button" class="btn dark" id="qrStartCamera">Escanear</button><button type="button" class="btn light" id="qrStopCamera" style="display:none">Detener</button></div><video id="qrVideo" class="nova-qr-cam" autoplay playsinline muted style="display:none"></video><canvas id="qrCanvas" style="display:none"></canvas><div id="qrPhotoArea"></div><p id="qrCameraStatus" class="nova-qr-camera-error" aria-live="polite"></p><div class="nova-qr-actions"></div><label>Introducir código manualmente<input id="qrManualToken" type="text" placeholder="NOVAQR:…" autocomplete="off" spellcheck="false"></label><button class="btn primary" type="button" id="qrManualRedeem">Validar asistencia</button><div id="qrScanResult"></div></div>`;
+    root.innerHTML=`<div class="nova-qr-form">${renderModeSwitch('scan')}<p class="nova-qr-hint">Pulsa Escanear para abrir la cámara. Si no funciona, revisa el permiso de cámara del navegador.</p><label>Servicio que coordino<select id="qrScanService">${eligible.map(s=>`<option value="${s.id}" ${s.id===activeService?'selected':''}>${qescape(s.name)}</option>`).join('')}</select></label><fieldset class="nova-scan-direction"><legend>Tipo de fichaje</legend><div class="nova-scan-direction-options"><label><input type="radio" name="novaScanDirection" value="entrada" ${scanDirection==='entrada'?'checked':''}><span>Entrada</span></label><label><input type="radio" name="novaScanDirection" value="salida" ${scanDirection==='salida'?'checked':''}><span>Salida</span></label></div></fieldset><div class="nova-qr-actions"><button type="button" class="btn dark" id="qrStartCamera">Escanear</button><button type="button" class="btn light" id="qrStopCamera" style="display:none">Detener</button></div><video id="qrVideo" class="nova-qr-cam" autoplay playsinline muted style="display:none"></video><canvas id="qrCanvas" style="display:none"></canvas><div id="qrPhotoArea"></div><p id="qrCameraStatus" class="nova-qr-camera-error" aria-live="polite"></p><div class="nova-qr-actions"></div><label>Introducir código manualmente<input id="qrManualToken" type="text" placeholder="NOVAQR:…" autocomplete="off" spellcheck="false"></label><button class="btn primary" type="button" id="qrManualRedeem">Validar asistencia</button><div id="qrScanResult"></div></div>`;
     bindModeSwitch();
     el('qrStartCamera').onclick=startCamera;
     el('qrStopCamera').onclick=stopCamera;
-    el('qrCaptureImage').onchange=decodeCapturedPhoto;
+    root.querySelectorAll('input[name="novaScanDirection"]').forEach(input=>input.addEventListener('change',()=>{scanDirection=input.value;scannerMessage('Modo '+(scanDirection==='salida'?'salida':'entrada')+' seleccionado.');}));
 
     el('qrManualRedeem').onclick=()=>redeem(el('qrManualToken').value.trim());
     el('qrManualToken').onkeydown=e=>{if(e.key==='Enter')redeem(e.target.value.trim())};
@@ -298,9 +300,10 @@
     const token=String(raw||'').replace(/^NOVAQR:/,'').trim();
     if(!/^[a-f0-9]{64}$/i.test(token)){toast('QR','Código QR no válido.');return;}
     const b=el('qrManualRedeem');if(b)b.disabled=true;
-    callBackend('novaRedeemQr',[token,userid(),el('qrScanService')?.value||''],data=>{
+    callBackend('novaRedeemQr',[token,userid(),el('qrScanService')?.value||'',scanDirection],data=>{
       if(b)b.disabled=false;
       const r=data.record;
+      if(scanDirection==='salida'&&r.direction!=='salida'){toast('Salida no confirmada','El servidor aún no admite registrar salidas por QR.');el('qrScanResult').textContent='El servidor no ha confirmado la salida. No se ha mostrado como fichada.';return;}
       el('qrScanResult').innerHTML=info(r)+`<button class="btn light" type="button" id="qrGoCoord">Abrir coordinación del servicio →</button>`;
       const go=el('qrGoCoord');if(go)go.onclick=()=>{closeOverlay();const s=services.find(x=>x.id===r.serviceId);if(s){if(s.privilege==='crew'){renderCrewControl(s);navigate('crew-control')}else{renderWorkerCoord(s);navigate('worker-coordination');applyAttendanceToCurrent(r)}}};
       refreshAttendance(r.serviceId);
@@ -315,21 +318,21 @@
         item={id:r.serviceId+'-qr-'+r.workerId,workerId:r.workerId,name:r.workerName,phone:'670 555 221',role:r.category,team:r.team,workType:'LOAD IN',start:r.start,end:r.end,realStart:r.start,realEnd:r.end,pause:'00:00',diet:'No',status:'PRESENTE',rating:3,selected:false,incident:'',notes:''};
         crewState.workers.unshift(item);
       }
-      const changed=item.status!=='PRESENTE';item.status='PRESENTE';item.realStart=r.start;item.qrScannedAt=r.time;
+      const next=r.direction==='salida'?'SALIDA':'PRESENTE';const changed=item.status!==next;item.status=next;if(next==='PRESENTE')item.realStart=r.start;else item.realEnd=r.end;item.qrScannedAt=r.time;
       if(changed){saveCrewState();renderCrewAll();}
       return;
     }
     if(r.serviceId!==basicCoordState?.service?.id)return;
     let w=basicCoordState.workers.find(x=>x.id===r.serviceId+'-qr-'+r.workerId||x.workerId===r.workerId);
     if(!w){w={id:r.serviceId+'-qr-'+r.workerId,workerId:r.workerId,name:r.workerName,phone:EMPLOYEE.phone||'670 555 221',role:r.category,team:r.team,start:r.start,end:r.end,pause:'00:00',diet:'No',status:'PRESENTE',rating:3,incidents:[]};basicCoordState.workers.unshift(w)}
-    w.name=r.workerName;w.role=r.category;w.team=r.team;w.start=r.start;w.end=r.end;w.status='PRESENTE';w.qrScannedAt=r.time;
+    w.name=r.workerName;w.role=r.category;w.team=r.team;w.start=r.start;w.end=r.end;w.status=r.direction==='salida'?'SALIDA':'PRESENTE';w.qrScannedAt=r.time;
     if(typeof saveBasicCoord==='function')saveBasicCoord();
     if(typeof renderBasicTeamRows==='function')renderBasicTeamRows();
   }
   function refreshAttendance(serviceId){
     callBackend('novaGetAttendance',[serviceId||''],rows=>{
       if(!Array.isArray(rows))return;
-      for(const r of rows){if(r.status==='PRESENTE')applyAttendanceToCurrent(r)}
+      for(const r of rows){if(r.status==='PRESENTE'||r.status==='SALIDA')applyAttendanceToCurrent(r)}
       if(!coordinator()){
         const current=el('novaQrLastClock');const latest=rows.filter(x=>x.workerId==='demo').at(-1);
         if(current&&latest)current.textContent=`Último fichaje: ${new Date(latest.time).toLocaleString('es-ES')} · ${latest.status}`;
