@@ -1,3 +1,4 @@
+import {handleCrewStore} from './crew-store.mjs';
 /* NOVA Crew v14 — Cloudflare Workers + SQLite Durable Object.
    DEMONSTRATION ONLY. Credentials are public demo credentials.
    No real staff, payroll or employment data should be used. */
@@ -79,6 +80,11 @@ export function createDemoApi(storage) {
       const actor=await auth(request);
       if(!actor)return bad('Sesión caducada. Entra de nuevo.',401);
       if(op==='me')return json({ok:true,user:actor,profile:await profile(actor)});
+      if(op==='crew'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        const result=await handleCrewStore(storage,actor,body,id=>manager(actor,id));
+        return json(result,result.status||200);
+      }
       if(op==='saveProfile'){
         if(request.method!=='POST')return bad('Método no permitido.',405);
         const data=body.profile||{};

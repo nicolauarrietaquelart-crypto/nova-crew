@@ -28,6 +28,7 @@
     logout:()=>{account='';session='';},
     me:()=>request('me'),
     roster:()=>request('roster'),
+    crewRequest:(payload)=>request('crew',payload),
     openShifts:()=>request('openShifts'),
     expressInterest:(shiftId,withdraw=false)=>request('interest',{shiftId,withdraw}),
     updateShift:(serviceId,workerId,start,end)=>request('updateShift',{serviceId,workerId,start,end}),
