@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#101014">
+  <title>NOVA Crew v13 · Área de empleado</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-webapp-url="" data-incoming-qr="" data-external-scanner="">
+  <section id="loginView" class="login-view">
+    <header class="login-header">
+      <div class="app-brand compact">
+        <div class="app-logo">N</div>
+        <div><strong>NOVA CREW</strong><span>Área de empleado</span></div>
+      </div>
+    </header>
+    <div class="login-stage">
+      <form id="loginForm" class="login-card glass">
+        <div class="login-orb"></div>
+        <div class="login-copy-small">DEMO · NETLIFY · QR INTEGRADO</div>
+        <h1>Acceder</h1>
+        <label>Usuario<input id="username" value="demo" autocomplete="username"></label>
+        <label>Contraseña<div class="password-row"><input id="password" type="password" value="crew2026" autocomplete="current-password"><button id="togglePassword" type="button">◉</button></div></label>
+        <button class="btn primary full" type="submit">Entrar</button>
+        <div class="login-bottom"><button type="button" class="link-btn" id="recoverBtn">Recuperar contraseña</button><span>Trabajador: <b>demo / crew2026</b><br>Coordinador: <b>coord / coord2026</b></span></div>
+        <div id="loginError" class="login-error">Usuario o contraseña incorrectos.</div>
+      </form>
+    </div>
+  </section>
+
+  <div id="appView" class="app-layout hidden">
+    <aside id="sidebar" class="sidebar glass scroll-clean">
+      <div class="sidebar-brand app-brand">
+        <div class="app-logo">N</div>
+        <div><strong>NOVA CREW</strong><span>Área de empleado</span></div>
+        <button id="mobileClose" class="icon-only mobile-only">×</button>
+      </div>
+      <nav class="sidebar-nav" id="mainNav">
+        <button class="nav-btn active" data-page="home"><span>⌂</span>Inicio</button>
+        <button class="nav-btn" data-page="clock"><span>◷</span>Control horario</button>
+        <button class="nav-btn" data-page="availability"><span>□</span>Disponibilidad</button>
+        <button class="nav-btn" data-page="services"><span>◉</span>Servicios <b>5</b></button>
+        <button class="nav-btn" data-page="agenda"><span>▦</span>Mi agenda</button>
+        <button class="nav-btn" data-page="coordination" id="coordinationNavButton"><span>◎</span>Coordinación <b id="coordinationNavCount">4</b></button>
+        <button class="nav-btn" data-page="company"><span>▦</span>Datos empresa</button>
+        <button class="nav-btn" data-page="training"><span>◇</span>Formación</button>
+        <button class="nav-btn" data-page="documents"><span>▤</span>Documentación <b>2</b></button>
+        <button class="nav-btn" data-page="tutorials"><span>▷</span>Tutoriales</button>
+        <button class="nav-btn" data-page="payroll"><span>€</span>Liquidaciones</button>
+        <button class="nav-btn" data-page="contracts"><span>⌘</span>Contratos</button>
+        <button class="nav-btn" data-page="profile"><span>○</span>Mi perfil</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="support-box"><span>Soporte operativo</span><strong><a class="phone-link" href="tel:900000417">900 000 417</a></strong><small>Solo incidencias urgentes</small></div>
+        <button id="logoutBtn" class="logout">↗ Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main id="mainScroller" class="main scroll-clean">
+      <header id="portalTopbar" class="portal-topbar glass">
+        <div class="topbar-left">
+          <button id="mobileMenu" class="icon-only mobile-only">☰</button>
+          <div><small id="breadcrumb">Área de empleado / Inicio</small><h2 id="pageTitle">Buenos días, Pau</h2></div>
+        </div>
+        <div class="topbar-actions">
+          <button id="novaQrQuick" class="icon-btn nova-qr-quick" type="button" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR">▦</button><button id="notificationsBtn" class="icon-btn">◌<i></i></button>
+          <button id="messagesBtn" class="icon-btn">✉</button>
+          <button class="profile-chip" data-page="profile"><span class="avatar">PF</span><span><strong>Pau Ferrer</strong></span><em>⌄</em></button>
+        </div>
+      </header>
+      <div id="notificationsDropdown" class="notifications-dropdown glass hidden">
+        <div class="notifications-head"><b>Notificaciones</b><button id="closeNotifications" class="icon-only">×</button></div>
+        <div id="notificationsList" class="notifications-list"></div>
+      </div>
+
+      <div class="content">
+        <section id="page-home" class="page active">
+          <div class="home-hero glass">
+            <div>
+              <span class="kicker">PRÓXIMO SERVICIO</span>
+              <h1 id="homeNextName">Cargando próximo servicio…</h1>
+              <p id="homeNextMeta">—</p>
+              <div class="countdown" id="homeCountdown"><div><b id="cdDays">00</b><span>días</span></div><div><b id="cdHours">00</b><span>horas</span></div><div><b id="cdMinutes">00</b><span>min</span></div><div><b id="cdSeconds">00</b><span>seg</span></div></div>
+              <div class="countdown-status" id="countdownStatus"></div>
+              <div class="inline-actions"><button class="btn dark" data-page="clock">Fichar</button><button class="btn light" id="homeViewService">Ver servicio</button></div>
+            </div>
+            <div class="home-summary"><div><span>Servicios próximos</span><b>5</b></div><div id="homeCoordCounter"><span>Coordinaciones</span><b id="homeCoordCounterValue">4</b></div><div><span>Documentos pendientes</span><b class="orange">2</b></div><div><span>Formación</span><b id="homeTrainingStatus" class="orange">1 pendiente</b></div></div>
+          </div>
+          <div class="section-title-row"><div><span class="kicker">AGENDA</span><h3>Próximos servicios</h3></div><button class="link-btn" data-page="services">Ver todos →</button></div>
+          <div id="homeServices" class="service-grid"></div>
+        </section>
+
+        <section id="page-clock" class="page">
+          <div id="novaQrTimePanel"></div>
+          <div class="section-title-row"><div><span class="kicker">CONTROL HORARIO</span><h3>Fichaje de asistencia</h3></div><span class="muted">QR de un solo uso · Fichaje directo sin coordinador</span></div>
+          <div class="clock-layout">
+            <article class="glass card clock-main">
+              <div class="clock-service"><div><h3 id="clockServiceName">—</h3><p id="clockServiceMeta">—</p></div><span id="clockRole" class="role-pill">—</span></div>
+              <div class="location-compare">
+                <div><small>Ubicación del servicio</small><strong id="venueLocationName">—</strong><span id="venueCoords">—</span></div>
+                <div class="distance-circle"><b id="distanceValue">—</b><span>distancia</span></div>
+                <div><small>Tu ubicación</small><strong id="workerLocationStatus">Sin comprobar</strong><span id="workerCoords">Pulsa “Comprobar ubicación”</span></div>
+              </div>
+              <div id="geoStatus" class="geo-status neutral">Todavía no hemos comprobado tu posición.</div>
+              <div class="inline-actions"><button id="checkLocationBtn" class="btn dark">Comprobar ubicación</button><button id="checkInBtn" class="btn primary" disabled>Registrar entrada</button><button id="checkOutBtn" class="btn light" disabled>Registrar salida</button></div>
+              <div id="clockLog" class="clock-log"></div>
+            </article>
+            <aside class="glass card clock-side"><h4>Cómo funciona</h4><ol><li>Detectamos automáticamente el servicio más próximo a tu horario.</li><li>El navegador solicita tu geolocalización.</li><li>Comparamos tu distancia con las coordenadas del recinto.</li><li>El fichaje se habilita si estás dentro del radio permitido.</li></ol><div class="demo-note">Demo: al estar fuera del recinto el sistema mostrará la distancia real y bloqueará el fichaje.</div></aside>
+          </div>
+        </section>
+
+        <section id="page-availability" class="page">
+          <div class="section-title-row"><div><span class="kicker">DISPONIBILIDAD</span><h3>Indica cuándo puedes trabajar</h3></div><span class="muted">Se guarda en tu perfil</span></div>
+          <div class="availability-layout">
+            <article class="glass card">
+              <h4>Próximas fechas</h4>
+              <p class="muted">Navega por meses. Selecciona un día y marca franjas arrastrando sobre las horas o usando inicio/fin.</p>
+              <div id="availabilityDays" class="availability-days"></div>
+            </article>
+            <aside class="glass card availability-side">
+              <h4>Resumen</h4>
+              <div id="availabilitySummary" class="mini-list"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="page-services" class="page">
+          <div class="section-title-row"><div><span class="kicker">AGENDA</span><h3>Tus servicios programados</h3></div><span class="muted">Asignaciones distintas según servicio</span></div>
+          <div id="servicesList" class="service-list"></div>
+        </section>
+
+        <section id="page-service-detail" class="page">
+          <div class="page-tools"><button class="back-btn" id="backFromService">← Servicios</button></div>
+          <div id="serviceDetail"></div>
+        </section>
+
+        <section id="page-agenda" class="page">
+          <div class="section-title-row"><div><span class="kicker">CALENDARIO PERSONAL</span><h3>Mi agenda</h3></div><span class="muted">Servicios y confirmaciones · datos ficticios</span></div>
+          <div class="v10-grid"><div class="glass v10-calendar-panel"><div class="v10-calendar-head"><h3 id="v10CalendarTitle">Calendario</h3><div class="v10-calendar-head-actions"><button type="button" id="v10CalendarPrev" aria-label="Mes anterior">←</button><button type="button" id="v10CalendarToday">Hoy</button><button type="button" id="v10CalendarNext" aria-label="Mes siguiente">→</button></div></div><div class="v10-weekdays"><span>LUN</span><span>MAR</span><span>MIÉ</span><span>JUE</span><span>VIE</span><span>SÁB</span><span>DOM</span></div><div class="v10-month-grid" id="v10CalendarGrid"></div></div><aside class="v10-side-stack"><article class="glass"><h4>Próximos servicios</h4><div id="v10CalendarUpcoming"></div></article><article class="glass"><h4>Mis confirmaciones</h4><div id="v10CalendarSummary"></div><p class="v10-info-note">Las confirmaciones se guardan únicamente en esta demo; no se notifican a la empresa.</p></article></aside></div>
+        </section>
+
+        <section id="page-coordination" class="page">
+          <div class="section-title-row"><div><span class="kicker">COORDINACIÓN</span><h3>Gestión de tus servicios</h3></div><span class="muted">El nivel de control depende de tu rol</span></div>
+          <div id="coordinationList" class="service-list"></div>
+        </section>
+
+        <section id="page-worker-coordination" class="page">
+          <div class="page-tools"><button class="back-btn" id="backFromWorkerCoord">← Coordinación</button></div>
+          <div id="workerCoordDetail"></div>
+        </section>
+
+        <section id="page-crew-control" class="page crew-page">
+          <div id="crewControlRoot"></div>
+        </section>
+
+        <section id="page-company" class="page">
+          <div class="section-title-row"><div><span class="kicker">EMPRESA</span><h3>Datos de empresa</h3></div></div>
+          <div class="two-col"><article class="glass card"><h4>Contacto</h4><div class="kv"><span>Oficina</span><b>C/ Innovació 24, Barcelona</b><span>Horario</span><b>L–V · 09:30–18:00</b><span>Guardia</span><b><a class="phone-link" href="tel:900000417">900 000 417</a></b><span>Laboral</span><b><a class="phone-link" href="tel:607084726">607 084 726</a></b></div></article><article class="glass card"><h4>Coordinadores de servicio</h4><div class="contact-lines"><div><b>Álvaro Costa</b><span><a class="phone-link" href="tel:664690034">664 690 034</a></span></div><div><b>Carlos Vidal</b><span><a class="phone-link" href="tel:626564811">626 564 811</a></span></div><div><b>Fran Duarte</b><span><a class="phone-link" href="tel:673642431">673 642 431</a></span></div><div><b>Blai Navarro</b><span><a class="phone-link" href="tel:671455729">671 455 729</a></span></div></div></article></div>
+        </section>
+
+        <section id="page-training" class="page">
+          <div class="section-title-row"><div><span class="kicker">FORMACIÓN</span><h3>Formación</h3></div><span class="training-pending-pill" id="trainingPendingPill">1 PENDIENTE</span></div>
+          <div id="trainingList" class="training-list"></div>
+        </section>
+
+        <section id="page-documents" class="page"><div class="section-title-row"><div><span class="kicker">DOCUMENTACIÓN</span><h3>Documentación</h3></div></div><div id="documentsList" class="documents-list"></div></section>
+        <section id="page-tutorials" class="page">
+          <div class="section-title-row"><div><span class="kicker">RECURSOS</span><h3>Tutoriales</h3></div><span class="muted">Guías rápidas del portal</span></div>
+          <div class="service-grid tutorial-grid">
+            <article class="glass card tutorial-card"><span class="tutorial-icon">◷</span><h4>Fichaje por QR</h4><p>QR temporal, escaneo por coordinación y fichaje directo cuando no hay coordinador.</p><button class="btn light" data-open-tutorial="clock">Abrir guía</button></article>
+            <article class="glass card tutorial-card"><span class="tutorial-icon">◎</span><h4>Gestión de coordinación</h4><p>Selección de trabajadores, horarios, incidencias y cambios masivos.</p><button class="btn light" data-open-tutorial="coord">Abrir guía</button></article>
+            <article class="glass card tutorial-card"><span class="tutorial-icon">⚙</span><h4>Operativa Crew Head</h4><p>Cómo utilizar Crew Control durante un servicio grande.</p><button class="btn light" data-open-tutorial="crew">Abrir guía</button></article>
+            <article class="glass card tutorial-card"><span class="tutorial-icon">▤</span><h4>Documentación</h4><p>Consultar, renovar y subir documentación.</p><button class="btn light" data-open-tutorial="docs">Abrir guía</button></article>
+            <article class="glass card tutorial-card"><span class="tutorial-icon">□</span><h4>Disponibilidad</h4><p>Configurar disponibilidad habitual y excepciones por día y hora.</p><button class="btn light" data-open-tutorial="availability">Abrir guía</button></article>
+            <article class="glass card tutorial-card"><span class="tutorial-icon">€</span><h4>Liquidaciones</h4><p>Consultar periodos, conceptos, horas y bruto mensual.</p><button class="btn light" data-open-tutorial="payroll">Abrir guía</button></article>
+          </div>
+        </section>
+
+        <section id="page-payroll" class="page">
+          <div class="section-title-row"><div><span class="kicker">LIQUIDACIONES</span><h3 id="payrollPageTitle">Octubre 2026</h3></div><button id="printPayroll" class="btn primary">Imprimir PDF</button></div>
+          <div id="payrollMonths" class="payroll-months"></div>
+          <div class="payroll-meta glass"><div><b>Liquidación empleado: PAU FERRER SOLER</b><span id="payrollPeriod">Periodo: Octubre 2026</span></div><div><span>Contrato: <b>4-Temporal</b></span><span>Matrícula: <b>001428</b></span><span>Plantilla: <b>BCN</b></span></div></div>
+          <div class="payroll-table-wrap glass scroll-clean"><table id="payrollTable" class="payroll-table"></table></div>
+        </section>
+
+        <section id="page-contracts" class="page"><div class="section-title-row"><div><span class="kicker">CONTRATOS</span><h3>Contratos</h3></div></div><div id="contractsList" class="documents-list"></div></section>
+
+        <section id="page-profile" class="page">
+          <div class="section-title-row"><div><span class="kicker">PERFIL</span><h3>Mi perfil</h3></div></div>
+          <div class="profile-tabs glass">
+            <button class="profile-tab active" data-profile-tab="personal">Datos personales</button>
+            <button class="profile-tab" data-profile-tab="work">Datos perfil</button>
+            <button class="profile-tab" data-profile-tab="skills">Idiomas y conocimientos</button>
+          </div>
+          <div class="profile-layout">
+            <article class="glass card profile-editor">
+              <div id="profilePanelPersonal" class="profile-panel active">
+                <div class="profile-photo-row"><div class="avatar xl" id="profilePhotoPreview">PF</div><div><h4>Fotografía</h4><p class="muted">Actualiza tu fotografía de perfil.</p><label class="btn light file-button">Cambiar fotografía<input id="profilePhotoInput" type="file" accept="image/*" hidden></label></div></div>
+                <div class="form-grid profile-form-grid">
+                  <label>Nombre<input id="profileFirstName" value="Pau"></label>
+                  <label>Apellidos<input id="profileLastName" value="Ferrer Soler"></label>
+                  <label>DNI / NIE<input id="profileDni" value="48276135P"></label>
+                  <label>Nacionalidad<input id="profileNationality" value="Española"></label>
+                  <label>Sexo<select id="profileSex"><option>Hombre</option><option>Mujer</option><option>Otro</option><option>Prefiero no indicarlo</option></select></label>
+                  <label>Fecha de nacimiento<input id="profileBirthDate" type="date" value="2003-05-14"></label>
+                  <label class="wide">Dirección<input id="profileAddress" value="C/ Marina, 154, 3º 2ª"></label>
+                  <label>Código postal<input id="profilePostalCode" value="08013"></label>
+                  <label>Ciudad<input id="profileCity" value="Barcelona"></label>
+                  <label>Provincia<input id="profileProvince" value="Barcelona"></label>
+                  <label>País<input id="profileCountry" value="España"></label>
+                  <label>Teléfono<input id="profilePhone" value="670 555 221"></label>
+                  <label>Email<input id="profileEmail" value="pau.ferrer@novacrew.demo"></label>
+                  <label>N.º empleado<input id="profileNumber" value="001428"></label>
+                </div>
+              </div>
+              <div id="profilePanelWork" class="profile-panel">
+                <h4>Situación y disponibilidad habitual</h4>
+                <div class="form-grid profile-form-grid">
+                  <label>¿Estás cobrando prestación de desempleo?<select id="profileUnemployment"><option>No</option><option>Sí</option></select></label>
+                  <label>¿Tienes vehículo propio?<select id="profileOwnVehicle"><option>Sí</option><option>No</option></select></label>
+                  <label>¿Tienes carnet de conducir?<select id="profileDrivingLicense"><option>Sí</option><option>No</option></select></label>
+                  <label>Talla camiseta<select id="profileShirt"><option>S</option><option selected>M</option><option>L</option><option>XL</option><option>XXL</option></select></label>
+                </div>
+                <div class="availability-profile-card">
+                  <h4>Disponibilidad habitual</h4>
+                  <p class="muted">Esta configuración se utiliza como base en el calendario de Disponibilidad. Después puedes modificar cualquier día de forma puntual.</p>
+                  <div class="profile-check-grid">
+                    <label><input type="checkbox" id="prefTotal"> Disponibilidad total</label>
+                    <label><input type="checkbox" id="prefWeekends" checked> Fines de semana</label>
+                    <label><input type="checkbox" id="prefMornings"> Mañanas</label>
+                    <label><input type="checkbox" id="prefAfternoons"> Tardes</label>
+                  </div>
+                  <div class="availability-base-preview" id="availabilityBasePreview"></div>
+                </div>
+              </div>
+              <div id="profilePanelSkills" class="profile-panel">
+                <h4>Idiomas y conocimientos</h4>
+                <div class="skills-section"><h5>Idiomas</h5><div id="profileLanguages" class="editable-list"></div><button class="btn light" id="addLanguageBtn">+ Añadir idioma</button></div>
+                <div class="skills-section"><h5>Carnets y conocimientos</h5><div id="profileKnowledge" class="editable-list"></div><button class="btn light" id="addKnowledgeBtn">+ Añadir conocimiento</button></div>
+                <div class="skills-section"><h5>Estudios / formación</h5><div id="profileEducation" class="editable-list"></div><button class="btn light" id="addEducationBtn">+ Añadir formación</button></div>
+              </div>
+              <div class="profile-savebar"><button class="btn primary" id="saveProfileBtn">Guardar cambios</button></div>
+            </article>
+            <aside class="glass card profile-summary"><span class="avatar big">PF</span><h3 id="profileSummaryName">Pau Ferrer</h3><p>EMPLEADO ACTIVO</p><div class="home-summary"><div><span>Servicios 2026</span><b>47</b></div><div><span>Valoración</span><b>4.7</b></div><div><span>Formación</span><b id="profileTrainingStatus" class="orange">1 pendiente</b></div></div></aside>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="novaQrOverlay" class="nova-qr-overlay hidden" role="dialog" aria-modal="true" aria-label="Fichaje con QR">
+    <div class="nova-qr-modal glass" id="novaQrModal">
+      <div class="nova-qr-head"><div><span class="kicker">FICHAJE DE ASISTENCIA</span><h3 id="novaQrTitle">Código temporal</h3></div><button type="button" class="icon-only" id="novaQrClose" aria-label="Cerrar">×</button></div>
+      <div id="novaQrContent"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"><b id="toastTitle">Listo</b><span id="toastText">Acción completada.</span></div>
+  <script src="/assets/api-client.js"></script>
+  <script src="/assets/portal.js"></script>
+  <script src="/assets/extras.js"></script>
+  <script src="/assets/qr-encoder.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="/assets/qr.js"></script>
+</body>
+</html>
