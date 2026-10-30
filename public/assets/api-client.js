@@ -32,6 +32,7 @@
     confirmAssignment:(serviceId,status,reason='')=>request('confirmAssignment',{serviceId,status,reason}),
     crewRequest:(payload)=>request('crew',payload),
     smallCoord:(serviceId,kind='get',workerId='',changes={})=>request('smallCoord',{serviceId,kind,workerId,changes}),
+    smallIncident:(serviceId,details)=>request('smallCoord',{serviceId,kind:'incident',...details}),
     openShifts:()=>request('openShifts'),
     expressInterest:(shiftId,withdraw=false)=>request('interest',{shiftId,withdraw}),
     updateShift:(serviceId,workerId,start,end)=>request('updateShift',{serviceId,workerId,start,end}),
