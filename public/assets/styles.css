@@ -688,3 +688,25 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 #mainNav .nav-btn .nova-nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;line-height:1}
 #mainNav .nav-btn .nova-nav-icon svg{display:block;width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;vector-effect:non-scaling-stroke}
 #mainNav .nav-btn.active .nova-nav-icon svg{stroke:#fff}
+
+/* NOVA mobile fit, motion and attendance selector */
+.nova-clock-selector{display:grid;gap:8px;margin-bottom:18px;font-size:13px;font-weight:750}
+.nova-clock-selector select{width:100%;min-width:0;max-width:100%;padding:14px;border:1px solid #dadddf;border-radius:13px;background:#f8f9fa;color:#15171b}
+.nova-clock-selector small{font-size:11px;color:#777e88;font-weight:500}
+@media(max-width:900px){
+ html,body,#appView,.app-layout,.main,.content,.page{max-width:100%;min-width:0}
+ #page-availability,.availability-layout,.availability-layout>.card,#availabilityDays{min-width:0!important;max-width:100%!important;width:100%!important;box-sizing:border-box!important}
+ #page-availability .availability-layout{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important}
+ #page-availability .availability-layout>.card{padding:14px!important;overflow:hidden!important}
+ #availabilityDays .availability-calendar{grid-template-columns:repeat(7,minmax(0,1fr))!important;width:100%!important;gap:3px!important}
+ #availabilityDays .availability-day-card{min-width:0!important;min-height:60px!important;padding:5px 3px!important;border-radius:9px!important;overflow:hidden!important}
+ #availabilityDays .availability-day-card b{font-size:13px!important}
+ #availabilityDays .availability-day-card small,#availabilityDays .availability-day-card em{font-size:7px!important;overflow:hidden;text-overflow:ellipsis}
+ #page-availability .availability-hours-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;min-width:0!important}
+ .page.active{animation:novaPageArrive .22s cubic-bezier(.2,.7,.2,1) both}
+ .nav-btn,.btn,.icon-btn,.notification-item,.service-card{transition:transform .2s ease,background-color .2s ease,box-shadow .2s ease,opacity .2s ease!important}
+ button:active{transform:scale(.975)}
+ .notification-item{touch-action:pan-y}
+}
+@keyframes novaPageArrive{from{opacity:.65;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.page.active{animation:none!important}.nav-btn,.btn,.icon-btn,.notification-item,.service-card{transition:none!important}}
