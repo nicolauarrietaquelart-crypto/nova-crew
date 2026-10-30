@@ -8,7 +8,7 @@
   let stored=safeLoad();
   let data={confirmations:stored.confirmations||{},notes:stored.notes||{}};
   function syncAccount(){const next=safeLoad();data={confirmations:next.confirmations||{},notes:next.notes||{}};}
-  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>data.confirmations[id]?.status||'PENDIENTE',pending:()=>assignedServices().filter(s=>(data.confirmations[s.id]?.status||'PENDIENTE')==='PENDIENTE').length,refresh:()=>{refreshFromServer();}};
+  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>statusOf(id),pending:()=>assignedServices().filter(s=>statusOf(s.id)==='PENDIENTE').length,refresh:()=>{refreshFromServer();}};
   const fmt=(t)=>typeof escV9==='function'?escV9(t):String(t);
   const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify(data))}catch(e){console.warn('Guardado local no disponible',e)}};
   const DEMO_SERVICE='svc5';
