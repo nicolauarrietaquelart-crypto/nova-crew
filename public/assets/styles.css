@@ -853,3 +853,16 @@ html[data-nova-theme="dark"] #appView .sidebar-brand{background:transparent!impo
  #servicesList .v10-inline-tools .v10-locked{flex:1 1 100%;font-size:11px;line-height:1.5}
  #servicesList .service-card>.service-actions .btn{min-height:42px}
 }
+
+/* Responsive employee service confirmations - NOVA integration */
+#servicesList .nova-mobile-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:9px;grid-column:1/-1;min-width:0;width:100%;border-top:1px solid var(--line);padding-top:12px}
+#servicesList .nova-mobile-confirm .v10-status{font-weight:850;letter-spacing:.01em}
+@media(max-width:900px){
+ #servicesList .service-card{min-width:0!important;overflow:visible!important}
+ #servicesList .nova-mobile-confirm{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}
+ #servicesList .nova-mobile-confirm .v10-status,#servicesList .nova-mobile-confirm .v10-locked{grid-column:1/-1!important;width:max-content;max-width:100%;white-space:normal}
+ #servicesList .nova-mobile-confirm .btn{width:100%;min-height:46px!important;white-space:normal!important;font-size:12px!important;text-align:center;border-radius:12px}
+ #servicesList .nova-mobile-confirm .btn[data-v10-ics]{grid-column:1/-1!important}
+ #servicesList .nova-mobile-confirm .btn[data-v10-confirm]{background:#ff8627!important;color:#141414!important;border-color:#ff8627!important}
+ #servicesList .nova-mobile-confirm .v10-status.confirmado{background:#dff7e8!important;color:#17663b!important}
+}
