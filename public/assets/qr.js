@@ -95,7 +95,7 @@
     return bestService();
   }
   function info(record){
-    return `<div class="nova-qr-success"><strong>✓ ${qescape(record.workerName)} · PRESENTE</strong><div class="nova-qr-summary"><div><span>Servicio</span><b>${qescape(services.find(s=>s.id===record.serviceId)?.name||record.serviceId)}</b></div><div><span>Equipo / categoría</span><b>${qescape(record.team)} · ${qescape(record.category)}</b></div><div><span>Inicio / fin</span><b>${qescape(record.start)} – ${qescape(record.end)}</b></div><div><span>Confirmado por</span><b>${qescape(record.scannedBy)}</b></div></div><p class="nova-qr-hint">Fichaje registrado: ${new Date(record.time).toLocaleString('es-ES')}</p></div>`;
+    return `<div class="nova-qr-success"><strong>✓ ${qescape(record.workerName)} · ${record.direction==='salida'?'SALIDA':'PRESENTE'}</strong><div class="nova-qr-summary"><div><span>Servicio</span><b>${qescape(services.find(s=>s.id===record.serviceId)?.name||record.serviceId)}</b></div><div><span>Equipo / categoría</span><b>${qescape(record.team)} · ${qescape(record.category)}</b></div><div><span>Inicio / fin</span><b>${qescape(record.start)} – ${qescape(record.end)}</b></div><div><span>Confirmado por</span><b>${qescape(record.scannedBy)}</b></div></div><p class="nova-qr-hint">Fichaje registrado: ${new Date(record.time).toLocaleString('es-ES')}</p></div>`;
   }
   function svgQR(text){
     const C=window.NOVA_QR_Encoder,L=window.NOVA_QR_Level;
@@ -307,7 +307,7 @@
       el('qrScanResult').innerHTML=info(r)+`<button class="btn light" type="button" id="qrGoCoord">Abrir coordinación del servicio →</button>`;
       const go=el('qrGoCoord');if(go)go.onclick=()=>{closeOverlay();const s=services.find(x=>x.id===r.serviceId);if(s){if(s.privilege==='crew'){renderCrewControl(s);navigate('crew-control')}else{renderWorkerCoord(s);navigate('worker-coordination');applyAttendanceToCurrent(r)}}};
       refreshAttendance(r.serviceId);
-      toast('Asistencia confirmada',r.workerName+' · '+r.team);
+      toast(r.direction==='salida'?'Salida confirmada':'Entrada confirmada',r.workerName+' · '+r.team);
     },err=>{if(b)b.disabled=false;toast('Código QR',err);const t=el('qrScanResult');if(t)t.innerHTML=`<p class="nova-qr-camera-error">${qescape(err)}</p>`;});
   }
   function applyAttendanceToCurrent(r){
