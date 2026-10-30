@@ -11,7 +11,9 @@
   window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>data.confirmations[id]?.status||'PENDIENTE',pending:()=>assignedServices().filter(s=>(data.confirmations[s.id]?.status||'PENDIENTE')==='PENDIENTE').length,refresh:()=>{refreshFromServer();}};
   const fmt=(t)=>typeof escV9==='function'?escV9(t):String(t);
   const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify(data))}catch(e){console.warn('Guardado local no disponible',e)}};
-  const statusOf=(id)=>data.confirmations[id]?.status||'PENDIENTE';
+  const DEMO_SERVICE='svc5';
+  let demoStatus='PENDIENTE';
+  const statusOf=(id)=>id===DEMO_SERVICE?demoStatus:(data.confirmations[id]?.status||'PENDIENTE');
   async function refreshFromServer(){
     if(syncing||!window.NOVA_API?.account)return;
     syncing=true;
@@ -19,6 +21,7 @@
       const response=await window.NOVA_API.confirmations();
       if(response?.ok){
         data.confirmations=response.confirmations||{};
+        delete data.confirmations[DEMO_SERVICE];
         save();
         refreshServiceDecorations();renderCalendar();
         if(typeof renderNotifications==='function')renderNotifications();
@@ -56,6 +59,7 @@
   }
   async function setConfirmed(id,status,reason){
     if(statusOf(id)==='CONFIRMADO'&&status!=='CONFIRMADO')return;
+    if(id===DEMO_SERVICE){demoStatus=status;refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();toast('Servicio de prueba','Estado actualizado; al recargar se restablece.');return;}
     if(!window.NOVA_API?.account){toast('Sin sesión','Inicia sesión para confirmar el servicio.');return;}
     try{
       const result=await window.NOVA_API.confirmAssignment(id,status,reason);
@@ -72,7 +76,7 @@
   }
   function serviceControls(s,detail=false){
     const status=statusOf(s.id);
-    const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${badge(s.id)}${status==='CONFIRMADO'?'':`<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}`}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
+    const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${s.id===DEMO_SERVICE?'<span class="nova-demo-reset-label">DEMO · se reinicia al recargar</span>':''}${badge(s.id)}${status==='CONFIRMADO'?'':`<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}`}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
     return buttons;
   }
   function decorateServiceCards(){
