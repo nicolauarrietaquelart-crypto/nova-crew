@@ -45,11 +45,11 @@
 /* Shared vector dismiss icon, including dynamically created modals. */
 (()=>{
  const vector='<svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#f58220" stroke-width="2.2" stroke-linecap="round"><path d="M5 5 19 19M19 5 5 19"/></svg>';
- const selectors='#novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],.nova-crew-gps-close,.nova-inbox>header [data-inbox-close],.nova-message-delete';
+ const selectors='#novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],.nova-crew-gps-close,.nova-gps-modal-close,.nova-inbox>header [data-inbox-close],.nova-message-delete';
  function apply(root){
   if(root.nodeType!==1&&root.nodeType!==9)return;
   const list=[...(root.matches?.(selectors)?[root]:[]),...root.querySelectorAll(selectors)];
-  for(const b of list){if(b.dataset.novaVectorClose)return;b.dataset.novaVectorClose='true';b.innerHTML=vector;b.style.display='inline-grid';b.style.placeItems='center';}
+  for(const b of list){if(b.dataset.novaVectorClose)continue;b.dataset.novaVectorClose='true';b.innerHTML=vector;b.style.display='inline-grid';b.style.placeItems='center';}
  }
  apply(document);
  const obs=new MutationObserver(records=>{for(const r of records)for(const node of r.addedNodes)apply(node);});
