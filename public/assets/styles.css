@@ -1756,3 +1756,12 @@ button,input,select,textarea{font-family:inherit!important}
 .nova-coord-edit-form .nova-modal-stars button.on{color:#e88135}
 .nova-coord-edit-form #novaOpenIncident{justify-self:start}
 @media(max-width:640px){.nova-coord-edit-form>.basic-modal-grid{grid-template-columns:1fr}.nova-coord-edit-form .nova-rating-row{grid-template-columns:1fr auto}.nova-coord-edit-form .nova-rating-clear{grid-column:1/-1;justify-self:start}}
+
+
+/* Distinct attendance states: PRES ENTE green, CONTACTADO orange. */
+#workerCoordDetail .nova-status-select[data-status="PRESENTE"]{
+ background:#e0f5e8!important;border-color:#8ccba4!important;color:#17623a!important
+}
+#workerCoordDetail .nova-status-select[data-status="CONTACTADO"]{
+ background:#fff0dd!important;border-color:#f2b56c!important;color:#9b500a!important
+}
