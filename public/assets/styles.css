@@ -713,3 +713,13 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 
 /* Restore geolocation check-in formerly hidden by legacy QR-only layout. */
 @media(max-width:900px){#page-clock .clock-layout{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important}#page-clock .clock-main{min-width:0!important;padding:18px!important}#page-clock .clock-side{display:none!important}#page-clock .location-compare{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}#page-clock .distance-circle{width:100px;height:100px}#page-clock .clock-service{flex-wrap:wrap}#page-clock .clock-service h3{font-size:18px}#page-clock .inline-actions{display:grid!important;grid-template-columns:minmax(0,1fr)!important}#page-clock .inline-actions button{width:100%}}
+
+/* Mobile-native one-touch GPS clocking */
+#page-clock .nova-clock-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+#page-clock .nova-clock-actions .btn{min-height:52px;border-radius:15px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease}
+#page-clock .nova-clock-actions .btn:active:not(:disabled){transform:scale(.97)}
+#page-clock .nova-clock-actions .btn:disabled{opacity:.57;cursor:wait}
+#page-clock .nova-clock-helper{margin:10px 2px 0;font-size:12px;line-height:1.5;color:#79808a}
+#page-clock .geo-status{font-size:13px;line-height:1.5}
+@media(max-width:900px){#page-clock .nova-clock-actions{grid-template-columns:minmax(0,1fr)!important;gap:10px!important}#page-clock .nova-clock-actions .btn{min-height:56px!important;font-size:15px!important;letter-spacing:-.01em}#page-clock .clock-main{border-radius:22px!important}#page-clock .clock-main .location-compare{margin:15px 0!important}#page-clock .nova-clock-selector select{font-size:16px!important;min-height:54px!important}#page-clock .nova-clock-helper{padding-bottom:3px}}
+@media(prefers-reduced-motion:reduce){#page-clock .nova-clock-actions .btn{transition:none!important}}
