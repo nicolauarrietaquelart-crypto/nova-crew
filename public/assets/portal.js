@@ -1210,7 +1210,7 @@ function bind(){
     }else finish(false);
   });
 
-  $('#togglePassword').onclick=()=>{$('#password').type=$('#password').type==='password'?'text':'password'};
+  $('#togglePassword').onclick=()=>{const field=$('#password'),visible=field.type==='password';field.type=visible?'text':'password';$('#togglePassword').setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');$('#togglePassword').setAttribute('aria-pressed',String(visible));};
   $('#recoverBtn').onclick=()=>toast('Recuperación','Proceso simulado.');
   $('#logoutBtn').onclick=logout;
   $('#mobileMenu').onclick=()=>$('#sidebar').classList.add('open');
