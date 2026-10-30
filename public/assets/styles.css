@@ -1204,3 +1204,78 @@ html[data-nova-theme="dark"] #v15AlertPanel .v15-alert-actions .btn{background:r
 [data-theme="dark"] .availability-layout button,[data-nova-theme="dark"] .availability-layout button,body.dark-mode .availability-layout button{color:inherit}
 [data-theme="dark"] .availability-layout input,[data-theme="dark"] .availability-layout select,[data-nova-theme="dark"] .availability-layout input,[data-nova-theme="dark"] .availability-layout select,body.dark-mode .availability-layout input,body.dark-mode .availability-layout select{background:#303541!important;color:#f6f7f9!important;border-color:#525a67!important}
 @media(max-width:600px){.v15-alert-panel{right:12px!important;top:76px!important;max-height:calc(100dvh - 100px)!important}.v15-alert-section-urgent{padding:9px!important}}
+
+
+/* NOVA dark-mode contrast repair 2026-10-30 */
+html[data-nova-theme="dark"]{
+  --nova-repair-surface:#252d39;
+  --nova-repair-surface-2:#303947;
+  --nova-repair-ink:#f5f7fb;
+  --nova-repair-muted:#bbc6d5;
+  --nova-repair-line:rgba(255,255,255,.17);
+}
+/* Account selector: prevent white pill with invisible text. */
+html[data-nova-theme="dark"] .profile-chip{
+  background:var(--nova-repair-surface-2)!important;
+  border:1px solid var(--nova-repair-line)!important;
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] .profile-chip :is(span,b,strong,small,svg){color:var(--nova-repair-ink)!important}
+html[data-nova-theme="dark"] .profile-chip .avatar{color:#fff!important}
+/* Document tiles and status: maintain readable contrast. */
+html[data-nova-theme="dark"] .documents-list article{
+  background:linear-gradient(145deg,#303a48,#26303d)!important;
+  border:1px solid var(--nova-repair-line)!important;
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] .documents-list :is(h4,h3,strong,b){color:var(--nova-repair-ink)!important}
+html[data-nova-theme="dark"] .documents-list p{color:var(--nova-repair-muted)!important}
+html[data-nova-theme="dark"] .documents-list .doc-icon{
+  background:#414b59!important;color:#ffad70!important;
+}
+/* Crew Control coordination fallback: no white cards, pale labels or invisible worker names. */
+html[data-nova-theme="dark"] :is(.basic-control-header,.basic-control-sidebar,.basic-control-toolbar,.basic-team-wrap,.basic-control-main .glass,.basic-control-main .card){
+  background:var(--nova-repair-surface)!important;
+  border-color:var(--nova-repair-line)!important;
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] .basic-metrics div,
+html[data-nova-theme="dark"] .basic-bulk-grid button{
+  background:var(--nova-repair-surface-2)!important;
+  border-color:var(--nova-repair-line)!important;
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] :is(.basic-control-shell,.basic-control-toolbar,.basic-control-sidebar,.basic-team-table) :is(h2,h3,h4,b,strong,label,.basic-worker-name){
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] :is(.basic-control-shell,.basic-control-toolbar,.basic-control-sidebar) :is(p,small,.basic-side-label,.basic-metrics span,.basic-control-toolbar span){
+  color:var(--nova-repair-muted)!important;
+}
+html[data-nova-theme="dark"] .basic-team-table :is(th,td){
+  background:#293340!important;
+  border-color:var(--nova-repair-line)!important;
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] .basic-team-table tbody tr:nth-child(even) td{background:#303b49!important}
+html[data-nova-theme="dark"] .basic-team-table select{
+  background:#3b4858!important;color:#fff!important;border:1px solid var(--nova-repair-line)!important;
+}
+/* Emergency shift modal: solid dark surfaces from heading through actions. */
+html[data-nova-theme="dark"] :is(.demo-modal,.modal-content,.v15-modal-stack,.v15-modal-service-box){
+  color:var(--nova-repair-ink)!important;
+}
+html[data-nova-theme="dark"] .v15-modal-service-box{
+  background:#354050!important;border:1px solid var(--nova-repair-line)!important;
+}
+html[data-nova-theme="dark"] .v15-modal-stack :is(b,strong,h3,h4){color:var(--nova-repair-ink)!important}
+html[data-nova-theme="dark"] .v15-modal-stack :is(p,small,.muted,.v15-modal-kv span){
+  color:var(--nova-repair-muted)!important;
+}
+html[data-nova-theme="dark"] .v15-modal-kv b{color:var(--nova-repair-ink)!important}
+html[data-nova-theme="dark"] .v15-modal-stack .btn.light{
+  background:#465365!important;color:#fff!important;border:1px solid var(--nova-repair-line)!important;
+}
+html[data-nova-theme="dark"] .v15-modal-stack .btn.primary{
+  background:#ff8a2c!important;color:#17191d!important;
+}
+/* Keep surface overrides within dark theme only; never change light mode. */
