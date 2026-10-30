@@ -8,7 +8,48 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=20261030-service-confirm-mobile">
+  <link rel="stylesheet" href="/assets/styles.css?v=20261030-dark-stable-r1">
+  <!-- Theme controller loads before the application and never depends on login/API. -->
+  <script>
+  (() => {
+    'use strict';
+    const root = document.documentElement;
+    const key = 'nova-crew-theme-v1';
+    const moon = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>';
+    const sun = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+    function syncButton() {
+      const btn = document.getElementById('novaThemeToggle');
+      if (!btn) return;
+      const dark = root.dataset.novaTheme === 'dark';
+      btn.setAttribute('aria-pressed', String(dark));
+      btn.setAttribute('aria-label', dark ? 'Activar modo claro' : 'Activar modo oscuro');
+      btn.title = dark ? 'Activar modo claro' : 'Activar modo oscuro';
+      btn.innerHTML = dark ? sun : moon;
+    }
+    function apply(mode, persist) {
+      const value = mode === 'dark' ? 'dark' : 'light';
+      root.dataset.novaTheme = value;
+      root.classList.toggle('nova-dark', value === 'dark');
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = value === 'dark' ? '#171b22' : '#101014';
+      if (persist) { try { localStorage.setItem(key, value); } catch (error) {} }
+      syncButton();
+      document.dispatchEvent(new CustomEvent('nova-theme-changed', {detail: {mode: value}}));
+    }
+    let initial = 'light';
+    try { initial = localStorage.getItem(key) === 'dark' ? 'dark' : 'light'; } catch (error) {}
+    apply(initial, false);
+    document.addEventListener('DOMContentLoaded', syncButton);
+    document.addEventListener('click', event => {
+      const button = event.target.closest?.('#novaThemeToggle');
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      apply(root.dataset.novaTheme === 'dark' ? 'light' : 'dark', true);
+    }, true);
+  })();
+  </script>
+
 </head>
 <body data-webapp-url="" data-incoming-qr="" data-external-scanner="">
   <section id="loginView" class="login-view">
@@ -183,7 +224,7 @@
         </section>
 
         <section id="page-payroll" class="page">
-          <div class="section-title-row"><div><span class="kicker">LIQUIDACIONES</span><h3 id="payrollPageTitle">Octubre 2026</h3></div><button id="printPayroll" class="btn primary nova-download-btn" aria-label="Descargar liquidación CSV"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg><span>Descargar</span></button></div>
+          <div class="section-title-row"><div><span class="kicker">LIQUIDACIONES</span><h3 id="payrollPageTitle">Octubre 2026</h3></div><button id="printPayroll" class="btn primary nova-download-btn" aria-label="Descargar liquidación CSV" title="Descargar liquidación CSV"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg></button></div>
           <div id="payrollMonths" class="payroll-months"></div>
           <div class="payroll-meta glass"><div><b>Liquidación empleado: PAU FERRER SOLER</b><span id="payrollPeriod">Periodo: Octubre 2026</span></div><div><span>Contrato: <b>4-Temporal</b></span><span>Matrícula: <b>001428</b></span><span>Plantilla: <b>BCN</b></span></div></div>
           <div class="payroll-table-wrap glass scroll-clean"><table id="payrollTable" class="payroll-table"></table></div>
@@ -263,7 +304,7 @@
 
   <div id="toast" class="toast"><b id="toastTitle">Listo</b><span id="toastText">Acción completada.</span></div>
   <script src="/assets/api-client.js?v=20261030-qr-inout"></script>
-  <script src="/assets/portal.js?v=20261030-service-confirm-mobile"></script>
+  <script src="/assets/portal.js?v=20261030-download-icon-stable"></script>
   <script src="/assets/extras.js?v=20261030-service-confirm-mobile"></script>
   <script src="/assets/qr-encoder.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -275,6 +316,5 @@
   <script src="/assets/ui-polish.js?v=20261030-vector-close"></script>
   <script src="/assets/messages-inbox.js?v=20261030-swipe-delete"></script>
   <script src="/assets/attendance-modal.js?v=20261030-clock-unified-v2"></script>
-<script src="/assets/theme-toggle.js?v=20261030-dark-v1"></script>
 </body>
 </html>
