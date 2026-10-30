@@ -1933,11 +1933,62 @@ function openAvailabilityDay(date){
     $('#availMorning').onclick=()=>{applyAvailRangeV8(st,'06:00','13:30',true);refresh()};$('#availAfternoon').onclick=()=>{applyAvailRangeV8(st,'14:00','21:30',true);refresh()};
     $('#availAddRange').onclick=()=>{applyAvailRangeV8(st,$('#availRangeStart').value,$('#availRangeEnd').value,true);refresh()};
     $('#availSave').onclick=()=>{st.note=$('#availNote').value.trim();availabilityState[date]=st;saveAvailabilityLocal();if(window.google&&google.script&&google.script.run){google.script.run.withFailureHandler(()=>{}).saveAvailability(date,st.slots.length?'POR HORAS':'NO DISPONIBLE',JSON.stringify(st))}closeDemoModal();renderAvailability();toast('Disponibilidad','Horarios guardados.')};
-    const grid=$('#availabilityDragGrid');let dragging=false,mode=true;
-    const applyBtn=b=>{const slot=b.dataset.availSlot;if(mode&&!st.slots.includes(slot))st.slots.push(slot);if(!mode&&st.slots.includes(slot))st.slots=st.slots.filter(x=>x!==slot);st.slots.sort();b.classList.toggle('active',mode);const t=$('#availRangesText');if(t)t.textContent=formatAvailRanges(st.slots)};
-    grid.onpointerdown=e=>{const b=e.target.closest('.avail-hour');if(!b)return;e.preventDefault();dragging=true;mode=!b.classList.contains('active');applyBtn(b);grid.setPointerCapture?.(e.pointerId)};
-    grid.onpointerover=e=>{if(!dragging)return;const b=e.target.closest('.avail-hour');if(b)applyBtn(b)};
-    grid.onpointerup=()=>{dragging=false};grid.onpointercancel=()=>{dragging=false};
+    const grid=$('#availabilityDragGrid');
+    let pointerId=null,startIndex=-1,previousIndex=-1,mode=true;
+    const cells=[...grid.querySelectorAll('[data-avail-slot]')];
+    const updateRange=(endIndex)=>{
+      if(startIndex<0||endIndex<0)return;
+      const selected=new Set(st.slots);
+      const lo=Math.min(startIndex,endIndex),hi=Math.max(startIndex,endIndex);
+      for(let i=lo;i<=hi;i++){
+        const slot=cells[i].dataset.availSlot;
+        if(mode)selected.add(slot);else selected.delete(slot);
+      }
+      st.slots=[...selected].sort();
+      cells.forEach(cell=>cell.classList.toggle('active',selected.has(cell.dataset.availSlot)));
+      const summary=$('#availRangesText');if(summary)summary.textContent=formatAvailRanges(st.slots);
+    };
+    const cellAt=(x,y)=>{
+      const hit=document.elementFromPoint(x,y)?.closest('[data-avail-slot]');
+      if(hit&&grid.contains(hit))return cells.indexOf(hit);
+      // Keep a drag continuous while moving across gaps between cells.
+      if(!grid.getBoundingClientRect().width)return -1;
+      let nearest=-1,distance=Infinity;
+      cells.forEach((cell,i)=>{const rect=cell.getBoundingClientRect();const dx=Math.max(rect.left-x,0,x-rect.right),dy=Math.max(rect.top-y,0,y-rect.bottom);const d=dx*dx+dy*dy;if(d<distance){distance=d;nearest=i}});
+      return nearest;
+    };
+    const finish=e=>{
+      if(pointerId!==e.pointerId)return;
+      if(grid.hasPointerCapture?.(e.pointerId))grid.releasePointerCapture(e.pointerId);
+      pointerId=null;startIndex=-1;previousIndex=-1;
+    };
+    grid.addEventListener('pointerdown',e=>{
+      const cell=e.target.closest('[data-avail-slot]');if(!cell||!grid.contains(cell))return;
+      if(e.pointerType==='mouse'&&e.button!==0)return;
+      e.preventDefault();
+      pointerId=e.pointerId;startIndex=cells.indexOf(cell);previousIndex=startIndex;
+      mode=!st.slots.includes(cell.dataset.availSlot);
+      updateRange(startIndex);
+      grid.setPointerCapture?.(e.pointerId);
+    });
+    grid.addEventListener('pointermove',e=>{
+      if(pointerId!==e.pointerId)return;
+      e.preventDefault();
+      const index=cellAt(e.clientX,e.clientY);
+      if(index<0||index===previousIndex)return;
+      previousIndex=index;updateRange(index);
+    });
+    grid.addEventListener('pointerup',finish);
+    grid.addEventListener('pointercancel',finish);
+    // Keyboard users can also toggle individual half-hour slots.
+    grid.addEventListener('click',e=>{
+      if(e.detail!==0)return;
+      const cell=e.target.closest('[data-avail-slot]');if(!cell)return;
+      const slot=cell.dataset.availSlot;
+      st.slots=st.slots.includes(slot)?st.slots.filter(v=>v!==slot):[...st.slots,slot].sort();
+      cell.classList.toggle('active',st.slots.includes(slot));
+      $('#availRangesText').textContent=formatAvailRanges(st.slots);
+    });
   },0);
 }
 
