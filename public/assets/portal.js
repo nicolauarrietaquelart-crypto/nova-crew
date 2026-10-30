@@ -1934,11 +1934,11 @@ function openAvailabilityDay(date){
     $('#availAddRange').onclick=()=>{applyAvailRangeV8(st,$('#availRangeStart').value,$('#availRangeEnd').value,true);refresh()};
     $('#availSave').onclick=()=>{st.note=$('#availNote').value.trim();availabilityState[date]=st;saveAvailabilityLocal();if(window.google&&google.script&&google.script.run){google.script.run.withFailureHandler(()=>{}).saveAvailability(date,st.slots.length?'POR HORAS':'NO DISPONIBLE',JSON.stringify(st))}closeDemoModal();renderAvailability();toast('Disponibilidad','Horarios guardados.')};
     const grid=$('#availabilityDragGrid');
-    let pointerId=null,startIndex=-1,previousIndex=-1,mode=true;
+    let pointerId=null,startIndex=-1,previousIndex=-1,mode=true,initialSlots=[];
     const cells=[...grid.querySelectorAll('[data-avail-slot]')];
     const updateRange=(endIndex)=>{
       if(startIndex<0||endIndex<0)return;
-      const selected=new Set(st.slots);
+      const selected=new Set(initialSlots);
       const lo=Math.min(startIndex,endIndex),hi=Math.max(startIndex,endIndex);
       for(let i=lo;i<=hi;i++){
         const slot=cells[i].dataset.availSlot;
@@ -1966,7 +1966,7 @@ function openAvailabilityDay(date){
       const cell=e.target.closest('[data-avail-slot]');if(!cell||!grid.contains(cell))return;
       if(e.pointerType==='mouse'&&e.button!==0)return;
       e.preventDefault();
-      pointerId=e.pointerId;startIndex=cells.indexOf(cell);previousIndex=startIndex;
+      pointerId=e.pointerId;startIndex=cells.indexOf(cell);previousIndex=startIndex;initialSlots=[...st.slots];
       mode=!st.slots.includes(cell.dataset.availSlot);
       updateRange(startIndex);
       grid.setPointerCapture?.(e.pointerId);
