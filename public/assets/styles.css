@@ -667,3 +667,9 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 .nova-rating-clear:hover{color:#e8781a}
 @media(max-width:650px){.nova-three-ratings{padding:12px 10px}.nova-rating-row{grid-template-columns:minmax(100px,1fr) auto;gap:5px}.nova-rating-row .nova-modal-stars{gap:1px}.nova-rating-row .nova-modal-stars button{min-width:27px;font-size:25px!important}.nova-rating-clear{grid-column:2;justify-self:end}.nova-rating-row strong{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.nova-rating-row .nova-modal-stars button{transition:none}}
+
+/* Collapsible operational coordination sections */
+.nova-coord-fold{width:100%;display:flex;align-items:center;justify-content:space-between;background:transparent;border:0;border-bottom:1px solid #e2e3e7;padding:15px 4px;color:#555c68;font:800 14px/1.4 'Plus Jakarta Sans',Arial,sans-serif;text-align:left;cursor:pointer;margin:6px 0}
+.nova-coord-fold span{display:inline-block;transition:transform .15s ease;color:#f58220;font-size:22px}
+.nova-coord-fold[aria-expanded=true] span{transform:rotate(180deg)}
+.nova-coord-fold:focus-visible{outline:2px solid #f58220;outline-offset:2px}
