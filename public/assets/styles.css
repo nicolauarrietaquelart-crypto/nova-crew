@@ -1410,3 +1410,29 @@ html[data-nova-theme="dark"] #demoModal .nova-rating-clear{color:#cbd7e7!importa
 html[data-nova-theme="dark"] #demoModal .nova-modal-stars button{background:transparent!important;color:#ffae70!important;border-color:transparent!important}
 html[data-nova-theme="dark"] #demoModal .nova-modal-stars button.on{color:#ff8a2c!important}
 html[data-nova-theme="dark"] .nova-unified-worker .nova-rating-summary{background:#39485b!important;color:#ffae72!important;border-color:#5d6b7e!important}
+
+
+/* Coordination theme correction: target descendants separately, do not inherit light backgrounds. */
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-heading,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-sidebar,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-sidebody,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-worker,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-main,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-main,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-toolbar,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-toolbar,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-metrics>div,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-fold,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-filter-button:not(.on){
+ background:#283441!important;background-image:none!important;
+ border-color:#536277!important;color:#f5f7fc!important;
+}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-heading *,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-worker .nova-unified-name *,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-sidebar :is(b,strong,small,span,label){
+ color:#f5f7fc!important;
+}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-metrics>div b{color:#f4f8fd!important}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-metrics>div span{color:#becbdc!important}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-worker.selected{background:#55412f!important;border-left-color:#ff8a2c!important}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-filter-button.on{background:#f58220!important;color:#1d1b1b!important}
