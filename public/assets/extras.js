@@ -61,6 +61,8 @@
     if(statusOf(id)==='CONFIRMADO'&&status!=='CONFIRMADO')return;
     if(id===DEMO_SERVICE){demoStatus=status;refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();toast('Servicio de prueba','Estado actualizado; al recargar se restablece.');return;}
     if(!window.NOVA_API?.account){toast('Sin sesión','Inicia sesión para confirmar el servicio.');return;}
+    const buttons=[...document.querySelectorAll('[data-v10-confirm],[data-v10-decline],[data-v10-pending]')].filter(el=>el.dataset.v10Confirm===id||el.dataset.v10Decline===id||el.dataset.v10Pending===id);
+    buttons.forEach(el=>el.disabled=true);
     try{
       const result=await window.NOVA_API.confirmAssignment(id,status,reason);
       if(!result?.ok)throw new Error('No se ha guardado la confirmación.');
@@ -72,7 +74,7 @@
     }catch(error){
       toast('No se pudo guardar',error.message||'Comprueba tu conexión.');
       await refreshFromServer();
-    }
+    }finally{buttons.forEach(el=>{if(el.isConnected)el.disabled=false})}
   }
   function serviceControls(s,detail=false){
     const status=statusOf(s.id);
@@ -123,14 +125,14 @@
   document.addEventListener('click',ev=>{
     const node=ev.target.closest('[data-v10-confirm],[data-v10-decline],[data-v10-pending],[data-v10-ics],[data-v10-open],[data-v10-note-save],[data-v10-export]');if(!node)return;
     const ds=node.dataset;
-    if(ds.v10Confirm){ev.stopPropagation();confirmAssignment(ds.v10Confirm,'CONFIRMADO')}
-    else if(ds.v10Decline){ev.stopPropagation();confirmAssignment(ds.v10Decline,'NO DISPONIBLE')}
-    else if(ds.v10Pending){ev.stopPropagation();confirmAssignment(ds.v10Pending,'PENDIENTE')}
+    if(ds.v10Confirm){ev.preventDefault();ev.stopPropagation();confirmAssignment(ds.v10Confirm,'CONFIRMADO')}
+    else if(ds.v10Decline){ev.preventDefault();ev.stopPropagation();confirmAssignment(ds.v10Decline,'NO DISPONIBLE')}
+    else if(ds.v10Pending){ev.preventDefault();ev.stopPropagation();confirmAssignment(ds.v10Pending,'PENDIENTE')}
     else if(ds.v10Ics){ev.stopPropagation();exportICS(ds.v10Ics)}
     else if(ds.v10Open){ev.stopPropagation();const s=findService(ds.v10Open);if(s){renderServiceDetail(s);navigate('service-detail')}}
     else if(ds.v10NoteSave){ev.stopPropagation();data.notes[ds.v10NoteSave]=document.getElementById('v10ServiceNote')?.value||'';save();toast('Notas','Notas personales guardadas en la demo.');}
     else if(ds.v10Export){ev.stopPropagation();exportWorkerCSV(ds.v10Export)}
-  });
+  },true);
   document.getElementById('v10CalendarPrev').onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);renderCalendar()};
   document.getElementById('v10CalendarNext').onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendar()};
   document.getElementById('v10CalendarToday').onclick=()=>{calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderCalendar()};
