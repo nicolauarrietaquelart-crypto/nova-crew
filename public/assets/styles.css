@@ -1721,3 +1721,25 @@ button,input,select,textarea{font-family:inherit!important}
 #availabilityDragGrid .avail-hour.active{
  background:#196d42!important;color:#fff!important;border-color:#33965d!important;
 }
+
+
+/* Coordination: locked role, clear status cues, incident dialog. */
+#workerCoordDetail .nova-status-select[data-status="PRESENTE"],
+#workerCoordDetail .nova-status-select[data-status="CONTACTADO"]{
+ background:#e0f5e8!important;border-color:#8ccba4!important;color:#17623a!important;font-weight:800
+}
+#workerCoordDetail .nova-status-select[data-status="NO PRESENTADO"],
+#workerCoordDetail .nova-status-select[data-status="NO CONTACTADO"]{
+ background:#fce8e8!important;border-color:#e9a3a3!important;color:#9b2929!important;font-weight:800
+}
+#workerCoordDetail .nova-status-select[data-status="PENDIENTE"]{
+ background:#fff3dc!important;border-color:#edca87!important;color:#80570c!important;font-weight:800
+}
+.nova-locked-role{
+ grid-column:1/-1;display:flex;flex-direction:column;gap:6px;
+ border:1px solid #dce2ea;border-radius:12px;background:#f4f6fa;padding:13px 15px
+}
+.nova-locked-role strong{color:#273243;font-size:13px}
+.nova-locked-role small{color:#697483;font-size:11px}
+#novaIncidentWorkerWrap[hidden],#novaIncidentRoleWrap[hidden]{display:none!important}
+.nova-coord-header-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
