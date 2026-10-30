@@ -144,8 +144,8 @@
     clearInterval(expiresTimer);activeToken='';el('qrDynamic').innerHTML='';
     const s=chosenService(),need=serviceHasCoordinator(s);
     const own=isCrewManager(s);
-    el('qrGenerateBtn').style.display=need&&!own?'':'none';el('qrDirectBtn').style.display=!need?'':'none';el('qrSelfClockBtn').style.display=own?'':'none';
-    el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Este servicio no tiene coordinador asignado. Para fichar sin QR debes validar tu ubicación dentro del radio de 500 m.';
+    el('qrGenerateBtn').style.display=!own?'':'none';el('qrGenerateBtn').textContent=need?'Generar QR':'Fichar con QR';el('qrDirectBtn').style.display=!need&&!own?'':'none';el('qrDirectBtn').textContent='Fichar con geolocalización';el('qrSelfClockBtn').style.display=own?'':'none';
+    el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Sin coordinador asignado: elige QR si alguien autorizado va a escanearlo o geolocalización para registrar tu asistencia directamente (radio máximo 500 m).';
     const prior=lsRead(KEY_ATT,[]).filter(x=>x.workerId===userid()&&x.serviceId===s.id).at(-1);
     el('qrLatestStatus').textContent=prior?`Último fichaje: ${new Date(prior.time).toLocaleString('es-ES')}`:'';
   }
