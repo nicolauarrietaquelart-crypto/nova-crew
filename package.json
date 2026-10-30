@@ -1,6 +1,6 @@
 {
   "name": "nova-crew-v14-cloudflare-demo",
-  "version": "14.0.0",
+  "version": "15.0.0",
   "private": true,
   "type": "module",
   "description": "NOVA Crew demo, QR scanning and shared attendance on Cloudflare Workers Free",
@@ -9,6 +9,10 @@
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.mjs"
   },
-  "devDependencies": {"wrangler": "^4.0.0"},
-  "engines": {"node": ">=20"}
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

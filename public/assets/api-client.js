@@ -5,7 +5,7 @@
   let session='';
   let account='';
   async function request(op,payload){
-    const isGet=['me','worker','attendance'].includes(op);
+    const isGet=['me','worker','roster','attendance','openShifts'].includes(op);
     const url=new URL(root,location.origin==='null'?'https://nova.local':location.origin);url.searchParams.set('op',op);
     if(op==='attendance')url.searchParams.set('serviceId',String(payload?.serviceId||''));
     const response=await fetch(url.href,{
@@ -27,6 +27,10 @@
     },
     logout:()=>{account='';session='';},
     me:()=>request('me'),
+    roster:()=>request('roster'),
+    openShifts:()=>request('openShifts'),
+    expressInterest:(shiftId,withdraw=false)=>request('interest',{shiftId,withdraw}),
+    updateShift:(serviceId,workerId,start,end)=>request('updateShift',{serviceId,workerId,start,end}),
     saveProfile:profile=>request('saveProfile',{profile}),
     // Adapts previous Apps Script method names to a Cloudflare backend.
     call:async(method,args=[])=>{
@@ -36,6 +40,7 @@
         case 'novaIssueQr':return request('issue',{serviceId:a[1]});
         case 'novaRedeemQr':return request('redeem',{token:a[0],expectedService:a[2]||''});
         case 'novaDirectClock':return request('direct',{serviceId:a[1]});
+        case 'novaSelfClock':return request('selfClock',{serviceId:a[1]});
         case 'novaGetAttendance':return request('attendance',{serviceId:a[0]});
         case 'novaGetDemoWorker':return request('worker');
         default:throw new Error('Acción no disponible en Cloudflare: '+method);

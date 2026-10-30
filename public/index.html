@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#101014">
-  <title>NOVA Crew v13 · Área de empleado</title>
+  <title>NOVA Crew v15 · Área de empleado</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
     <div class="login-stage">
       <form id="loginForm" class="login-card glass">
         <div class="login-orb"></div>
-        <div class="login-copy-small">DEMO · NETLIFY · QR INTEGRADO</div>
+        <div class="login-copy-small">DEMO · CLOUDFLARE · QR INTEGRADO</div>
         <h1>Acceder</h1>
         <label>Usuario<input id="username" value="demo" autocomplete="username"></label>
         <label>Contraseña<div class="password-row"><input id="password" type="password" value="crew2026" autocomplete="current-password"><button id="togglePassword" type="button">◉</button></div></label>
@@ -69,9 +69,10 @@
         <div class="topbar-actions">
           <button id="novaQrQuick" class="icon-btn nova-qr-quick" type="button" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR">▦</button><button id="notificationsBtn" class="icon-btn">◌<i></i></button>
           <button id="messagesBtn" class="icon-btn">✉</button>
-          <button class="profile-chip" data-page="profile"><span class="avatar">PF</span><span><strong>Pau Ferrer</strong></span><em>⌄</em></button>
+          <button id="assignmentAlertBtn" class="icon-btn v15-bell" type="button" aria-label="Servicios pendientes y vacantes" title="Avisos de servicios">🔔<span id="v15BellDot"></span></button><div class="v15-profile-wrap"><button type="button" id="v15ProfileToggle" class="profile-chip" aria-haspopup="menu" aria-expanded="false"><span class="avatar">PF</span><span><strong>Pau Ferrer</strong></span><em>⌄</em></button><div id="v15ProfileMenu" class="v15-profile-menu glass hidden" role="menu"><button type="button" data-v15-profile="open">Ver mi perfil</button><button type="button" data-v15-profile="logout">Cerrar sesión</button></div></div>
         </div>
       </header>
+      <div id="v15AlertPanel" class="v15-alert-panel glass hidden" aria-label="Servicios pendientes y libres"></div>
       <div id="notificationsDropdown" class="notifications-dropdown glass hidden">
         <div class="notifications-head"><b>Notificaciones</b><button id="closeNotifications" class="icon-only">×</button></div>
         <div id="notificationsList" class="notifications-list"></div>
@@ -88,10 +89,11 @@
               <div class="countdown-status" id="countdownStatus"></div>
               <div class="inline-actions"><button class="btn dark" data-page="clock">Fichar</button><button class="btn light" id="homeViewService">Ver servicio</button></div>
             </div>
-            <div class="home-summary"><div><span>Servicios próximos</span><b>5</b></div><div id="homeCoordCounter"><span>Coordinaciones</span><b id="homeCoordCounterValue">4</b></div><div><span>Documentos pendientes</span><b class="orange">2</b></div><div><span>Formación</span><b id="homeTrainingStatus" class="orange">1 pendiente</b></div></div>
+            <div class="home-summary"><div><span>Servicios próximos</span><b id="v15UpcomingCount">—</b></div><div id="homeCoordCounter"><span>Coordinaciones</span><b id="homeCoordCounterValue">4</b></div><div><span>Documentos pendientes</span><b class="orange">2</b></div><div><span>Formación</span><b id="homeTrainingStatus" class="orange">1 pendiente</b></div></div>
           </div>
           <div class="section-title-row"><div><span class="kicker">AGENDA</span><h3>Próximos servicios</h3></div><button class="link-btn" data-page="services">Ver todos →</button></div>
           <div id="homeServices" class="service-grid"></div>
+          <section class="v15-shifts-section"><div class="section-title-row"><div><span class="kicker">OPORTUNIDADES</span><h3>Servicios libres</h3></div><span class="muted">Solicita disponibilidad; la oficina decide</span></div><div id="v15OpenShifts" class="v15-shifts-list"><p class="muted">Cargando servicios libres…</p></div></section>
         </section>
 
         <section id="page-clock" class="page">
@@ -266,5 +268,6 @@
   <script src="/assets/qr-encoder.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="/assets/qr.js"></script>
+  <script src="/assets/v15.js"></script>
 </body>
 </html>

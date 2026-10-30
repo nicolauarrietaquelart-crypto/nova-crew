@@ -13,6 +13,11 @@
   const qescape=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const userid=()=>window.novaActiveAccount||'demo';
   const coordinator=()=>userid()==='coord';
+  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null};
+  const isOwnCoord=s=>!!s&&OWNERS[s.id]===userid();
+  const isCrewManager=s=>!!s&&(isOwnCoord(s)||(s.id==='svc4'&&userid()==='coord'));
+  const isFuture=s=>!!s&&new Date(s.endISO)>new Date();
+  let cloudRoster=null;
   function lsRead(key,other){try{return JSON.parse(localStorage.getItem(key)||'null')||other}catch(e){return other}}
   function lsWrite(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){console.warn('Almacenamiento no disponible',e)}}
   function isGAS(){return !!(window.google&&google.script&&google.script.run)}
@@ -23,9 +28,15 @@
   }
   function previewBackend(method,args){
     const now=Date.now(),tokens=lsRead(KEY_TOKEN,{}),active=lsRead(KEY_ACTIVE,{}),records=lsRead(KEY_ATT,[]);
+    if(method==='novaSelfClock'){
+      const id=args[1],s=services.find(x=>x.id===id);
+      if(!s||!isOwnCoord(s))throw Error('No eres el coordinador único de este servicio.');
+      return {ok:true,record:savePreviewAttendance(userid(),id,'COORDINADOR','PROPIO COORDINADOR')};
+    }
     if(method==='novaIssueQr'){
       const [workerId,serviceId]=args;
       if(!['demo','coord'].includes(workerId)||!issuableServicesFor(workerId).some(s=>s.id===serviceId))throw Error('Servicio no asignado.');
+      if(OWNERS[serviceId]===workerId||(serviceId==='svc4'&&workerId==='coord'))throw Error('Los responsables Crew Head pueden fichar su propio turno.');
       const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');
       const old=active[workerId+'_'+serviceId];if(old)delete tokens[old];
       tokens[token]={workerId,serviceId,expiresAt:now+TTL};active[workerId+'_'+serviceId]=token;
@@ -37,7 +48,7 @@
       let [token,actor]=args;token=String(token).replace(/^NOVAQR:/,'').trim();
       if(!['coord','demo'].includes(actor))throw Error('Cuenta sin permiso de escaneo.');
       const d=tokens[token];if(!d||d.expiresAt<now||active[d.workerId+'_'+d.serviceId]!==token)throw Error('QR caducado, sustituido o ya utilizado.');
-      if(!((actor==='coord'&&['svc1','svc2'].includes(d.serviceId))||(actor==='demo'&&['svc3','svc4'].includes(d.serviceId))))throw Error('No coordinas este servicio.');
+      if(actor!==OWNERS[d.serviceId]&&!(actor==='coord'&&d.serviceId==='svc4'))throw Error('No gestionas Crew Control en este servicio.');
       delete tokens[token];delete active[d.workerId+'_'+d.serviceId];lsWrite(KEY_TOKEN,tokens);lsWrite(KEY_ACTIVE,active);
       return {ok:true,record:savePreviewAttendance(d.workerId,d.serviceId,'QR',actor==='coord'?coordinatorProfileName():latestDemoProfile().name)};
     }
@@ -54,7 +65,10 @@
     const s=services.find(x=>x.id===serviceId),rows=lsRead(KEY_ATT,[]);
     const saved=lsRead(workerId==='coord'?'novaProfileCoordV11':'novaProfileV7',{});
     const workerName=workerId==='coord' ? String(saved.name||'Álvaro Costa') : latestDemoProfile().name;
-    const record={eventId:'EV-'+Date.now(),workerId,serviceId,workerName,category:s.role,team:s.team,start:s.time.split('–')[0],end:s.time.split('–')[1],method,scannedBy,time:new Date().toISOString(),status:'PRESENTE'};
+    const mine=OWNERS[serviceId]===workerId;
+    const role=workerId==='coord'&&serviceId==='svc4'?'CREW HEAD':mine?'COORDINADOR':workerId==='coord'&&serviceId==='svc3'?'HAND A':s.role;
+    const team=workerId==='coord'&&serviceId==='svc4'?'OPERACIONES':mine?'COORDINACIÓN':workerId==='coord'&&serviceId==='svc3'?'LUCES':s.team;
+    const record={eventId:'EV-'+Date.now(),workerId,serviceId,workerName,category:role,team,start:s.time.split('–')[0],end:s.time.split('–')[1],method,scannedBy,time:new Date().toISOString(),status:'PRESENTE'};
     rows.push(record);lsWrite(KEY_ATT,rows);return record;
   }
   function latestDemoProfile(){
@@ -63,11 +77,11 @@
     const first=String(p.firstName||'Pau').trim(),last=String(p.lastName||'Ferrer Soler').trim();
     return {name:(first+' '+last).trim(),phone:String(p.phone||EMPLOYEE.phone||'670 555 221')};
   }
-  function coordinatorProfileName(){const p=lsRead('novaProfileCoordV11',{});return p.name||'Álvaro Costa'}
+  function coordinatorProfileName(){const p=lsRead('novaProfileCoordV11',{});return [p.firstName,p.lastName].filter(Boolean).join(' ')||p.name||'Álvaro Costa'}
   let serverDemoWorker=null;
   function displayWorkerName(){return coordinator()?coordinatorProfileName():latestDemoProfile().name;}
-  function issuableServicesFor(actor){return actor==='coord'?services.filter(s=>['svc1','svc2','svc3'].includes(s.id)):services;}
-  function serviceHasCoordinator(s){return s?.assignedCoordinator!==false}
+  function issuableServicesFor(actor){return services.filter(s=>actor==='coord'?['svc1','svc2','svc3'].includes(s.id):true);}
+  function serviceHasCoordinator(s){return Boolean(s&&OWNERS[s.id])}
   function chosenService(){return services.find(s=>s.id===activeService)||services[0]}
   function bestService(){return services.filter(s=>new Date(s.endISO).getTime()>Date.now()).sort((a,b)=>new Date(a.startISO)-new Date(b.startISO))[0]||services[services.length-1]}
   function formatServiceOption(s){return `${s.short} · ${s.name} · ${s.role}`}
@@ -94,8 +108,8 @@
     else renderChooser();
   }
   function closeOverlay(){stopCamera();clearInterval(expiresTimer);overlay.classList.add('hidden')}
-  function scannableServices(){return services.filter(s=>coordinator()?['svc1','svc2'].includes(s.id):s.privilege==='crew');}
-  function issuableServices(){return coordinator()?services.filter(s=>['svc1','svc2','svc3'].includes(s.id)):services;}
+  function scannableServices(){return services.filter(s=>isFuture(s)&&isCrewManager(s));}
+  function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4'].includes(s.id):true));}
   function renderModeSwitch(active){
     return `<div class="nova-qr-switch"><button type="button" class="btn ${active==='worker'?'primary':'light'}" id="qrSwitchWorker">Mostrar mi QR</button><button type="button" class="btn ${active==='scan'?'primary':'light'}" id="qrSwitchScan" ${scannableServices().length?'':'disabled'}>Escanear QR</button></div>`;
   }
@@ -119,13 +133,16 @@
     el('qrServiceSelect').onchange=e=>{activeService=e.target.value;setWorkerMode()};
     el('qrGenerateBtn').onclick=issue;
     el('qrDirectBtn').onclick=directCheckin;
+    const own=document.createElement('button');own.type='button';own.className='btn primary';own.id='qrSelfClockBtn';own.textContent='Fichar mi turno (coordinador)';own.onclick=()=>{const s=chosenService();callBackend('novaSelfClock',[userid(),s.id],data=>{el('qrDynamic').innerHTML=info(data.record);refreshAttendance(s.id);toast('Turno registrado',data.record.workerName+' · '+s.name)},err=>toast('Fichaje',err))};
+    el('qrDirectBtn').parentElement.append(own);
     setWorkerMode();
   }
   function setWorkerMode(){
     clearInterval(expiresTimer);activeToken='';el('qrDynamic').innerHTML='';
     const s=chosenService(),need=serviceHasCoordinator(s);
-    el('qrGenerateBtn').style.display=need?'':'none';el('qrDirectBtn').style.display=need?'none':'';
-    el('qrModeHint').textContent=need?'Este bolo tiene coordinación: enseña tu QR al coordinador. Cada código se genera de nuevo, es de un solo uso y caduca en 90 segundos.':'Este servicio no tiene coordinador asignado. Puedes fichar directamente sin QR. En esta demo no se aplica límite GPS.';
+    const own=isCrewManager(s);
+    el('qrGenerateBtn').style.display=need&&!own?'':'none';el('qrDirectBtn').style.display=!need?'':'none';el('qrSelfClockBtn').style.display=own?'':'none';
+    el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Este servicio no tiene coordinador asignado. Puedes fichar directamente sin QR en esta demo.';
     const prior=lsRead(KEY_ATT,[]).filter(x=>x.workerId===userid()&&x.serviceId===s.id).at(-1);
     el('qrLatestStatus').textContent=prior?`Último fichaje: ${new Date(prior.time).toLocaleString('es-ES')}`:'';
   }
@@ -298,66 +315,79 @@
     const crew=document.querySelector('#crewControlRoot .crew-header-actions')||document.querySelector('#crewControlRoot .crew-header');
     if(crew&&!crew.querySelector('.nova-scan-inline'))crew.insertAdjacentHTML('beforeend','<span class="nova-scan-inline"><button class="btn primary" type="button" data-nova-open-scan>▦ Escanear QR</button></span>');
   }
-  function employeeEntry(s){
-    const p=coordinator()&&serverDemoWorker?serverDemoWorker:latestDemoProfile();
-    return {id:s.id+'-qr-demo',workerId:'demo',name:p.name,phone:p.phone,
-      role:s.role,team:s.team,workType:'LOAD IN',start:s.time.split('–')[0],end:s.time.split('–')[1],
-      realStart:'—',realEnd:'—',pause:'00:00',diet:s.diet||'No',status:'PENDIENTE',rating:3,selected:false,incident:'',notes:''};
+  // All demo rosters use stable user IDs. The single coordinator is also an ordinary roster row.
+  function rosterPerson(id){
+    const cloud=cloudRoster?.[id];
+    if(cloud?.name)return {name:cloud.name,phone:cloud.phone};
+    if(id==='coord')return {name:coordinatorProfileName(),phone:lsRead('novaProfileCoordV11',{}).phone||'664 690 034'};
+    return coordinator()&&serverDemoWorker?serverDemoWorker:latestDemoProfile();
   }
-  function updateDemoInList(s,workerRows,crew){
-    if(!s||!Array.isArray(workerRows)||!['svc1','svc2','svc3','svc4'].includes(s.id))return false;
-    const p=coordinator()&&serverDemoWorker?serverDemoWorker:latestDemoProfile(),id=s.id+'-qr-demo';
-    let found=workerRows.find(w=>w.id===id||w.workerId==='demo');
-    const added=!found;
-    if(!found){found=employeeEntry(s);workerRows.unshift(found);}
-    found.name=p.name;found.phone=p.phone;found.workerId='demo';found.id=id;
-    if(crew)found.workType=found.workType||'LOAD IN';
-    return added;
+  function roleFor(id,s){
+    if(OWNERS[s.id]===id)return {role:'COORDINADOR',team:'COORDINACIÓN'};
+    if(id==='coord'&&s.id==='svc3')return {role:'HAND A',team:'LUCES'};
+    if(id==='coord'&&s.id==='svc4')return {role:'CREW HEAD',team:'OPERACIONES'};
+    if(id==='demo'&&s.id==='svc1')return {role:'HAND B',team:'STAGE'};
+    if(id==='demo'&&s.id==='svc2')return {role:'FORKLIFTER',team:'LOGÍSTICA'};
+    return {role:s.role,team:s.team};
   }
+  function rosterEntry(id,s,crew){
+    const p=rosterPerson(id),r=roleFor(id,s);
+    return {id:s.id+'-qr-'+id,workerId:id,name:p.name,phone:p.phone,...r,
+      workType:'LOAD IN',start:s.time.split('–')[0],end:s.time.split('–')[1],pause:'00:00',diet:'No',
+      status:'NO CONTACTADO',rating:3,selected:false,incident:'',incidents:[],notes:'',
+      ...(crew?{realStart:'—',realEnd:'—',uniformity:3,attitude:3,punctuality:3}:{})};
+  }
+  function ensureRoster(s,rows,crew){
+    if(!s||!Array.isArray(rows))return false;
+    const expected=['svc1','svc2','svc3','svc4'].includes(s.id)?['demo','coord']:s.id==='svc5'?['demo']:[];
+    let changed=false;
+    for(const id of expected){
+      const key=s.id+'-qr-'+id,p=rosterPerson(id),r=roleFor(id,s);
+      const candidates=rows.filter(w=>w.workerId===id||w.id===key||w.id===s.id+'-qr-demo'&&id==='demo');
+      let w=candidates[0];
+      if(!w){w=rosterEntry(id,s,crew);rows.unshift(w);changed=true;}
+      for(const duplicate of candidates.slice(1)){rows.splice(rows.indexOf(duplicate),1);changed=true;}
+      w.id=key;w.workerId=id;w.name=p.name;w.phone=p.phone;w.role=r.role;w.team=r.team;
+      const override=window.novaCloudShifts?.[s.id+'/'+id];if(override){w.start=override.start;w.end=override.end;}
+      w.isCoordinator=OWNERS[s.id]===id;
+    }
+    // Never present any other worker as coordinator, including old saved rows.
+    for(const w of rows){
+      if(w.role==='COORDINADOR'&&!w.isCoordinator){w.role='CREW HEAD';changed=true;}
+    }
+    if(crew&&s.id==='svc4'){for(const old of rows.filter(w=>w.id===s.id+'-extra-head')){rows.splice(rows.indexOf(old),1);changed=true;}}
+    const limit=crew?totalPersonnel(s):(s.basicTeamSize||rows.length);
+    while(rows.length>limit){
+      const pos=rows.findLastIndex(w=>!w.workerId&&w.id!==s.id+'-extra-head');
+      if(pos<0)break;
+      rows.splice(pos,1);changed=true;
+    }
+    return changed;
+  }
+  function updateDemoInList(s,workerRows,crew){return ensureRoster(s,workerRows,crew);}
   function updateAllDemoLists(){
-    const profile=latestDemoProfile();
-    for(const s of services.filter(s=>['svc1','svc2','svc3','svc4'].includes(s.id))){
+    for(const s of services){
       const key=s.privilege==='crew'?`crewWorkers-${s.id}`:`basicTeam-${s.id}`;
       const saved=lsRead(key,null);
-      if(Array.isArray(saved)){updateDemoInList(s,saved,s.privilege==='crew');lsWrite(key,saved);}
+      if(Array.isArray(saved)){ensureRoster(s,saved,s.privilege==='crew');lsWrite(key,saved)}
+      else if(saved?.workers){ensureRoster(s,saved.workers,false);lsWrite(key,saved)}
     }
-    if(basicCoordState?.service) {
-      updateDemoInList(basicCoordState.service,basicCoordState.workers,false);
-      if(typeof renderBasicTeamRows==='function')renderBasicTeamRows();
-    }
-    if(crewState?.service){
-      updateDemoInList(crewState.service,crewState.workers,true);
-      if(typeof renderCrewAll==='function')renderCrewAll();
-    }
+    if(basicCoordState?.service){ensureRoster(basicCoordState.service,basicCoordState.workers,false);renderBasicShiftFilters();renderBasicTeamRows()}
+    if(crewState?.service){ensureRoster(crewState.service,crewState.workers,true);renderCrewAll()}
   }
   function updateDemoWorkerFromServer(){
-    if(!(isGAS()||window.NOVA_API)||!coordinator())return;
-    callBackend('novaGetDemoWorker',[],record=>{
-      if(!record?.name)return;
-      serverDemoWorker=record;
-      for(const s of services.filter(s=>['svc1','svc2','svc3','svc4'].includes(s.id))){
-        const key=s.privilege==='crew'?`crewWorkers-${s.id}`:`basicTeam-${s.id}`;
-        let list=lsRead(key,null);
-        if(Array.isArray(list)){
-          let w=list.find(x=>x.workerId==='demo'||x.id===s.id+'-qr-demo');
-          if(!w){w=employeeEntry(s);list.unshift(w)}
-          w.id=s.id+'-qr-demo';w.workerId='demo';w.name=record.name;w.phone=record.phone;
-          lsWrite(key,list);
-        }
+    if(!window.NOVA_API)return;
+    window.NOVA_API.roster().then(payload=>{
+      cloudRoster=payload.roster;
+      for(const s of services){
+        const owner=OWNERS[s.id];
+        s.coordinator=owner?cloudRoster[owner]?.name||s.coordinator:'';
+        s.coordinatorPhone=owner?cloudRoster[owner]?.phone||s.coordinatorPhone:'';
       }
-      if(basicCoordState?.service){
-        let w=basicCoordState.workers.find(x=>x.workerId==='demo'||x.id===basicCoordState.service.id+'-qr-demo');
-        if(!w){w=employeeEntry(basicCoordState.service);basicCoordState.workers.unshift(w)}
-        w.id=basicCoordState.service.id+'-qr-demo';w.workerId='demo';w.name=record.name;w.phone=record.phone;
-        renderBasicTeamRows();
-      }
-      if(crewState?.service){
-        let w=crewState.workers.find(x=>x.workerId==='demo'||x.id===crewState.service.id+'-qr-demo');
-        if(!w){w=employeeEntry(crewState.service);crewState.workers.unshift(w)}
-        w.id=crewState.service.id+'-qr-demo';w.workerId='demo';w.name=record.name;w.phone=record.phone;
-        renderCrewAll();
-      }
-    },()=>{});
+      window.novaCloudShifts=payload.shifts||{};
+      updateAllDemoLists();
+      renderServices();renderHomeServices();renderCoordination();
+    }).catch(err=>console.warn('Datos de plantilla no disponibles:',err.message));
   }
   function consumeIncomingScan(){
     const token=document.body.dataset.incomingQr||'';
@@ -414,12 +444,12 @@
     const offset=(new Date(y,m,1).getDay()+6)%7;
     grid.innerHTML=Array.from({length:42},(_,i)=>{
       const d=new Date(y,m,i+1-offset),day=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-      const matches=services.filter(s=>s.startISO.slice(0,10)===day);
+      const matches=assignedServices().filter(s=>s.startISO.slice(0,10)===day);
       const cls=['v10-day',d.getMonth()===m?'':'outside',matches.length?'has-service':''].join(' ');
       return `<div class="${cls}"><strong>${d.getDate()}</strong>${matches.map(s=>`<button class="v10-event" data-v11-open="${s.id}" title="${qescape(s.name)}">${qescape(s.time.split('–')[0])} · ${qescape(s.name)}</button>`).join('')}</div>`;
     }).join('');
-    const upcoming=el('v10CalendarUpcoming');if(upcoming)upcoming.innerHTML=services.slice().sort((a,b)=>new Date(a.startISO)-new Date(b.startISO)).map(s=>`<div class="v10-mini-service"><strong>${qescape(s.name)}</strong><small>${qescape(s.date)} · ${qescape(s.time)}</small><p><button class="btn light" type="button" data-v11-open="${s.id}">Abrir ficha →</button></p></div>`).join('');
-    const sum=el('v10CalendarSummary');if(sum)sum.innerHTML=`<div class="v10-small-pills"><b>${services.length} servicios</b><b>Calendario ficticio 2026</b></div>`;
+    const upcoming=el('v10CalendarUpcoming');if(upcoming)upcoming.innerHTML=assignedServices().slice().sort((a,b)=>new Date(a.startISO)-new Date(b.startISO)).map(s=>`<div class="v10-mini-service"><strong>${qescape(s.name)}</strong><small>${qescape(s.date)} · ${qescape(s.time)}</small><p><button class="btn light" type="button" data-v11-open="${s.id}">Abrir ficha →</button></p></div>`).join('');
+    const sum=el('v10CalendarSummary');if(sum)sum.innerHTML=`<div class="v10-small-pills"><b>${assignedServices().length} servicios</b><b>Calendario ficticio 2026</b></div>`;
   }
   function bindAgenda(){
     el('v10CalendarPrev').onclick=()=>{agendaCursor=new Date(agendaCursor.getFullYear(),agendaCursor.getMonth()-1,1);renderAgendaFixed()};
@@ -441,19 +471,27 @@
       portalProfile={...portalProfile,...p};
       if(typeof applyBootstrapProfile==='function')applyBootstrapProfile(p);
       refreshNameAll(); updateAllDemoLists();
-      if(coordinator())updateDemoWorkerFromServer();
+      updateDemoWorkerFromServer();
     }catch(err){console.warn('Perfil cloud no cargado',err);}
+  }
+  function applySingleOwnerPermissions(){
+    for(const s of services){
+      s.coordinatorUserId=OWNERS[s.id];
+      s.assignedCoordinator=isOwnCoord(s);
+      if(s.id==='svc3'){s.privilege=coordinator()?'worker':'crew';s.role=coordinator()?'HAND A':'CREW HEAD';s.team=coordinator()?'LUCES':'PRINCIPAL';}
+      if(['svc1','svc2'].includes(s.id)){s.role=coordinator()?'COORDINADOR':s.id==='svc1'?'HAND B':'FORKLIFTER';s.team=coordinator()?'COORDINACIÓN':s.id==='svc1'?'STAGE':'LOGÍSTICA';}
+      if(s.id==='svc4'){s.privilege='crew';s.role='CREW HEAD';s.team='OPERACIONES';}
+      if(s.id==='svc5'){s.coordinator='';s.coordinatorPhone='';}
+    }
+    renderServices();renderHomeServices();renderCoordination();syncCoordPermissionsV9();updateHomeNextService();
   }
   function updateLoginAccount(){
     if(!window.novaActiveAccount)window.novaActiveAccount='demo';
     loadCloudIdentity();refreshNameAll();
-    if(coordinator()){
-      // El usuario coordinador de prueba abre un servicio asignado y puede escanear.
-      const s=services.find(x=>x.id==='svc2');if(s)s.assignedCoordinator=true;
-    }
+    applySingleOwnerPermissions();
     updateClockPanel();
     updateAllDemoLists();
-    if(coordinator())updateDemoWorkerFromServer();
+    updateDemoWorkerFromServer();
     setTimeout(consumeIncomingScan,150);
   }
   function init(){
@@ -467,7 +505,7 @@
     });
     bindAgenda();renderAgendaFixed();
     const oldEnter=enterApp;
-    enterApp=function(){oldEnter();setTimeout(updateLoginAccount,20);setTimeout(renderAgendaFixed,80)};
+    enterApp=function(){applySingleOwnerPermissions();oldEnter();setTimeout(updateLoginAccount,20);setTimeout(renderAgendaFixed,80)};
     const oldSave=saveProfileFromForm;
     saveProfileFromForm=function(){saveIdentity();};
     const oldNav=navigate;
@@ -486,7 +524,7 @@
       updateDemoInList(s,crewState.workers,true);
       renderCrewAll();
       scanToolbar();
-      if(coordinator())updateDemoWorkerFromServer();
+      updateDemoWorkerFromServer();
     };
     const oldApplyProfile=applyBootstrapProfile;
     applyBootstrapProfile=function(profile){oldApplyProfile(profile);refreshNameAll()};
@@ -500,7 +538,7 @@
       if(document.querySelector('#page-crew-control.page.active')&&crewState?.service)refreshAttendance(crewState.service.id);
       else if(!coordinator()&&activeToken&&!overlay.classList.contains('hidden'))refreshAttendance(chosenService().id);
     },5000);
-    setInterval(()=>{if(coordinator()&&window.NOVA_API)updateDemoWorkerFromServer();},7000);
+    setInterval(()=>{if(window.NOVA_API)updateDemoWorkerFromServer();},12000);
   }
   init();
 })();

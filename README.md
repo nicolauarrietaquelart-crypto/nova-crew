@@ -77,3 +77,32 @@ npx wrangler dev
 ```
 
 No se ha probado aún con cámaras físicas en móviles ni en una cuenta real de Cloudflare; se ha verificado el backend con pruebas automatizadas de Node.js. El escáner de vídeo integrado necesita HTTPS, permiso de cámara y conectividad al CDN de jsQR.
+
+
+## v14.1 · Exactamente UN coordinador por servicio
+
+| Servicio | Coordinador único | Otros empleados |
+|---|---|---|
+| LUMEN LIVE (27 oct) | Álvaro Costa (`coord`) | Pau Ferrer (`demo`, HAND B) |
+| NEON DISTRICT (31 oct) | Álvaro Costa (`coord`) | Pau Ferrer (`demo`, FORKLIFTER) |
+| URBAN WAVE (4 nov) | Pau Ferrer (`demo`) | Álvaro Costa (`coord`, HAND A, **no** coordinador) |
+| ORBIT AWARDS (11 nov) | Pau Ferrer (`demo`) | Eva Roca (CREW HEAD, **no** coordinadora) |
+| ELECTRA LIVE (14 nov) | Sin coordinador | Pau Ferrer, fichaje directo |
+
+Se muestran los coordinadores únicos en las listas de personal. Su propio turno se registra mediante *Fichar mi turno (coordinador)*, sin introducir un segundo coordinador. Los QR de los demás siguen siendo de un solo uso. Los perfiles se actualizan entre las dos cuentas mediante el backend de Cloudflare.
+
+Reemplazar estos archivos en el repositorio y desplegar: `src/worker.mjs`, `public/assets/portal.js`, `public/assets/qr.js`, `public/assets/api-client.js`. No hace falta cambiar `wrangler.jsonc`.
+
+
+## v15 · coherencia y móvil
+
+- Servicios terminados fuera de Inicio, Servicios, Agenda y generación de QR. Los registros históricos de nómina no se eliminan.
+- ORBIT AWARDS tiene un único coordinador (Pau) y dos Crew Heads (Pau y Álvaro). Ambos aparecen en la lista y pueden abrir Crew Control.
+- Estado POR CONFIRMAR rojo y CONFIRMADO verde; confirmaciones locales diferenciadas por cuenta.
+- Menú de avatar con Ver mi perfil y Cerrar sesión; campana para servicios por confirmar.
+- Tablón de servicios libres: la solicitud se guarda en Durable Object, no asigna automáticamente el servicio. Oficina debe revisarla; no existe panel real de aprobación en esta demo.
+- Edición de horario propio (inicio/fin) en ficha del servicio, guardada en el backend ficticio; los demás cambios de Crew Control pueden seguir siendo locales.
+- Escala móvil compacta para 320–680px y tablas de personal con desplazamiento horizontal controlado.
+
+### Desplegar
+Actualizar archivos usando el ZIP de v15 y el instalador de GitHub, sin crear otro repositorio. Cloudflare Workers debe ejecutar `npx wrangler deploy`.

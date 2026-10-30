@@ -7,25 +7,25 @@ const services = [
     id:'svc1', code:'381427', name:'LUMEN LIVE · PALAU METROPOLITÀ', date:'27/10/2026', short:'27 OCT', venue:'Palau Metropolità',
     address:'Passeig Olímpic, 5 · Barcelona', coords:{lat:41.36345,lng:2.15251},
     startISO:'2026-10-27T16:00:00+01:00', endISO:'2026-10-27T23:30:00+01:00', time:'16:00–23:30', call:'15:30',
-    role:'HAND B', privilege:'worker', assignedCoordinator:true, team:'STAGE', basicTeamSize:9,
+    role:'HAND B', privilege:'worker', assignedCoordinator:false, coordinatorUserId:'coord', team:'STAGE', basicTeamSize:9,
     hands:8, crewHeads:1, forklifts:0, client:'Asteria Live Events', ref:'3814/26-BCN', type:'SHOW + LOAD OUT',
-    specialty:'HAND B', coordinator:'Marta Cabrera', coordinatorPhone:'670 314 101', catering:'Sí', diet:'No',
+    specialty:'HAND B', coordinator:'Álvaro Costa', coordinatorPhone:'664 690 034', catering:'Sí', diet:'No',
     clothing:'Camiseta técnica negra', epi:'Guantes + botas + chaleco + casco', access:'Puerta técnica B'
   },
   {
     id:'svc2', code:'384902', name:'NEON DISTRICT · ARENA MONTJUÏC', date:'31/10/2026', short:'31 OCT', venue:'Arena Montjuïc',
     address:'Av. de l’Estadi, 18 · Barcelona', coords:{lat:41.36512,lng:2.15111},
     startISO:'2026-10-31T08:00:00+01:00', endISO:'2026-10-31T18:00:00+01:00', time:'08:00–18:00', call:'07:30',
-    role:'FORKLIFTER', privilege:'worker', assignedCoordinator:true, team:'LOGÍSTICA', basicTeamSize:7,
+    role:'FORKLIFTER', privilege:'worker', assignedCoordinator:false, coordinatorUserId:'coord', team:'LOGÍSTICA', basicTeamSize:7,
     hands:5, crewHeads:1, forklifts:1, client:'Nova Stage Productions', ref:'3849/26-BCN', type:'LOAD IN',
-    specialty:'FORKLIFTER', coordinator:'Àlex Costa', coordinatorPhone:'664 690 034', catering:'Sí', diet:'Sí',
+    specialty:'FORKLIFTER', coordinator:'Álvaro Costa', coordinatorPhone:'664 690 034', catering:'Sí', diet:'Sí',
     clothing:'Ropa de trabajo negra', epi:'Guantes + botas + chaleco + casco', access:'Muelle Norte'
   },
   {
     id:'svc3', code:'392118', name:'URBAN WAVE FEST · FÒRUM HALL', date:'04/11/2026', short:'04 NOV', venue:'Fòrum Hall',
     address:'Parc del Fòrum · Barcelona', coords:{lat:41.41173,lng:2.22224},
     startISO:'2026-11-04T07:00:00+01:00', endISO:'2026-11-04T19:00:00+01:00', time:'07:00–19:00', call:'06:30',
-    role:'CREW HEAD', privilege:'crew', team:'PRINCIPAL',
+    role:'CREW HEAD', privilege:'crew', assignedCoordinator:true, coordinatorUserId:'demo', team:'PRINCIPAL',
     hands:28, crewHeads:1, forklifts:2, client:'Ritmo Iberia', ref:'3921/26-BCN', type:'LOAD IN + SHOW',
     specialty:'CREW HEAD', coordinator:'Pau Ferrer', coordinatorPhone:'670 555 221', catering:'Sí', diet:'Sí',
     clothing:'Uniformidad coordinación', epi:'Guantes + botas + chaleco + casco', access:'Acceso producción'
@@ -34,7 +34,7 @@ const services = [
     id:'svc4', code:'398764', name:'ORBIT AWARDS 2026 · RECINTO ARENA', date:'11/11/2026', short:'11 NOV', venue:'Recinto Arena',
     address:'C/ Energia 44 · Barcelona', coords:{lat:41.35945,lng:2.12895},
     startISO:'2026-11-11T06:30:00+01:00', endISO:'2026-11-11T20:00:00+01:00', time:'06:30–20:00', call:'06:00',
-    role:'CREW HEAD', privilege:'crew', team:'OPERACIONES',
+    role:'CREW HEAD', privilege:'crew', assignedCoordinator:true, coordinatorUserId:'demo', team:'OPERACIONES',
     hands:38, crewHeads:2, forklifts:2, client:'Golden Stage Iberia', ref:'3987/26-BCN', type:'LOAD IN + SHOW + LOAD OUT',
     specialty:'CREW HEAD', coordinator:'Pau Ferrer', coordinatorPhone:'670 555 221', catering:'Sí', diet:'Sí',
     clothing:'Uniformidad coordinación', epi:'Guantes + botas + chaleco + casco', access:'Acceso artistas 1'
@@ -43,9 +43,9 @@ const services = [
     id:'svc5', code:'401552', name:'ELECTRA LIVE · SANT JORDI HUB', date:'14/11/2026', short:'14 NOV', venue:'Sant Jordi Hub',
     address:'Montjuïc · Barcelona', coords:{lat:41.36313,lng:2.15318},
     startISO:'2026-11-14T13:00:00+01:00', endISO:'2026-11-14T23:00:00+01:00', time:'13:00–23:00', call:'12:30',
-    role:'HAND A', privilege:'worker', assignedCoordinator:false, team:'VÍDEO', basicTeamSize:12,
+    role:'HAND A', privilege:'worker', assignedCoordinator:false, coordinatorUserId:null, team:'VÍDEO', basicTeamSize:12,
     hands:10, crewHeads:1, forklifts:1, client:'Blacklight Concerts', ref:'4015/26-BCN', type:'SHOW',
-    specialty:'HAND A', coordinator:'Blai Navarro', coordinatorPhone:'671 455 729', catering:'No', diet:'No',
+    specialty:'HAND A', coordinator:'', coordinatorPhone:'', catering:'No', diet:'No',
     clothing:'Camiseta técnica negra', epi:'Guantes + botas + chaleco', access:'Puerta camiones'
   }
 ];
@@ -167,6 +167,7 @@ const pageIds={
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const serviceById=id=>services.find(s=>s.id===id);
+const assignedServices=()=>services.filter(s=>new Date(s.endISO).getTime()>Date.now() && (window.novaActiveAccount==='coord'?['svc1','svc2','svc3','svc4'].includes(s.id):true));
 
 function toast(title,text){
   $('#toastTitle').textContent=title;
@@ -200,22 +201,23 @@ function navigate(key){
 
 function getUpcomingService(){
   const now=Date.now();
-  const future=services
+  const future=assignedServices()
     .map(s=>({...s,startMs:new Date(s.startISO).getTime()}))
     .filter(s=>s.startMs>now)
     .sort((a,b)=>a.startMs-b.startMs);
-  return future[0] || services.map(s=>({...s,startMs:new Date(s.startISO).getTime()})).sort((a,b)=>b.startMs-a.startMs)[0];
+  return future[0]||null;
 }
 
 function updateHomeNextService(){
   const s=getUpcomingService();
   window.homeNextService=s;
-  $('#homeNextName').textContent=s.name;
-  $('#homeNextMeta').textContent=`${s.date} · ${s.time} · ${roleLabel(s)}`;
+  $('#homeNextName').textContent=s?s.name:'Sin próximos servicios';
+  $('#homeNextMeta').textContent=s?`${s.date} · ${s.time} · ${roleLabel(s)}`:'Consulta el tablón de servicios libres.';
 }
 
 function updateCountdown(){
   const s=window.homeNextService||getUpcomingService();
+  if(!s){['cdDays','cdHours','cdMinutes','cdSeconds'].forEach(id=>{$('#'+id).textContent='00'});$('#countdownStatus').textContent='';return;}
   const target=new Date(s.startISO).getTime();
   let diff=target-Date.now();
   if(diff<=0){
@@ -235,7 +237,7 @@ function updateCountdown(){
 }
 
 function renderHomeServices(){
-  $('#homeServices').innerHTML=services.slice(0,3).map(s=>`
+  $('#homeServices').innerHTML=assignedServices().slice().sort((a,b)=>new Date(a.startISO)-new Date(b.startISO)).slice(0,3).map(s=>`
     <article class="glass card">
       <span class="kicker">${s.short}</span>
       <h4>${s.name}</h4>
@@ -247,7 +249,7 @@ function renderHomeServices(){
 }
 
 function renderServices(){
-  $('#servicesList').innerHTML=services.map(s=>`
+  $('#servicesList').innerHTML=assignedServices().slice().sort((a,b)=>new Date(a.startISO)-new Date(b.startISO)).map(s=>`
     <article class="glass service-card">
       <div class="service-date"><b>${s.short.split(' ')[0]}</b><span>${s.short.split(' ')[1]} 2026</span></div>
       <div class="service-main">
@@ -313,7 +315,7 @@ function renderServiceDetail(s){
 }
 
 function renderCoordination(){
-  const coordinated=services.filter(s=>s.assignedCoordinator||s.privilege==='crew');
+  const coordinated=assignedServices().filter(s=>s.assignedCoordinator||s.privilege==='crew');
   $('#coordinationList').innerHTML=coordinated.map(s=>{
     const crew=s.privilege==='crew';
     const people=crew?totalPersonnel(s):s.basicTeamSize;
@@ -637,7 +639,7 @@ function makeCrewWorkers(service){
     try{return JSON.parse(saved)}catch(e){}
   }
   const rows=[];
-  const total=(service.hands||0)+(service.forklifts||0);
+  const total=Math.max(0,(service.hands||0)+(service.forklifts||0)-(service.id==='svc3'?1:0));
   for(let i=0;i<total;i++){
     const forklift=i>=service.hands;
     rows.push({
@@ -853,7 +855,7 @@ function renderCrewBlocks(){
           <button class="crew-add-worker" data-worktype="${type}">+ Añadir trabajador</button>
           <div class="block-order"><button data-move-block="${type}" data-dir="-1">↑</button><button data-move-block="${type}" data-dir="1">↓</button></div>
           <button data-toggle-block="${type}">${collapsed?'＋':'－'}</button>
-          <small>• ${rows.length} ✓ ${present} · CS ${crewState.service.coordinator}</small>
+          <small>• ${rows.length} ✓ ${present} · Coordinador: ${crewState.service.coordinator||'Sin asignar'}</small>
         </div>
         ${collapsed?'':`<div class="crew-block-body"><div class="crew-workers scroll-clean"><table class="crew-table">
           <thead><tr><th></th><th>Personal</th><th>Rol</th><th>Equipo</th><th>Horario</th><th>Pausa</th><th>Estado</th><th>Dieta</th><th>★</th><th>Incidencia</th><th>Acciones</th></tr></thead>
@@ -1226,7 +1228,7 @@ function makeBasicCoordWorkers(service){
       if(rows.length)return rows.map(normalizeBasicWorker);
     }catch(e){}
   }
-  const count=Math.min(15,Math.max(3,service.basicTeamSize||8));
+  const count=Math.max(1,Math.min(15,Math.max(3,service.basicTeamSize||8))-(['svc1','svc2'].includes(service.id)?2:0));
   const baseStart=service.time.split('–')[0],baseEnd=service.time.split('–')[1];
   const starts=[baseStart,addTime(baseStart,60),addTime(baseStart,120)];
   const ends=[baseEnd,baseEnd,addTime(baseEnd,-60)];
@@ -1688,7 +1690,7 @@ function renderCrewBlocks(){
   $('#crewBlocks').innerHTML=types.map(type=>{
     const rows=workers.filter(w=>w.workType===type);if(!rows.length)return'';
     const present=rows.filter(w=>w.status==='PRESENTE').length,collapsed=!!crewState.collapsed[type];
-    return `<section class="crew-block"><div class="crew-block-head"><span>⋮</span><strong>${type}</strong><button data-block-filter="NO CONTACTADO">No contactados</button><button data-block-filter="RESERVA">Reservas</button><button class="crew-add-worker" data-worktype="${type}">+ Añadir trabajador</button><div class="block-order"><button data-move-block="${type}" data-dir="-1">↑</button><button data-move-block="${type}" data-dir="1">↓</button></div><button data-toggle-block="${type}">${collapsed?'＋':'－'}</button><small>• ${rows.length} ✓ ${present} · CS ${crewState.service.coordinator}</small></div>
+    return `<section class="crew-block"><div class="crew-block-head"><span>⋮</span><strong>${type}</strong><button data-block-filter="NO CONTACTADO">No contactados</button><button data-block-filter="RESERVA">Reservas</button><button class="crew-add-worker" data-worktype="${type}">+ Añadir trabajador</button><div class="block-order"><button data-move-block="${type}" data-dir="-1">↑</button><button data-move-block="${type}" data-dir="1">↓</button></div><button data-toggle-block="${type}">${collapsed?'＋':'－'}</button><small>• ${rows.length} ✓ ${present} · Coordinador: ${crewState.service.coordinator||'Sin asignar'}</small></div>
       ${collapsed?'':`<div class="crew-block-body"><div class="crew-workers scroll-clean"><table class="crew-table"><thead><tr><th>Personal</th><th>Rol</th><th>Equipo</th><th>Horario</th><th>Pausa</th><th>Estado</th><th>Dieta</th><th>★</th><th>Incidencia</th><th>Acciones</th></tr></thead><tbody>${rows.map(w=>`<tr class="${w.selected?'selected':''}" data-worker="${w.id}"><td><button class="crew-worker-name v8-select-name" data-crew-select-name="${w.id}">${w.name}</button><br>${phoneLinkV9(w.phone)}</td><td>${w.role}${w.reserve?' <span class="mini-reserve">RESERVA</span>':''}</td><td>${w.team}</td><td>${w.start}–${w.end}<br><span class="muted">Real ${w.actualStart||w.realStart||'—'}–${w.actualEnd||w.realEnd||'—'}</span></td><td>${w.pause}</td><td>${statusSelectHtmlV8(w.id,w.status,'crew')}</td><td>${w.diet}</td><td>${ratingStarsV9('crew',w.id,avgRatingV8(w))}</td><td><span class="worker-incident">${w.incident||'—'}</span></td><td class="crew-worker-actions"><button data-edit-worker="${w.id}">Editar</button></td></tr>`).join('')}</tbody></table></div></div>`}</section>`;
   }).join('');
 }
@@ -1912,12 +1914,12 @@ function phoneLinkV9(raw){const clean=String(raw||'').replace(/[^\d+]/g,'');if(!
 function isOwnCoordinatorV9(s){
   const myName=String(portalProfile?.name||EMPLOYEE.name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
   const contactName=String(s.coordinator||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
-  return !!(s.assignedCoordinator || s.privilege==='crew' || (myName && myName===contactName));
+  return !!(s.coordinatorUserId && s.coordinatorUserId===(window.novaActiveAccount||'demo')); 
 }
 function coordinatorContactV9(s){if(isOwnCoordinatorV9(s)||!s.coordinator)return '';return `<div class="coordinator-contact"><span>Coordinador:</span> <strong>${escV9(s.coordinator)}</strong> <span class="contact-separator">·</span> ${phoneLinkV9(s.coordinatorPhone)}</div>`;}
 function coordinatorDetailV9(s){if(isOwnCoordinatorV9(s)||!s.coordinator)return '';return `<span>Coordinador</span><b>${escV9(s.coordinator)}</b><span>Teléfono</span><b>${phoneLinkV9(s.coordinatorPhone)}</b>`;}
 function syncCoordPermissionsV9(){
-  const count=services.filter(s=>s.assignedCoordinator||s.privilege==='crew').length;
+  const count=assignedServices().filter(s=>s.assignedCoordinator||s.privilege==='crew').length;
   const nav=$('#coordinationNavButton');if(nav){nav.hidden=count===0;nav.style.display=count?'':'none';}
   const badge=$('#coordinationNavCount');if(badge)badge.textContent=String(count);
   const home=$('#homeCoordCounter');if(home)home.style.display=count?'':'none';

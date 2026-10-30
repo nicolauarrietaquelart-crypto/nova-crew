@@ -4,14 +4,14 @@
 
 const DEMO_ACCOUNTS = {
   demo: {password:'crew2026',assigned:['svc1','svc2','svc3','svc4','svc5'],canScan:['svc3','svc4']},
-  coord:{password:'coord2026',assigned:['svc1','svc2','svc3'],canScan:['svc1','svc2']}
+  coord:{password:'coord2026',assigned:['svc1','svc2','svc3','svc4'],canScan:['svc1','svc2','svc4']}
 };
 const DEMO_SERVICES = {
-  svc1:{name:'LUMEN LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'STAGE',start:'16:00',end:'23:30',coordinator:true},
-  svc2:{name:'NEON DISTRICT · ARENA MONTJUÏC',category:'FORKLIFTER',team:'LOGÍSTICA',start:'08:00',end:'18:00',coordinator:true},
-  svc3:{name:'URBAN WAVE FEST · FÒRUM HALL',category:'CREW HEAD',team:'PRINCIPAL',start:'07:00',end:'19:00',coordinator:true},
-  svc4:{name:'ORBIT AWARDS 2026 · RECINTO ARENA',category:'CREW HEAD',team:'OPERACIONES',start:'06:30',end:'20:00',coordinator:true},
-  svc5:{name:'ELECTRA LIVE · SANT JORDI HUB',category:'HAND A',team:'VÍDEO',start:'13:00',end:'23:00',coordinator:false}
+  svc1:{name:'LUMEN LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'STAGE',start:'16:00',end:'23:30',coordinator:'coord'},
+  svc2:{name:'NEON DISTRICT · ARENA MONTJUÏC',category:'FORKLIFTER',team:'LOGÍSTICA',start:'08:00',end:'18:00',coordinator:'coord'},
+  svc3:{name:'URBAN WAVE FEST · FÒRUM HALL',category:'CREW HEAD',team:'PRINCIPAL',start:'07:00',end:'19:00',coordinator:'demo'},
+  svc4:{name:'ORBIT AWARDS 2026 · RECINTO ARENA',category:'CREW HEAD',team:'OPERACIONES',start:'06:30',end:'20:00',coordinator:'demo',crewHeads:['demo','coord']},
+  svc5:{name:'ELECTRA LIVE · SANT JORDI HUB',category:'HAND A',team:'VÍDEO',start:'13:00',end:'23:00',coordinator:null}
 };
 const TTL_QR = 90_000;
 const TTL_SESSION = 8 * 3600_000;
@@ -30,8 +30,14 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:
 const bad=(error,status=400)=>json({ok:false,error},status);
 const defaults=user=>user==='coord'?{firstName:'Álvaro',lastName:'Costa',phone:'664 690 034'}:{firstName:'Pau',lastName:'Ferrer Soler',phone:'670 555 221'};
 const visible=p=>({name:`${p.firstName} ${p.lastName}`.trim(),phone:p.phone});
-const assignment=(who,serviceId)=>who==='coord'&&serviceId==='svc3'?{category:'HAND A',team:'LUCES'}:{category:DEMO_SERVICES[serviceId].category,team:DEMO_SERVICES[serviceId].team};
+const assignment=(who,serviceId)=>who==='coord'&&serviceId==='svc4'?{category:'CREW HEAD',team:'OPERACIONES'}:DEMO_SERVICES[serviceId].coordinator===who?{category:'COORDINADOR',team:'COORDINACIÓN'}:who==='coord'&&serviceId==='svc3'?{category:'HAND A',team:'LUCES'}:{category:DEMO_SERVICES[serviceId].category,team:DEMO_SERVICES[serviceId].team};
 const assigned=(who,id)=>Boolean(DEMO_ACCOUNTS[who]?.assigned.includes(id)&&DEMO_SERVICES[id]);
+const manager=(who,id)=>Boolean(DEMO_SERVICES[id]&&(DEMO_SERVICES[id].coordinator===who || (DEMO_SERVICES[id].crewHeads||[]).includes(who)));
+const OPEN_SHIFTS=[
+{id:'free1',name:'ATLAS PRODUCTION · PALAU METROPOLITÀ',date:'2026-11-06',time:'09:00–18:00',role:'HAND B',venue:'Palau Metropolità',places:3},
+{id:'free2',name:'NIGHT SIGNAL · FÒRUM HALL',date:'2026-11-09',time:'17:00–01:00',role:'HAND A',venue:'Fòrum Hall',places:2},
+{id:'free3',name:'CITY LIGHTS · ARENA MONTJUÏC',date:'2026-11-15',time:'08:00–17:00',role:'FORKLIFTER',venue:'Arena Montjuïc',places:1}
+];
 
 /**
  * Takes a DurableObjectStorage-like object supporting get/put/transaction.
@@ -78,6 +84,27 @@ export function createDemoApi(storage) {
         await put('profile/'+actor,safe);
         return json({ok:true,profile:safe});
       }
+      if(op==='roster'){
+        const roster={};
+        for(const [id,acct] of Object.entries(DEMO_ACCOUNTS)){
+          roster[id]={id,...visible(await profile(id)),assigned:acct.assigned};
+        }
+        const shifts={};for(const id of Object.keys(DEMO_SERVICES))for(const who of Object.keys(DEMO_ACCOUNTS)){const v=await get(`shift/${id}/${who}`);if(v)shifts[`${id}/${who}`]=v;}
+        return json({ok:true,roster,shifts,coordinators:Object.fromEntries(Object.entries(DEMO_SERVICES).map(([id,s])=>[id,s.coordinator]))});
+      }
+      if(op==='openShifts'){
+        const rows=[];for(const s of OPEN_SHIFTS){const v=await get(`interest/${actor}/${s.id}`);rows.push({...s,interest:v?{status:'ENVIADO',requestedAt:v.requestedAt}:null});}
+        return json({ok:true,shifts:rows});
+      }
+      if(op==='interest'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        const id=st(body.shiftId,40),shift=OPEN_SHIFTS.find(s=>s.id===id);if(!shift)return bad('Servicio libre desconocido.',404);
+        const key=`interest/${actor}/${id}`;
+        if(body.withdraw===true){await storage.delete(key);return json({ok:true,status:'RETIRADO',shiftId:id});}
+        const existing=await get(key);if(existing)return json({ok:true,status:'ENVIADO',shiftId:id});
+        await put(key,{requestedAt:new Date().toISOString()});
+        return json({ok:true,status:'ENVIADO',shiftId:id,message:'Interés registrado. La oficina decidirá si asigna el servicio. No se ha asignado.'});
+      }
       if(op==='worker'){
         if(!DEMO_ACCOUNTS[actor].canScan.length)return bad('Sin permisos.',403);
         return json({ok:true,id:'demo',...visible(await profile('demo'))});
@@ -87,6 +114,7 @@ export function createDemoApi(storage) {
         const id=st(body.serviceId,20);
         if(!assigned(actor,id))return bad('No tienes asignado ese servicio.',403);
         if(!DEMO_SERVICES[id].coordinator)return bad('Este servicio permite fichar directamente.');
+        if(DEMO_SERVICES[id].coordinator===actor)return bad('Eres el único coordinador: ficha tu propio turno desde Fichar como coordinador.');
         const token=tokenHex(),digest=await sha(token),expiresAt=Date.now()+TTL_QR;
         await storage.transaction(async tx=>{
           await tx.put(`ticket/${digest}`,{workerId:actor,serviceId:id,expiresAt,used:false});
@@ -105,7 +133,7 @@ export function createDemoApi(storage) {
           if(!ticket||ticket.used||Date.now()>ticket.expiresAt)return {error:'QR caducado o utilizado. Genera otro.'};
           const id=ticket.serviceId,worker=ticket.workerId;
           if(worker===actor)return {error:'No puedes escanear tu propio QR.',status:403};
-          if(!DEMO_ACCOUNTS[actor].canScan.includes(id))return {error:'No coordinas este servicio.',status:403};
+          if(!manager(actor,id))return {error:'No tienes permisos de Crew Control en este servicio.',status:403};
           if(expected&&id!==expected)return {error:'Este QR pertenece a otro servicio.'};
           const active=await tx.get(`active/${worker}/${id}`);
           if(!active||active.digest!==digest)return {error:'Este QR ha sido sustituido por otro.'};
@@ -118,6 +146,25 @@ export function createDemoApi(storage) {
           return {record};
         });
         return outcome.error?bad(outcome.error,outcome.status||400):json({ok:true,record:outcome.record});
+      }
+      if(op==='selfClock'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        const id=st(body.serviceId,20);
+        if(!assigned(actor,id)||!manager(actor,id))return bad('Solo personal con gestión del servicio puede fichar su propio turno.',403);
+        const p=await profile(actor);
+        const record=makeRecord(actor,id,'GESTOR','FICHAJE PROPIO',p);
+        await put(`attendance/${id}/${actor}`,record);
+        return json({ok:true,record});
+      }
+      if(op==='updateShift'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        const id=st(body.serviceId,20),who=st(body.workerId||actor,20);
+        if(!assigned(who,id)||(!manager(actor,id)&&actor!==who))return bad('No puedes modificar este turno.',403);
+        const start=st(body.start,5),end=st(body.end,5);
+        if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end))return bad('Horario incorrecto.');
+        await put(`shift/${id}/${who}`,{start,end,updatedAt:new Date().toISOString(),updatedBy:actor});
+        const existing=await get(`attendance/${id}/${who}`);if(existing)await put(`attendance/${id}/${who}`,{...existing,start,end});
+        return json({ok:true,workerId:who,serviceId:id,start,end});
       }
       if(op==='direct'){
         if(request.method!=='POST')return bad('Método no permitido.',405);

@@ -2,12 +2,14 @@
 /* NOVA Crew v10: herramientas funcionales de DEMOSTRACIÓN. No envían datos reales a la empresa. */
 (function(){
   'use strict';
-  const KEY='novaCrewV10';
-  function safeLoad(){try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');return x&&typeof x==='object'?x:{}}catch(e){return {}}}
-  const stored=safeLoad();
+  const KEY=()=>`novaCrewV15-${window.novaActiveAccount||'demo'}`;
+  function safeLoad(){try{const x=JSON.parse(localStorage.getItem(KEY())||'{}');return x&&typeof x==='object'?x:{}}catch(e){return {}}}
+  let stored=safeLoad();
   let data={confirmations:stored.confirmations||{},notes:stored.notes||{}};
+  function syncAccount(){const next=safeLoad();data={confirmations:next.confirmations||{},notes:next.notes||{}};}
+  window.NOVA_V15_CONFIRM={syncAccount,statusOf:id=>data.confirmations[id]?.status||'PENDIENTE',pending:()=>assignedServices().filter(s=>(data.confirmations[s.id]?.status||'PENDIENTE')==='PENDIENTE').length,refresh:()=>{syncAccount();refreshServiceDecorations();renderCalendar();renderNotifications();}};
   const fmt=(t)=>typeof escV9==='function'?escV9(t):String(t);
-  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){console.warn('Guardado local no disponible',e)}};
+  const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify(data))}catch(e){console.warn('Guardado local no disponible',e)}};
   const statusOf=(id)=>data.confirmations[id]?.status||'PENDIENTE';
   const statusLabel=(st)=>st==='CONFIRMADO'?'CONFIRMADO':st==='NO DISPONIBLE'?'NO DISPONIBLE':'POR CONFIRMAR';
   const badge=(id)=>`<span class="v10-status ${statusOf(id)==='CONFIRMADO'?'confirmado':statusOf(id)==='NO DISPONIBLE'?'rechazado':'pendiente'}">${statusLabel(statusOf(id))}</span>`;
@@ -32,7 +34,7 @@
       document.getElementById('v10Decline').onclick=()=>{const reason=document.getElementById('v10Reason').value.trim();if(!reason){toast('Motivo requerido','Indica brevemente por qué no puedes acudir.');return}setConfirmed(id,status,reason);closeDemoModal();};
     }else setConfirmed(id,status,'');
   }
-  function setConfirmed(id,status,reason){data.confirmations[id]={status,reason,updatedAt:new Date().toISOString()};save();refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();toast('Asignación',status==='CONFIRMADO'?'Asistencia confirmada en la demo.':status==='PENDIENTE'?'Confirmación restablecida.':'No disponibilidad registrada en la demo.');}
+  function setConfirmed(id,status,reason){data.confirmations[id]={status,reason,updatedAt:new Date().toISOString()};save();refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();window.NOVA_V15?.updateAlerts?.();toast('Asignación',status==='CONFIRMADO'?'Asistencia confirmada en la demo.':status==='PENDIENTE'?'Confirmación restablecida.':'No disponibilidad registrada en la demo.');}
   function serviceControls(s,detail=false){
     const status=statusOf(s.id);
     const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${badge(s.id)}<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}" ${status==='CONFIRMADO'?'disabled':''}>✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
@@ -58,12 +60,12 @@
     const month=calendarCursor.getMonth(),year=calendarCursor.getFullYear();
     const monthLabel=calendarCursor.toLocaleDateString('es-ES',{month:'long',year:'numeric'});document.getElementById('v10CalendarTitle').textContent=monthLabel.charAt(0).toUpperCase()+monthLabel.slice(1);
     const start=new Date(year,month,1),startWeek=(start.getDay()+6)%7;
-    const cells=[];for(let i=0;i<42;i++){const d=new Date(year,month,1-startWeek+i);const day=calendarDay(d),same=d.getMonth()===month;const events=services.filter(s=>s.startISO.slice(0,10)===day);
+    const cells=[];for(let i=0;i<42;i++){const d=new Date(year,month,1-startWeek+i);const day=calendarDay(d),same=d.getMonth()===month;const events=assignedServices().filter(s=>s.startISO.slice(0,10)===day);
       cells.push(`<div class="v10-day ${same?'':'outside'} ${day===calendarDay(new Date())?'today':''} ${events.length?'has-service':''}" aria-label="${fmt(day)}"><strong>${d.getDate()}</strong>${events.map(s=>`<button type="button" class="v10-event ${statusOf(s.id)==='CONFIRMADO'?'confirmado':statusOf(s.id)==='NO DISPONIBLE'?'rechazado':''}" title="${fmt(s.name)}" data-v10-open="${fmt(s.id)}">${fmt(s.time.split('–')[0])} · ${fmt(s.name)}</button>`).join('')}</div>`);
     }
     root.innerHTML=cells.join('');
     const right=document.getElementById('v10CalendarUpcoming');if(right)right.innerHTML=services.filter(s=>new Date(s.endISO)>new Date()).sort((a,b)=>new Date(a.startISO)-new Date(b.startISO)).slice(0,5).map(s=>`<div class="v10-mini-service"><strong>${fmt(s.name)}</strong><small>${fmt(s.date)} · ${fmt(s.time)}</small><br>${badge(s.id)} <button type="button" class="btn light" data-v10-open="${fmt(s.id)}">Abrir ficha</button></div>`).join('')||'<p>Sin servicios futuros en esta demo.</p>';
-    const summary=document.getElementById('v10CalendarSummary');if(summary)summary.innerHTML=`<div class="v10-small-pills"><b>Asignados: ${services.length}</b><b>Confirmados: ${services.filter(s=>statusOf(s.id)==='CONFIRMADO').length}</b><b>Por confirmar: ${services.filter(s=>statusOf(s.id)==='PENDIENTE').length}</b></div>`;
+    const summary=document.getElementById('v10CalendarSummary');if(summary)summary.innerHTML=`<div class="v10-small-pills"><b>Asignados: ${assignedServices().length}</b><b>Confirmados: ${assignedServices().filter(s=>statusOf(s.id)==='CONFIRMADO').length}</b><b>Por confirmar: ${assignedServices().filter(s=>statusOf(s.id)==='PENDIENTE').length}</b></div>`;
   }
 
   function exportWorkerCSV(kind){const isCrew=kind==='crew';const w=isCrew?crewFilteredWorkers():visibleBasicWorkers();const selected=isCrew?crewState.workers.filter(x=>x.selected):basicCoordState.workers.filter(x=>basicCoordState.selected.has(x.id));const rows=selected.length?selected:w;if(!rows.length){toast('Exportación','No hay trabajadores que exportar.');return}
@@ -81,7 +83,7 @@
   renderWorkerCoord=function(s){originalBasic(s);enhanceCoord()};
   renderCrewControl=function(s){originalCrew(s);enhanceCrew()};
   const oldNotificationItems=notificationItems;
-  notificationItems=function(){let out=oldNotificationItems();const pending=services.filter(s=>statusOf(s.id)==='PENDIENTE');if(pending.length)out=[{icon:'✓',title:`${pending.length} asignaciones por confirmar`,text:'Revisa y confirma tus servicios.',action:()=>navigate('services')},...out];return out};
+  notificationItems=function(){let out=oldNotificationItems();const pending=assignedServices().filter(s=>statusOf(s.id)==='PENDIENTE');if(pending.length)out=[{icon:'✓',title:`${pending.length} asignaciones por confirmar`,text:'Revisa y confirma tus servicios.',action:()=>navigate('services')},...out];return out};
 
   document.addEventListener('click',ev=>{
     const node=ev.target.closest('[data-v10-confirm],[data-v10-decline],[data-v10-pending],[data-v10-ics],[data-v10-open],[data-v10-note-save],[data-v10-export]');if(!node)return;
