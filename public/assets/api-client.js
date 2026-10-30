@@ -8,13 +8,23 @@
     const isGet=['me','worker','roster','attendance','openShifts'].includes(op);
     const url=new URL(root,location.origin==='null'?'https://nova.local':location.origin);url.searchParams.set('op',op);
     if(op==='attendance')url.searchParams.set('serviceId',String(payload?.serviceId||''));
-    const response=await fetch(url.href,{
-      method:isGet?'GET':'POST',
-      headers:{...(isGet?{}:{'content-type':'application/json'}), ...(session?{'authorization':`Bearer ${session}`}:{})},
-      ...(isGet?{}:{body:JSON.stringify(payload||{})}),
-      cache:'no-store',credentials:'same-origin'
-    });
-    const json=await response.json().catch(()=>null);
+    const controller=new AbortController();
+    const timeoutMs=op==='login'?12000:18000;
+    const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+    let response,json;
+    try{
+      response=await fetch(url.href,{
+        method:isGet?'GET':'POST',
+        headers:{...(isGet?{}:{'content-type':'application/json'}), ...(session?{'authorization':`Bearer ${session}`}:{})},
+        ...(isGet?{}:{body:JSON.stringify(payload||{})}),
+        cache:'no-store',credentials:'same-origin',signal:controller.signal
+      });
+      json=await response.json().catch(()=>null);
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('El servidor tarda demasiado en responder. Comprueba la conexión y vuelve a intentarlo.');
+      throw new Error('No se pudo conectar con NOVA CREW. Comprueba tu conexión.');
+    }finally{clearTimeout(timeout);}
+
     if(!response.ok)throw new Error(json?.error||`Error HTTP ${response.status}`);
     return json;
   }
