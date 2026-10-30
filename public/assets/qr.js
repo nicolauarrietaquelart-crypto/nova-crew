@@ -180,6 +180,8 @@
   async function performOwnClock(method,button){
     if(button?.disabled)return;
     const s=chosenService();
+    const start=new Date(s.startISO).getTime(),end=new Date(s.endISO).getTime(),now=Date.now();
+    if(!Number.isFinite(start)||now<start-3600000||now>end+7200000){toast('Fichaje','Solo puedes fichar desde una hora antes del servicio.');return;}
     if(button){button.disabled=true;button.dataset.originalLabel=button.textContent;button.textContent='Validando ubicación…';}
     try{
       const gps=await verifiedSelfLocation(s);
