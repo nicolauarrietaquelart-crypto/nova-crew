@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handleCrewStore} from '../src/crew-store.mjs';
+import {handleCrewStore,handleSmallCoord} from '../src/crew-store.mjs';
 class MemoryStorage{
   constructor(){this.data=new Map();}
   async get(key){return structuredClone(this.data.get(key))}
@@ -32,4 +32,24 @@ test('supports new workers, incidents, and bulk operations',async()=>{
 });
 test('rejects cross-service batch',async()=>{
  const r=await call('demo','batch','svc4',{ops:[{type:'set',path:['services','svc2','workers','demo'],data:{status:'PRESENTE'}}]});assert.equal(r.ok,false);
+});
+
+test('Crew Head manages full concert, SFX coordinator can only manage SFX',async()=>{
+ const store=new MemoryStorage();
+ const sfx=await handleSmallCoord(store,'demo',{kind:'get',serviceId:'svc7'});
+ assert.equal(sfx.ok,true);
+ assert.equal(sfx.workers.length,4);
+ assert.equal(sfx.workers.find(w=>w.id==='demo').isCoordinator,true);
+ const big=await handleCrewStore(store,'coord',{kind:'init',code:'svc7'},id=>id==='svc7');
+ assert.equal(big.ok,true);
+ assert.equal(big.workers.length,10);
+ assert.equal(big.workers.find(w=>w.id==='coord').isCoordinator,true);
+ assert.equal(big.workers.find(w=>w.id==='demo').isSubCoordinator,true);
+ const update=await handleSmallCoord(store,'demo',{kind:'patch',serviceId:'svc7',workerId:'fict-2',changes:{start:'09:20'}});
+ assert.equal(update.ok,true);
+ const after=await handleCrewStore(store,'coord',{kind:'getDoc',code:'svc7',path:['services','svc7','workers','fict-2']},id=>id==='svc7');
+ assert.equal(after.data.actualStart,'09:20');
+ await assert.rejects(()=>handleSmallCoord(store,'demo',{kind:'patch',serviceId:'svc7',workerId:'fict-8',changes:{start:'09:20'}}));
+ const small=await handleSmallCoord(store,'demo',{kind:'get',serviceId:'svc6'});
+ assert.deepEqual(small.workers.map(x=>x.name),['Pau Ferrer Soler','Marc Vidal','Laia Costa','Pol Navarro']);
 });

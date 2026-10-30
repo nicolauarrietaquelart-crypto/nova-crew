@@ -46,12 +46,8 @@
     document.querySelectorAll('#homeServices .card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;card.querySelector('.v10-inline-tools')?.remove();const s=findService(b.dataset.openService);if(s)card.insertAdjacentHTML('beforeend',`<div class="v10-inline-tools v16-home-confirm">${badge(s.id)}${statusOf(s.id)==='PENDIENTE'?`<button class="btn dark" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button>`:''}</div>`);});
   }
   function decorateServiceDetail(){
-    const box=document.getElementById('serviceDetail');if(!box)return;
-    const selected=(box.dataset.v10CurrentService||'');const s=findService(selected);if(!s)return;
-    box.querySelector('.v10-service-extra')?.remove();
-    const side=box.querySelector('.side-stack')||box;
-    const note=data.notes[s.id]||'';
-    side.insertAdjacentHTML('beforeend',`<article class="glass card v10-service-extra"><h4>Confirmación y notas del servicio</h4>${serviceControls(s,true)}${data.confirmations[s.id]?.reason?`<p class="v10-info-note">Motivo: ${fmt(data.confirmations[s.id].reason)}</p>`:''}<label class="v10-info-note">Notas personales del servicio<textarea class="v10-note-field" id="v10ServiceNote" placeholder="Acceso, material, recordatorios…">${fmt(note)}</textarea></label><button class="btn light" type="button" data-v10-note-save="${fmt(s.id)}">Guardar notas</button></article>`);
+    // Confirmation remains on the service cards; no duplicate notes / confirmation panel in the ficha.
+    document.querySelector('#serviceDetail .v10-service-extra')?.remove();
   }
   function refreshServiceDecorations(){decorateServiceCards();decorateServiceDetail()}
   let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);

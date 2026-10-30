@@ -48,6 +48,24 @@ const services = [
     specialty:'HAND A', coordinator:'', coordinatorPhone:'', catering:'No', diet:'No',
     clothing:'Camiseta técnica negra', epi:'Guantes + botas + chaleco', access:'Puerta camiones'
   }
+  ,{
+    id:'svc6',code:'412790',name:'LUMINA BUSINESS · SALA CENTRAL',date:'07/11/2026',short:'07 NOV',venue:'Sala Central',
+    address:'Recinto Demo · Barcelona',coords:{lat:41.38,lng:2.17},
+    startISO:'2026-11-07T09:00:00+01:00',endISO:'2026-11-07T16:00:00+01:00',time:'09:00–16:00',call:'08:30',
+    role:'HAND B',privilege:'basic',assignedCoordinator:true,coordinatorUserId:'demo',team:'GENERAL',
+    basicTeamSize:4,hands:4,crewHeads:0,forklifts:0,client:'Lumina Producciones',ref:'4127/26-BCN',type:'SERVICIO TÉCNICO',
+    specialty:'HAND B',coordinator:'Pau Ferrer Soler',coordinatorPhone:'670 555 221',catering:'No',diet:'No',
+    clothing:'Camiseta negra',epi:'Guantes + botas + chaleco',access:'Acceso de personal'
+  },{
+    id:'svc7',code:'418360',name:'SPECTRUM LIVE · PALAU METROPOLITÀ',date:'19/11/2026',short:'19 NOV',venue:'Palau Metropolità',
+    address:'Recinto Demo · Barcelona',coords:{lat:41.36345,lng:2.15251},
+    startISO:'2026-11-19T07:00:00+01:00',endISO:'2026-11-19T21:00:00+01:00',time:'07:00–21:00',call:'06:30',
+    role:'HAND B',privilege:'basic',assignedCoordinator:true,coordinatorUserId:'coord',
+    smallCoordinatorUserId:'demo',smallCoordinatorScope:'SFX',team:'SFX',basicTeamSize:4,
+    hands:18,crewHeads:1,forklifts:2,client:'Spectrum Live Demo',ref:'4183/26-BCN',type:'LOAD IN + SFX + LOAD OUT',
+    specialty:'HAND B',coordinator:'Álvaro Costa',coordinatorPhone:'664 690 034',catering:'Sí',diet:'Sí',
+    clothing:'Uniformidad negra',epi:'Guantes + botas + chaleco + casco',access:'Acceso técnico'
+  }
 ];
 
 const docs = [
@@ -167,7 +185,7 @@ const pageIds={
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const serviceById=id=>services.find(s=>s.id===id);
-const assignedServices=()=>services.filter(s=>new Date(s.endISO).getTime()>Date.now() && (window.novaActiveAccount==='coord'?['svc1','svc2','svc3','svc4'].includes(s.id):true));
+const assignedServices=()=>services.filter(s=>new Date(s.endISO).getTime()>Date.now() && (window.novaActiveAccount==='coord'?['svc1','svc2','svc3','svc4','svc7'].includes(s.id):true));
 
 function toast(title,text){
   $('#toastTitle').textContent=title;

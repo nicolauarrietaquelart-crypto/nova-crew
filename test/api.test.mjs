@@ -96,8 +96,8 @@ test('one coordinator for each service, coordinator in roster and can clock own 
   const demo=await login(api,'demo','crew2026');
   const coord=await login(api,'coord','coord2026');
   const roster=await call(api,'roster',{session:demo.session});
-  assert.deepEqual(roster.coordinators,{svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null});
-  assert.deepEqual(roster.roster.coord.assigned,['svc1','svc2','svc3','svc4']);
+  assert.deepEqual(roster.coordinators,{svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord'});
+  assert.deepEqual(roster.roster.coord.assigned,['svc1','svc2','svc3','svc4','svc7']);
   assert.equal((await call(api,'issue',{session:coord.session,body:{serviceId:'svc2'}})).status,400);
   const self=await call(api,'selfClock',{session:coord.session,body:{serviceId:'svc2'}});
   assert.equal(self.record.workerName,'Álvaro Costa');
@@ -162,4 +162,31 @@ test('ordinary workers cannot edit even their own shift, while an authorized coo
   assert.equal(roster.shifts['svc2/demo'].end,'15:00');
   assert.equal(roster.shifts['svc2/coord'].end,'17:30');
   assert.equal(roster.shifts['svc4/coord'].end,'18:00');
+});
+
+test('small coordination has four HANDS, includes Pau and has server-enforced scope',async()=>{
+  const api=createDemoApi(mockStorage());
+  const pau=await login(api,'demo','crew2026');
+  const alvaro=await login(api,'coord','coord2026');
+  const roster=await call(api,'roster',{session:pau.session});
+  assert.equal(roster.smallCoordinators.svc7.SFX,'demo');
+  assert.equal(roster.coordinators.svc7,'coord');
+  const small=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc6',kind:'get'}});
+  assert.equal(small.ok,true);
+  assert.equal(small.workers.length,4);
+  assert.equal(small.workers.filter(x=>x.isCoordinator).length,1);
+  assert.equal(small.workers.find(x=>x.id==='demo').role,'HAND B');
+  const sfx=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc7',kind:'get'}});
+  assert.equal(sfx.workers.length,4);
+  assert.ok(sfx.workers.some(x=>x.id==='demo'&&x.isCoordinator));
+  const change=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc7',kind:'patch',workerId:'fict-1',changes:{end:'18:15',status:'PRESENTE'}}});
+  assert.equal(change.ok,true);
+  const denied=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc7',kind:'patch',workerId:'fict-5',changes:{end:'18:15'}}});
+  assert.equal(denied.status,403);
+  const deniedOther=await call(api,'smallCoord',{session:alvaro.session,body:{serviceId:'svc7',kind:'get'}});
+  assert.equal(deniedOther.status,403); // Crew Head uses the full Crew Control instead
+  const head=await call(api,'crew',{session:alvaro.session,body:{kind:'getDoc',code:'svc7',path:['services','svc7','workers','fict-1']}});
+  assert.equal(head.data.actualEnd,'18:15');
+  const restricted=await call(api,'crew',{session:pau.session,body:{kind:'init',code:'svc7'}});
+  assert.equal(restricted.status,403);
 });

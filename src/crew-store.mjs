@@ -5,7 +5,8 @@ const serviceMeta={
  svc1:{code:'svc1',name:'LUMEN LIVE · PALAU METROPOLITÀ',date:'2026-10-27',venue:'Palau Metropolità',start:'16:00',end:'23:30',manager:'coord',actors:['demo','coord']},
  svc2:{code:'svc2',name:'NEON DISTRICT · ARENA MONTJUÏC',date:'2026-10-31',venue:'Arena Montjuïc',start:'08:00',end:'18:00',manager:'coord',actors:['demo','coord']},
  svc3:{code:'svc3',name:'URBAN WAVE FEST · FÒRUM HALL',date:'2026-11-04',venue:'Fòrum Hall',start:'07:00',end:'19:00',manager:'demo',actors:['demo','coord']},
- svc4:{code:'svc4',name:'ORBIT AWARDS 2026 · RECINTO ARENA',date:'2026-11-11',venue:'Recinto Arena',start:'06:30',end:'20:00',manager:'demo',actors:['demo','coord']}
+ svc4:{code:'svc4',name:'ORBIT AWARDS 2026 · RECINTO ARENA',date:'2026-11-11',venue:'Recinto Arena',start:'06:30',end:'20:00',manager:'demo',actors:['demo','coord']},
+ svc7:{code:'svc7',name:'SPECTRUM LIVE · PALAU METROPOLITÀ',date:'2026-11-19',venue:'Palau Metropolità',start:'07:00',end:'21:00',manager:'coord',actors:['demo','coord']}
 };
 const cap=(x,n=160)=>String(x??'').slice(0,n);
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -25,7 +26,16 @@ function seed(code){
  if(demoAssigned)workers.demo=mk('demo',names.demo,m.manager==='demo'?'CREW HEAD':code==='svc2'?'FORKLIFTER':'HAND B',work,m.manager==='demo'?'tm-6':code==='svc2'?'tm-5':'tm-0',order++,'670 555 221',m.manager==='demo');
  const people=['Marina Torres','Sergio Alarcón','Carla Vidal','Lucas Navarro','Marta Ruiz','Joel Pons','Nuria Esteve','Hugo Serrano'];
  people.forEach((name,i)=>{const id=`fict-${i+1}`;workers[id]=mk(id,name,i===6?'FORKLIFTER':'HAND A',work,`tm-${i%5}`,order++,'600 000 '+String(110+i).padStart(3,'0'))});
- return {root:{code:m.code,serviceName:m.name,serviceDate:m.date,venue:m.venue,pdfName:'',workOrder:[work],hiddenWorkTypes:[],createdAt:time(),updatedAt:time(),closed:false,closedAt:'',finalPdfId:'',finalPdfUrl:'',scenarios:[{id:scenario,name:'Escenario principal',sortOrder:1}],teams,requirements:[],audit:[]},workers,incidents:{}};
+ if(code==='svc7'){
+  teams.push({id:'tm-sfx',scenarioId:scenario,name:'SFX',colorName:'VIOLETA',colorHex:'#8e44ad',noVest:false,sortOrder:8});
+  const localIds=['demo','fict-1','fict-2','fict-3'];
+  for(const id of localIds){
+    const w=workers[id];if(!w)continue;
+    w.teamId='tm-sfx';w.trabajo='SFX';w.blockLabel='SFX';w.blockId='sfx-svc7';
+    if(id==='demo'){w.especialidad='HAND B';w.isCoordinator=false;w.isSubCoordinator=true;w.subCoordinatorScope='SFX';w.notes='Coordinador del equipo SFX';}
+  }
+}
+return {root:{code:m.code,serviceName:m.name,serviceDate:m.date,venue:m.venue,pdfName:'',workOrder:code==='svc7'?['LOAD IN','SFX']:[work],hiddenWorkTypes:[],createdAt:time(),updatedAt:time(),closed:false,closedAt:'',finalPdfId:'',finalPdfUrl:'',scenarios:[{id:scenario,name:'Escenario principal',sortOrder:1}],teams,requirements:[],audit:[]},workers,incidents:{}};
 }
 function isDoc(path){return (path.length===2||path.length===4)&&path[0]==='services'&&path.length%2===0;}
 function isCollection(path){return (path.length===3)&&path[0]==='services'&&['workers','incidents'].includes(path[2]);}
@@ -46,7 +56,7 @@ export async function handleCrewStore(storage,actor,body,allow){
  }
  const path=validatePath(body?.path);const ops=body?.ops;
  const code=cap(body?.code||path?.[1]||'',40);
- if(!/^(svc[1-4]|9\d{5})$/.test(code))return fail('Servicio desconocido.',404);
+ if(!/^(svc[1-4]|svc7|9\d{5})$/.test(code))return fail('Servicio desconocido.',404);
  const owner=code.startsWith('9')?await storage.get(`crew-owner/${code}`):null;
  if(!allow(code)&&owner!==actor)return fail('No tienes permisos para gestionar este servicio.',403);
  const key=`crew-full/${code}`;
@@ -89,4 +99,86 @@ export async function handleCrewStore(storage,actor,body,allow){
    return {ok:true,updated:ops.length};
  }
  return fail('Operación de Crew Control desconocida.',404);
+}
+
+/** Normal HAND coordinators have a strictly scoped operational view.
+ * svc6: four HANDS including Pau. svc7: SFX subteam inside Álvaro's full Crew Control.
+ * Changes to svc7 share the SAME crew-full document used by the Crew Head.
+ */
+export async function handleSmallCoord(storage,actor,body){
+  const code=String(body?.serviceId||'');
+  if(actor!=='demo'||!['svc6','svc7'].includes(code))return fail('No autorizado para este equipo.',403);
+  const key=code==='svc6'?'small-team/svc6':'crew-full/svc7';
+  let doc=await storage.get(key);
+  if(!doc){
+    if(code==='svc7'){
+      await handleCrewStore(storage,'coord',{kind:'init',code:'svc7'},()=>true);
+      doc=await storage.get(key);
+    }else{
+      const base={start:'09:00',end:'16:00',status:'PENDIENTE',pause:'00:30',diet:'No',rating:0,incident:''};
+      doc={workers:[
+        {id:'demo',name:'Pau Ferrer Soler',role:'HAND B',phone:'670 555 221',...base,isCoordinator:true},
+        {id:'small-1',name:'Marc Vidal',role:'HAND B',phone:'600 000 141',...base},
+        {id:'small-2',name:'Laia Costa',role:'HAND A',phone:'600 000 142',...base},
+        {id:'small-3',name:'Pol Navarro',role:'HAND B',phone:'600 000 143',...base}
+      ]};
+      await storage.put(key,doc);
+    }
+  }
+  const mapped=()=>{
+    if(code==='svc6')return doc.workers.map(w=>({...w}));
+    const allowed=new Set(['demo','fict-1','fict-2','fict-3']);
+    return Object.values(doc.workers).filter(w=>allowed.has(w.id)&&w.trabajo==='SFX').map(w=>({
+      id:w.id,name:w.personal,role:w.especialidad,phone:w.movil||'',start:w.actualStart||w.inicio,
+      end:w.actualEnd||w.fin,status:w.status||'PENDIENTE',pause:w.pausa||'00:30',
+      diet:w.nDieta?'Sí':'No',rating:w.ratingActitud||0,incident:w.notes||'',
+      isCoordinator:!!w.isSubCoordinator
+    }));
+  };
+  const kind=String(body?.kind||'get');
+  if(kind==='get')return {ok:true,serviceId:code,scope:code==='svc7'?'SFX':'GENERAL',workers:mapped()};
+  if(kind!=='patch')return fail('Operación no permitida.',400);
+  const id=String(body?.workerId||'').slice(0,48);
+  const change=body?.changes;
+  if(!change||typeof change!=='object'||Array.isArray(change))return fail('Modificación inválida.');
+  const permitted=['start','end','status','pause','diet','rating','incident'];
+  if(Object.keys(change).some(k=>!permitted.includes(k)))return fail('Solo puedes editar horarios, estado y valoración de tu equipo.',403);
+  if(['start','end'].some(k=>change[k]!==undefined&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(change[k]))))return fail('Horario no válido.');
+  const accepted=['PENDIENTE','PRESENTE','CONTACTADO','NO CONTACTADO','NO PRESENTADO'];
+  if(change.status!==undefined&&!accepted.includes(change.status))return fail('Estado no permitido.');
+  let updated=null;
+  await storage.transaction(async tx=>{
+    const rec=await tx.get(key)||doc;
+    if(code==='svc6'){
+      const w=rec.workers.find(w=>w.id===id);
+      if(!w)throw new Error('Este trabajador no pertenece al equipo.');
+      for(const field of permitted){if(change[field]!==undefined)w[field]=field==='rating'?Math.max(0,Math.min(5,Number(change[field])||0)):String(change[field]).slice(0,200)}
+      updated={...w};
+    }else{
+      const allowed=['demo','fict-1','fict-2','fict-3'];
+      const w=allowed.includes(id)?rec.workers[id]:null;
+      if(!w||w.trabajo!=='SFX')throw new Error('Solo puedes gestionar trabajadores de SFX.');
+      if(change.start!==undefined)w.actualStart=change.start;
+      if(change.end!==undefined)w.actualEnd=change.end;
+      if(change.status!==undefined)w.status=change.status;
+      if(change.pause!==undefined)w.pausa=String(change.pause).slice(0,12);
+      if(change.diet!==undefined)w.nDieta=change.diet==='Sí'?1:0;
+      if(change.rating!==undefined)w.ratingActitud=Math.max(0,Math.min(5,Number(change.rating)||0));
+      if(change.incident!==undefined)w.notes=String(change.incident).slice(0,200);
+      updated={...w};
+      rec.root.updatedAt=time();
+    }
+    await tx.put(key,rec);
+    doc=rec;
+    if(id==='demo'){
+      const start=code==='svc6'?updated.start:updated.actualStart||updated.inicio;
+      const end=code==='svc6'?updated.end:updated.actualEnd||updated.fin;
+      await tx.put('shift/'+code+'/demo',{start,end,updatedBy:actor,updatedAt:time()});
+      if(change.status==='PRESENTE'){
+        const attendanceKey='attendance/'+code+'/demo';
+        if(!(await tx.get(attendanceKey)))await tx.put(attendanceKey,{serviceId:code,workerId:'demo',workerName:'Pau Ferrer Soler',category:'HAND B',team:code==='svc7'?'SFX':'GENERAL',start,end,status:'PRESENTE',method:'SMALL_COORD',scannedBy:actor,time:time()});
+      }
+    }
+  });
+  return {ok:true,serviceId:code,workerId:id,workers:mapped()};
 }

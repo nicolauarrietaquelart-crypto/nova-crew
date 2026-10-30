@@ -57,16 +57,17 @@ function open(service){
    // Apply layout constraints after the original v11.2.33 stylesheet loads.
    const layout=document.createElement('style');
    layout.id='nova-crew-11233-layout';
-   layout.textContent=[
-    'html{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important}',
-    'body{padding-top:0!important;min-height:100vh!important;height:auto!important;overflow-y:visible!important;overflow-x:hidden!important}',
-    'body>header,body>header.crew-header-floating-v11233{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:72px!important;min-height:72px!important;margin:0!important;border-radius:0!important;box-sizing:border-box!important;z-index:1300!important;background:#111!important}',
-    'body>main.wrap{padding-top:10px!important;margin-top:0!important}',
-    '@media(min-width:901px){body.control-sidebar-open main.wrap{width:calc(100% - 335px)!important;max-width:none!important;margin:8px 12px 0 323px!important;padding:0!important}body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215{position:fixed!important;left:12px!important;top:83px!important;width:298px!important;max-width:298px!important;max-height:calc(100dvh - 95px)!important;overflow-y:auto!important;z-index:1250!important}body.control-sidebar-open .personnel-main-v121{width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important}}',
-    '@media(max-width:900px){body>header,body>header.crew-header-floating-v11233{height:64px!important;min-height:64px!important}body.control-sidebar-open main.wrap{width:100%!important;max-width:100%!important;margin:0!important;padding:8px!important}body.control-sidebar-open .personnel-sidebar-v121{position:static!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;max-height:none!important;margin:0 0 12px!important}}',
-    '#initialPdfUploadPanel,#sidebarPdfManager{display:none!important}'
-   ].join('\n');
+   layout.textContent="html{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:thin!important}\nbody{padding-top:88px!important;min-height:100vh!important;height:auto!important;overflow-y:visible!important;overflow-x:hidden!important}\nbody>header,body>header.crew-header-floating-v11233{position:fixed!important;top:9px!important;left:12px!important;right:12px!important;width:calc(100% - 24px)!important;height:68px!important;min-height:68px!important;border-radius:0!important;margin:0!important;z-index:1300!important;background:#111!important;box-shadow:0 8px 25px rgba(0,0,0,.20)!important;border-bottom:3px solid #f58220!important}\nbody>main.wrap{padding-top:0!important;margin-top:0!important}\n#startScreen{display:none!important}\n#initialPdfUploadPanel,#sidebarPdfManager{display:none!important}\n@media(min-width:901px){body.control-sidebar-open main.wrap{width:calc(100% - 335px)!important;max-width:none!important;margin:8px 12px 0 323px!important;padding:0!important}body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215{position:fixed!important;left:12px!important;top:91px!important;width:298px!important;max-width:298px!important;max-height:calc(100dvh - 103px)!important;overflow-y:auto!important;z-index:1250!important}body.control-sidebar-open .personnel-main-v121{width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;padding:0!important}}\n@media(max-width:900px){body{padding-top:77px!important}body>header,body>header.crew-header-floating-v11233{top:6px!important;left:7px!important;right:7px!important;width:calc(100% - 14px)!important;height:62px!important;min-height:62px!important;border-radius:0!important}body.control-sidebar-open main.wrap{width:100%!important;max-width:100%!important;margin:0!important;padding:8px!important}body.control-sidebar-open .personnel-sidebar-v121{position:static!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;max-height:none!important;margin:0 0 12px!important;overflow:visible!important}}\n.nova-sfx-cordinator-note{margin:0 0 12px;padding:12px 16px;border:1px solid #edd6bd;background:#fff7ed;border-radius:12px;font:600 13px/1.5 Arial,sans-serif;color:#33291c}";
+
    doc.head.appendChild(layout);
+   if(service.id==='svc7'){
+     const marker=doc.createElement('div');
+     marker.className='nova-sfx-cordinator-note';
+     marker.textContent='Coordinación por equipos: Álvaro Costa · Crew Head general | SFX: Pau Ferrer Soler · HAND B y coordinador de SFX';
+     const frame=doc.getElementById('appScreen');
+     if(frame)frame.insertBefore(marker,frame.firstChild);
+   }
+
    doc.documentElement.style.setProperty('overflow-y','auto','important');
    doc.documentElement.style.setProperty('overflow-x','hidden','important');
    doc.body.style.setProperty('overflow-y','visible','important');
@@ -76,7 +77,7 @@ function open(service){
    },true);
   }catch(err){console.warn('Crew Control: no se pudo aplicar el ajuste de scroll',err)}
  });
- iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=fullscreen-v11233';
+ iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=fullscreen-v11233-hierarchy';
  overlay.appendChild(iframe);
  // The old embedded card is never displayed, even if its markup was created earlier.
  root.replaceChildren();

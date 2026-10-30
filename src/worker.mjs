@@ -1,18 +1,20 @@
-import {handleCrewStore} from './crew-store.mjs';
+import {handleCrewStore,handleSmallCoord} from './crew-store.mjs';
 /* NOVA Crew v14 — Cloudflare Workers + SQLite Durable Object.
    DEMONSTRATION ONLY. Credentials are public demo credentials.
    No real staff, payroll or employment data should be used. */
 
 const DEMO_ACCOUNTS = {
-  demo: {password:'crew2026',assigned:['svc1','svc2','svc3','svc4','svc5'],canScan:['svc3','svc4']},
-  coord:{password:'coord2026',assigned:['svc1','svc2','svc3','svc4'],canScan:['svc1','svc2','svc4']}
+  demo: {password:'crew2026',assigned:['svc1','svc2','svc3','svc4','svc5','svc6','svc7'],canScan:['svc3','svc4','svc6','svc7']},
+  coord:{password:'coord2026',assigned:['svc1','svc2','svc3','svc4','svc7'],canScan:['svc1','svc2','svc4','svc7']}
 };
 const DEMO_SERVICES = {
   svc1:{name:'LUMEN LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'STAGE',start:'16:00',end:'23:30',coordinator:'coord'},
   svc2:{name:'NEON DISTRICT · ARENA MONTJUÏC',category:'FORKLIFTER',team:'LOGÍSTICA',start:'08:00',end:'18:00',coordinator:'coord'},
   svc3:{name:'URBAN WAVE FEST · FÒRUM HALL',category:'CREW HEAD',team:'PRINCIPAL',start:'07:00',end:'19:00',coordinator:'demo'},
   svc4:{name:'ORBIT AWARDS 2026 · RECINTO ARENA',category:'CREW HEAD',team:'OPERACIONES',start:'06:30',end:'20:00',coordinator:'demo',crewHeads:['demo','coord']},
-  svc5:{name:'ELECTRA LIVE · SANT JORDI HUB',category:'HAND A',team:'VÍDEO',start:'13:00',end:'23:00',coordinator:null}
+  svc5:{name:'ELECTRA LIVE · SANT JORDI HUB',category:'HAND A',team:'VÍDEO',start:'13:00',end:'23:00',coordinator:null},
+  svc6:{name:'LUMINA BUSINESS · SALA CENTRAL',category:'HAND B',team:'GENERAL',start:'09:00',end:'16:00',coordinator:'demo'},
+  svc7:{name:'SPECTRUM LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'SFX',start:'07:00',end:'21:00',coordinator:'coord',crewHeads:['coord'],smallCoordinators:{SFX:'demo'}}
 };
 const TTL_QR = 90_000;
 const TTL_SESSION = 8 * 3600_000;
@@ -31,7 +33,7 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:
 const bad=(error,status=400)=>json({ok:false,error},status);
 const defaults=user=>user==='coord'?{firstName:'Álvaro',lastName:'Costa',phone:'664 690 034'}:{firstName:'Pau',lastName:'Ferrer Soler',phone:'670 555 221'};
 const visible=p=>({name:`${p.firstName} ${p.lastName}`.trim(),phone:p.phone});
-const assignment=(who,serviceId)=>who==='coord'&&serviceId==='svc4'?{category:'CREW HEAD',team:'OPERACIONES'}:DEMO_SERVICES[serviceId].coordinator===who?{category:'COORDINADOR',team:'COORDINACIÓN'}:who==='coord'&&serviceId==='svc3'?{category:'HAND A',team:'LUCES'}:{category:DEMO_SERVICES[serviceId].category,team:DEMO_SERVICES[serviceId].team};
+const assignment=(who,serviceId)=>serviceId==='svc7'&&who==='coord'?{category:'CREW HEAD',team:'OPERACIONES'}:serviceId==='svc7'&&who==='demo'?{category:'HAND B',team:'SFX',smallCoordinator:true}:serviceId==='svc6'&&who==='demo'?{category:'HAND B',team:'GENERAL',smallCoordinator:true}:who==='coord'&&serviceId==='svc4'?{category:'CREW HEAD',team:'OPERACIONES'}:DEMO_SERVICES[serviceId].coordinator===who?{category:'COORDINADOR',team:'COORDINACIÓN'}:who==='coord'&&serviceId==='svc3'?{category:'HAND A',team:'LUCES'}:{category:DEMO_SERVICES[serviceId].category,team:DEMO_SERVICES[serviceId].team};
 const assigned=(who,id)=>Boolean(DEMO_ACCOUNTS[who]?.assigned.includes(id)&&DEMO_SERVICES[id]);
 const manager=(who,id)=>Boolean(DEMO_SERVICES[id]&&(DEMO_SERVICES[id].coordinator===who || (DEMO_SERVICES[id].crewHeads||[]).includes(who)));
 const OPEN_SHIFTS=[
@@ -85,6 +87,10 @@ export function createDemoApi(storage) {
         const result=await handleCrewStore(storage,actor,body,id=>manager(actor,id));
         return json(result,result.status||200);
       }
+      if(op==='smallCoord'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        try{const out=await handleSmallCoord(storage,actor,body);return json(out,out.status||200)}catch(error){return bad(error.message||'Error guardando el equipo.',403)}
+      }
       if(op==='saveProfile'){
         if(request.method!=='POST')return bad('Método no permitido.',405);
         const data=body.profile||{};
@@ -99,7 +105,7 @@ export function createDemoApi(storage) {
           roster[id]={id,...visible(await profile(id)),assigned:acct.assigned};
         }
         const shifts={};for(const id of Object.keys(DEMO_SERVICES))for(const who of Object.keys(DEMO_ACCOUNTS)){const v=await get(`shift/${id}/${who}`);if(v)shifts[`${id}/${who}`]=v;}
-        return json({ok:true,roster,shifts,coordinators:Object.fromEntries(Object.entries(DEMO_SERVICES).map(([id,s])=>[id,s.coordinator]))});
+        return json({ok:true,roster,shifts,coordinators:Object.fromEntries(Object.entries(DEMO_SERVICES).map(([id,s])=>[id,s.coordinator])),smallCoordinators:{svc6:{GENERAL:'demo'},svc7:{SFX:'demo'}}});
       }
       if(op==='openShifts'){
         const rows=[];for(const s of OPEN_SHIFTS){const v=await get(`interest/${actor}/${s.id}`);const interestCount=(await Promise.all(Object.keys(DEMO_ACCOUNTS).map(id=>get(`interest/${id}/${s.id}`)))).filter(Boolean).length;const remaining=Math.max(0,s.places-interestCount);if(remaining>0)rows.push({...s,places:remaining,interest:v?{status:'ENVIADO',requestedAt:v.requestedAt}:null});}
@@ -142,7 +148,7 @@ export function createDemoApi(storage) {
           if(!ticket||ticket.used||Date.now()>ticket.expiresAt)return {error:'QR caducado o utilizado. Genera otro.'};
           const id=ticket.serviceId,worker=ticket.workerId;
           if(worker===actor)return {error:'No puedes escanear tu propio QR.',status:403};
-          if(!manager(actor,id))return {error:'No tienes permisos de Crew Control en este servicio.',status:403};
+          if(!manager(actor,id)&&!(actor==='demo'&&id==='svc7'&&assignment(worker,id).team==='SFX'))return {error:'No tienes permisos para escanear personal fuera de tu equipo.',status:403};
           if(expected&&id!==expected)return {error:'Este QR pertenece a otro servicio.'};
           const active=await tx.get(`active/${worker}/${id}`);
           if(!active||active.digest!==digest)return {error:'Este QR ha sido sustituido por otro.'};
