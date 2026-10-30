@@ -103,7 +103,7 @@ function render(){
  '<div class="nova-unified-list">'+
  list.map(w=>
  '<article class="nova-unified-worker '+(selected.has(w.id)?'selected':'')+'" data-nova-worker="'+escape(w.id)+'">'+
- '<button class="nova-unified-name" type="button" data-nova-select="'+escape(w.id)+'" aria-pressed="'+(selected.has(w.id)?'true':'false')+'"><strong>'+escape(w.name)+'</strong>'+
+ '<button class="nova-unified-name" type="button" data-nova-open-worker="'+escape(w.id)+'" aria-label="Abrir ficha de '+escape(w.name)+'"><strong>'+escape(w.name)+'</strong>'+
  (w.isCoordinator?'<small>COORDINADOR · '+escape(serviceType)+'</small>':'')+'</button>'+
  '<div class="nova-unified-role"><span>'+escape(w.role)+'</span><small>'+escape(w.start)+'–'+escape(w.end)+'</small></div>'+
  '<select aria-label="Estado de '+escape(w.name)+'" data-nova-status="'+escape(w.id)+'">'+statuses.map(v=>'<option value="'+v+'" '+(w.status===v?'selected':'')+'>'+v+'</option>').join('')+'</select>'+
@@ -201,6 +201,7 @@ document.addEventListener('click',e=>{
  if(e.target.closest('[data-nova-clear]')){selected.clear();render();return}
  const filter=e.target.closest('[data-nova-filter]');
  if(filter){if(filter.dataset.novaFilter==='status')statusFilter=filter.dataset.novaFilterValue;else timeFilter=filter.dataset.novaFilterValue;render();return}
+ const openWorker=e.target.closest('[data-nova-open-worker]');if(openWorker){edit([openWorker.dataset.novaOpenWorker]);return}
  const clickName=e.target.closest('[data-nova-select]');
  const row=e.target.closest('[data-nova-worker]');
  if(!clickName&&!row)return;
