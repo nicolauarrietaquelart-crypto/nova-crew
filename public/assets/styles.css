@@ -779,3 +779,14 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 @keyframes novaDesktopScrim{from{opacity:0}to{opacity:1}}
 @keyframes novaDesktopDialog{from{opacity:.5;transform:translateY(15px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.page.active,.nova-qr-overlay:not(.hidden),.nova-qr-overlay:not(.hidden) .nova-qr-modal{animation:none!important}}
+
+/* NOVA consistent vector affordances: QR, download and dismiss. */
+.nova-choice-vector{display:inline-flex!important;align-items:center;justify-content:center;color:#18191e!important;background:transparent!important;font-size:0!important;line-height:1!important}
+.nova-choice-vector svg{display:block;width:25px;height:25px;stroke:#18191e!important}
+.nova-download-btn{display:inline-flex!important;align-items:center;justify-content:center;gap:8px}
+.nova-download-btn svg{flex:none}
+:is(.nova-qr-head,.notifications-head,.v15-alert-head,.nova-inbox>header,.nova-crew-gps-dialog>header,.demo-modal-header) button[aria-label*="Cerrar"],
+:is(.nova-qr-head,.notifications-head,.v15-alert-head,.nova-inbox>header,.nova-crew-gps-dialog>header,.demo-modal-header) button[aria-label*="cerrar"],
+#novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],.nova-crew-gps-close{display:inline-grid!important;place-items:center!important;padding:0!important;text-align:center!important;line-height:1!important;color:#f58220!important}
+:is(#novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],.nova-crew-gps-close)::first-letter{color:#f58220}
+@media(max-width:900px){.nova-download-btn{min-height:46px}.nova-choice-vector svg{width:24px;height:24px}}
