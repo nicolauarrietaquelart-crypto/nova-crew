@@ -1312,3 +1312,44 @@ html[data-nova-theme="dark"] :is(.v10-status.rechazado,.basic-status.NO-PRESENTA
 html[data-nova-theme="dark"] .basic-status.CONTACTADO{background:#223e63!important;color:#bedcff!important}
 .nova-demo-reset-label{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:800;background:#ffe0bd;color:#753b0d}
 html[data-nova-theme="dark"] .nova-demo-reset-label{background:#73451e;color:#ffdda8}
+
+
+/* FIX 2026-10-31: explicit selectors for the actual #demoModal shell and availability grid. */
+html[data-nova-theme="dark"] body #demoModal .crew-modal-card,
+html[data-nova-theme="dark"] body #demoModal #demoModalBody{
+  background:#222a35!important;background-image:none!important;
+  color:#f4f7fc!important;border:1px solid #4b586a!important;
+  box-shadow:0 26px 75px rgba(0,0,0,.65)!important
+}
+html[data-nova-theme="dark"] body #demoModal .crew-modal-head{
+ background:#222a35!important;background-image:none!important;color:#fff!important;border-bottom:1px solid #465264!important
+}
+html[data-nova-theme="dark"] body #demoModal .crew-modal-head h3,
+html[data-nova-theme="dark"] body #demoModal p,
+html[data-nova-theme="dark"] body #demoModal .v15-modal-stack p,
+html[data-nova-theme="dark"] body #demoModal .muted{color:#d2dbe7!important}
+html[data-nova-theme="dark"] body #demoModal :is(.kv,.v15-modal-kv){
+ background:#303b4b!important;color:#f2f5fa!important;border-radius:12px;padding:12px
+}
+html[data-nova-theme="dark"] body #demoModal .v15-modal-service-box{background:#354457!important}
+html[data-nova-theme="dark"] body #demoModal :is(.kv b,.v15-modal-service-box b){color:#fff!important}
+html[data-nova-theme="dark"] body #demoModal :is(.kv span,.v15-modal-service-box small){color:#c4d0de!important}
+html[data-nova-theme="dark"] body #demoModal button.icon-only{background:#49576b!important;color:#fff!important}
+html[data-nova-theme="dark"] body #availabilityDays .availability-day-card.has-hours,
+html[data-nova-theme="dark"] body #availabilityDays .availability-day-card.has-hours:hover{
+ background:#195d3a!important;background-image:none!important;
+ border:2px solid #48cb84!important;color:#f0fff5!important;
+ box-shadow:inset 0 0 0 1px rgba(109,255,162,.22)!important
+}
+html[data-nova-theme="dark"] body #availabilityDays .availability-day-card.has-hours :is(b,span,small,em){
+ color:#edfff3!important;opacity:1!important
+}
+html[data-nova-theme="dark"] body #availabilityDays .availability-day-card:not(.has-hours){
+ background:#252f40!important;border-color:#46546b!important
+}
+html[data-nova-theme="dark"] body #availabilityDays .availability-day-card:not(.has-hours) em{
+ color:#bbc5d4!important
+}
+html[data-nova-theme="dark"] body .avail-hour.active{
+ background:#185d3a!important;border-color:#49ca82!important;color:#fff!important
+}
