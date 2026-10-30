@@ -89,7 +89,7 @@ function open(service){
    },true);
   }catch(err){console.warn('Crew Control: no se pudo aplicar el ajuste de scroll',err)}
  });
- const reference=String(service.serviceReference||service.reference||'').trim();
+ const reference=String(service.serviceReference||service.reference||(/^\d{6}$/.test(String(service.code||''))?service.code:'')).trim();
  iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+(reference?'&reference='+encodeURIComponent(reference):'')+'&ui=cloudflare&rev=20261030-qr-direct';
  overlay.appendChild(iframe);
  // The old embedded card is never displayed, even if its markup was created earlier.
