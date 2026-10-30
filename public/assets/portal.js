@@ -290,6 +290,11 @@ function renderServices(){
           <span class="chip">${s.team}</span>
         </div>
       </div>
+      <div class="nova-mobile-confirm" data-v10-service-actions="${s.id}">
+        <span class="v10-status pendiente">POR CONFIRMAR</span>
+        <button type="button" class="btn primary" data-v10-confirm="${s.id}">Confirmar asistencia</button>
+        <button type="button" class="btn light" data-v10-decline="${s.id}">No puedo asistir</button>
+      </div>
       <div class="service-actions">
         <button class="btn dark" data-open-service="${s.id}">Abrir ficha</button>
         <button class="btn light" data-service-print="${s.id}">PDF</button>
