@@ -1,0 +1,43 @@
+name: Instalar Crew Control 11.2.33
+on:
+  push:
+    paths:
+      - '.crew-transfer/v11233/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  instalar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Reconstruir y comprobar Crew Control original adaptado
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, hashlib
+          from pathlib import Path
+          parts=sorted(Path('.crew-transfer/v11233').glob('part-*.b64'))
+          assert len(parts)==12, f'Se esperaban 12 fragmentos, recibidos {len(parts)}'
+          compressed=''.join(x.read_text(encoding='utf-8').strip() for x in parts)
+          html=gzip.decompress(base64.b64decode(compressed))
+          expected='ecd71388813f289d1edb441a5585deb27048c37694c6a28f963e65cc5659f9e0'
+          assert hashlib.sha256(html).hexdigest()==expected, 'Checksum incorrecto'
+          assert b'Crew Control v11.2.33' in html, 'Version incorrecta'
+          assert b'CREW_CLOUDFLARE_FS' in html, 'Falta el adaptador Cloudflare'
+          assert b'firebaseConfig' not in html, 'Referencia Firebase sin eliminar'
+          Path('public/crew-control-full.html').write_bytes(html)
+          print('Crew Control v11.2.33 instalado:',len(html),'bytes')
+          PY
+      - name: Publicar el modulo en main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/crew-control-full.html
+          if git diff --cached --quiet; then
+            echo "El modulo ya estaba actualizado."
+          else
+            git commit -m "Instalar Crew Control v11.2.33 Cloudflare"
+            git push origin HEAD:main
+          fi
