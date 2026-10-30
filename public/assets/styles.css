@@ -841,3 +841,15 @@ html[data-nova-theme="dark"] :is(.nav-btn:not(.active):hover,.availability-day-c
 html[data-nova-theme="dark"] .nova-choice-vector svg{stroke:#f3f5f8!important}
 html[data-nova-theme="dark"] #appView .sidebar-brand{background:transparent!important}
 @media(max-width:900px){html[data-nova-theme="dark"] #appView .sidebar{background:linear-gradient(145deg,rgba(47,53,64,.94),rgba(24,29,37,.93))!important}}
+
+/* Mobile service confirmations: persistent visible status and touch-sized actions. */
+@media(max-width:900px){
+ #servicesList .service-card{display:grid!important;grid-template-columns:66px minmax(0,1fr)!important;gap:10px!important;min-width:0!important;overflow:visible!important}
+ #servicesList .service-card .service-main{min-width:0!important}
+ #servicesList .service-card>.service-actions,#servicesList .service-card>.v10-inline-tools{display:flex!important;grid-column:1/-1!important;width:100%!important;min-width:0!important;box-sizing:border-box!important;justify-content:flex-start!important;flex-wrap:wrap!important;gap:8px!important}
+ #servicesList .service-card>.v10-inline-tools{padding:12px 0 0!important;margin-top:5px!important;border-top:1px solid var(--line)!important;align-items:center!important}
+ #servicesList .v10-inline-tools .v10-status{display:inline-flex!important;align-items:center;min-height:30px;padding:6px 11px!important;font-size:11px!important;font-weight:800!important}
+ #servicesList .v10-inline-tools .btn{display:inline-flex!important;justify-content:center;align-items:center;min-height:44px!important;white-space:normal!important;flex:1 1 130px!important;font-size:12px!important}
+ #servicesList .v10-inline-tools .v10-locked{flex:1 1 100%;font-size:11px;line-height:1.5}
+ #servicesList .service-card>.service-actions .btn{min-height:42px}
+}
