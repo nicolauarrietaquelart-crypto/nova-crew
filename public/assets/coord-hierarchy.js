@@ -4,7 +4,7 @@
 const el=id=>document.getElementById(id);
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statuses=['PENDIENTE','CONTACTADO','NO CONTACTADO','PRESENTE','NO PRESENTADO'];
-let active=null,workers=[],selected=new Set(),query='',statusFilter='ALL',timeFilter='ALL',busy=false;
+let active=null,workers=[],incidents=[],selected=new Set(),query='',statusFilter='ALL',timeFilter='ALL',busy=false;
 let expandedCoordSections={attendance:false,entry:false,selection:false};
 const account=()=>window.novaActiveAccount||window.NOVA_API?.account||'demo';
 const service=id=>typeof services!=='undefined'?services.find(x=>x.id===id):null;
@@ -96,7 +96,7 @@ function render(){
  sidebar()+'<section class="nova-unified-main">'+
  '<div class="nova-unified-heading"><div><span class="kicker">'+escape(serviceType)+' · '+escape(active.type||'SERVICIO')+'</span>'+
  '<h2>'+escape(active.name)+'</h2><p>'+escape(active.venue)+' · '+escape(active.date)+' · '+escape(active.time)+'</p></div>'+
- '<button type="button" class="btn light" data-nova-refresh>Actualizar</button></div>'+
+ '<div class="nova-coord-header-actions"><button type="button" class="btn light" data-nova-incident>+ Reportar incidencia</button><button type="button" class="btn light" data-nova-refresh>Actualizar</button></div></div>'+
  '<div class="nova-unified-tools"><div><b>'+list.length+' trabajadores</b><span>'+escape(serviceType)+' · '+selected.size+' seleccionados</span></div>'+
  '<input id="novaUnifiedSearch" type="search" placeholder="Buscar trabajador…" value="'+escape(query)+'" autocomplete="off">'+
  '<button class="btn dark" data-nova-bulk type="button">Editar seleccionados ('+selected.size+')</button></div>'+
@@ -122,7 +122,7 @@ async function load(s,keep=false){
   const res=await window.NOVA_API.smallCoord(s.id,'get');
   if(active?.id!==s.id)return;
   if(!res.ok)throw Error(res.error||'Error al cargar personal');
-  workers=res.workers||[];
+  workers=res.workers||[];incidents=res.incidents||[];
   if(account()==='demo'){
    const p=typeof portalProfile!=='undefined'?portalProfile:null;
    if(p?.name){const own=workers.find(w=>w.id==='demo');if(own)own.name=p.name}
@@ -144,20 +144,20 @@ function edit(ids){
  if(!ids.length){toastMessage('Coordinación','Selecciona uno o más trabajadores pulsando sus nombres.');return}
  const first=workers.find(w=>w.id===ids[0]);if(!first||typeof openDemoModal!=='function')return;
  const multi=ids.length>1;
- const optionsRoles=[...new Set([...workers.map(w=>w.role).filter(Boolean),'HAND A','HAND B','CREW HEAD','COORDINADOR','FORKLIFTER','RUNNER','SITE','CATERING'])];
  const row=(id,label,val)=>'<label>'+label+'<input type="time" id="'+id+'" value="'+escape(val||'')+'"></label>';
  openDemoModal(multi?'Editar '+ids.length+' trabajadores':'Ficha de '+first.name,
- '<div class="basic-modal-grid">'+'<label>Puesto<select id="novaEditRole"><option value="">'+(multi?'Mantener':'Elegir puesto')+'</option>'+optionsRoles.map(v=>'<option value="'+escape(v)+'" '+(!multi&&v===first.role?'selected':'')+'>'+escape(v)+'</option>').join('')+'</select></label>'+row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
+ '<div class="basic-modal-grid">'+'<div class="nova-locked-role"><strong>Puesto: '+escape(first.role)+'</strong><small>La categoría solo puede cambiarse mediante una incidencia de cambio de categoría.</small></div>'++row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
  '<label>Estado<select id="novaEditStatus"><option value="">Mantener</option>'+statuses.map(v=>'<option value="'+v+'" '+(!multi&&v===first.status?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','01:00','02:00','03:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Dietas<select id="novaEditDiet"><option value="">Mantener</option>'+['0','1','2','3'].map(n=>'<option value="'+n+'" '+(!multi&&String(first.diet)===(n==='0'?'No':n==='1'?'Sí':n)?'selected':'')+'>'+n+'</option>').join('')+'</select></label>'+
  ratingModalRows(first,multi)+
- '<label class="nova-incident-field">Incidencia / observaciones<input type="text" maxlength="200" id="novaEditIncident" value="'+(multi?'':escape(first.incident||''))+'"></label>'+
+ '<button type="button" class="btn light" id="novaOpenIncident">Reportar incidencia</button>'+
  '</div><div class="crew-modal-actions"><button type="button" class="btn light" id="novaEditCancel">Cancelar</button><button type="button" class="btn primary" id="novaEditSubmit">Guardar cambios</button></div>');
  setTimeout(()=>{
   el('novaEditCancel').onclick=()=>closeDemoModal();
+  el('novaOpenIncident').onclick=()=>openIncident(multi?'':first.id);
   el('novaEditSubmit').onclick=async()=>{
-   const fields={role:el('novaEditRole').value,start:el('novaEditStart').value,end:el('novaEditEnd').value,status:el('novaEditStatus').value,pause:el('novaEditPause').value,diet:el('novaEditDiet').value,incident:el('novaEditIncident').value};
+   const fields={start:el('novaEditStart').value,end:el('novaEditEnd').value,status:el('novaEditStatus').value,pause:el('novaEditPause').value,diet:el('novaEditDiet').value};
    for(const [field] of ratingFields)fields[field]=document.querySelector('[data-nova-rating-input="'+field+'"]')?.value||'';
    const c=Object.fromEntries(Object.entries(fields).filter(([k,v])=>v!==''));for(const [field] of ratingFields){if(field in c)c[field]=Number(c[field]);}
    if(!Object.keys(c).length){closeDemoModal();return}
@@ -169,7 +169,38 @@ function edit(ids){
   };
  },0);
 }
+function openIncident(workerId=''){
+ if(!active)return;
+ const options=workers.map(w=>'<option value="'+escape(w.id)+'" '+(w.id===workerId?'selected':'')+'>'+escape(w.name)+'</option>').join('');
+ const categories=['Retraso','Uniformidad','Actitud','Seguridad','Ausencia','Daños','Cambio de categoría','Otro'];
+ const roles=['HAND B','HAND A','CREW HEAD','COORDINADOR','FORKLIFTER','RUNNER','SITE','CATERING'];
+ openDemoModal('Reportar incidencia','<div class="basic-modal-grid">'+
+ '<label>Ámbito<select id="novaIncidentScope"><option value="worker" '+(workerId?'selected':'')+'>Trabajador</option><option value="general" '+(!workerId?'selected':'')+'>General del servicio</option></select></label>'+
+ '<label id="novaIncidentWorkerWrap">Trabajador<select id="novaIncidentWorker">'+options+'</select></label>'+
+ '<label>Tipo de incidencia<select id="novaIncidentType">'+categories.map(x=>'<option>'+x+'</option>').join('')+'</select></label>'+
+ '<label>Gravedad<select id="novaIncidentSeverity"><option>Leve</option><option>Moderada</option><option>Grave</option></select></label>'+
+ '<label id="novaIncidentRoleWrap" class="full" hidden>Nueva categoría<select id="novaIncidentRole">'+roles.map(x=>'<option>'+x+'</option>').join('')+'</select></label>'+
+ '<label class="full">Descripción<textarea id="novaIncidentNotes" rows="4" maxlength="1500" required></textarea></label>'+
+ '</div><div class="crew-modal-actions"><button class="btn light" id="novaIncidentCancel">Cancelar</button><button class="btn primary" id="novaIncidentSave">Guardar incidencia</button></div>');
+ const scope=el('novaIncidentScope'),type=el('novaIncidentType');
+ const sync=()=>{el('novaIncidentWorkerWrap').hidden=scope.value==='general';el('novaIncidentRoleWrap').hidden=type.value!=='Cambio de categoría';if(scope.value==='general'&&type.value==='Cambio de categoría')type.value='Otro';};
+ scope.onchange=sync;type.onchange=sync;sync();
+ el('novaIncidentCancel').onclick=closeDemoModal;
+ el('novaIncidentSave').onclick=async()=>{
+   const button=el('novaIncidentSave');button.disabled=true;button.textContent='Guardando…';
+   try{
+     const result=await window.NOVA_API.smallIncident(active.id,{
+       scope:scope.value,workerId:el('novaIncidentWorker').value,incidentType:type.value,
+       severity:el('novaIncidentSeverity').value,notes:el('novaIncidentNotes').value.trim(),
+       newRole:type.value==='Cambio de categoría'?el('novaIncidentRole').value:''
+     });
+     if(!result.ok)throw Error(result.error||'No se ha podido guardar');
+     closeDemoModal();await load(active,true);toastMessage('Incidencia','Incidencia registrada correctamente.');
+   }catch(error){button.disabled=false;button.textContent='Guardar incidencia';toastMessage('Error',error.message)}
+ };
+}
 document.addEventListener('click',e=>{
+ if(e.target.closest('[data-nova-incident]')){openIncident();return;}
  const serviceSheet=e.target.closest('#openWorkerCoordServiceSheet');
  if(serviceSheet){
   if(!active)return;
