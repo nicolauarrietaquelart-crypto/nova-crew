@@ -1638,3 +1638,47 @@ html[data-nova-theme="dark"] #novaQrOverlay .nova-qr-modal{
  box-shadow:inset 0 1px 0 rgba(255,255,255,.75)
 }
 .documents-list .doc-icon svg{display:block;width:25px;height:25px;flex:none}
+
+
+/* Mobile availability calendar: override legacy 650px min-width that cuts off days 5-7. */
+@media(max-width:700px){
+ #page-availability,
+ #page-availability .availability-layout,
+ #page-availability .availability-layout>.card,
+ #availabilityDays,
+ #availabilityDays .availability-days,
+ #availabilityDays .availability-month-head,
+ #availabilityDays .availability-weekdays,
+ #availabilityDays .availability-calendar.month-view{
+  width:100%!important;min-width:0!important;max-width:100%!important;
+  box-sizing:border-box!important
+ }
+ #availabilityDays .availability-days{overflow-x:hidden!important}
+ #availabilityDays .availability-month-head{
+  display:grid!important;grid-template-columns:38px minmax(0,1fr) 38px!important;
+  align-items:center!important;gap:4px!important
+ }
+ #availabilityDays .availability-month-head>div{min-width:0!important;overflow:hidden!important;text-align:center!important}
+ #availabilityDays .availability-month-head strong{
+  font-size:clamp(13px,4.2vw,18px)!important;line-height:1.25!important;
+  overflow-wrap:anywhere!important;white-space:normal!important
+ }
+ #availabilityDays .availability-month-head button{width:38px!important;min-width:0!important;padding:5px!important}
+ #availabilityDays .availability-weekdays,
+ #availabilityDays .availability-calendar.month-view{
+  display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;
+  gap:3px!important;overflow:visible!important
+ }
+ #availabilityDays .availability-calendar.month-view .availability-day-card{
+  width:100%!important;min-width:0!important;min-height:58px!important;
+  padding:5px 2px!important;border-radius:8px!important;
+  box-sizing:border-box!important;overflow:hidden!important
+ }
+ #availabilityDays .availability-calendar.month-view .availability-day-card b{
+  font-size:clamp(12px,3.6vw,17px)!important
+ }
+ #availabilityDays .availability-calendar.month-view .availability-day-card em{
+  display:none!important
+ }
+ #availabilityDays .availability-blank{min-width:0!important;min-height:58px!important}
+}
