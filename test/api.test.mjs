@@ -190,3 +190,27 @@ test('small coordination has four HANDS, includes Pau and has server-enforced sc
   const restricted=await call(api,'crew',{session:pau.session,body:{kind:'init',code:'svc7'}});
   assert.equal(restricted.status,403);
 });
+
+test('Alvaro and Pau use identical scoped coordination API and cannot cross edit teams',async()=>{
+ const api=createDemoApi(mockStorage());
+ const alvaro=await login(api,'coord','coord2026');
+ const pau=await login(api,'demo','crew2026');
+ const logistica=await call(api,'smallCoord',{session:alvaro.session,body:{serviceId:'svc2',kind:'get'}});
+ assert.equal(logistica.status,200);
+ assert.equal(logistica.workers.length,7);
+ assert.equal(logistica.workers.filter(w=>w.isCoordinator).length,1);
+ assert.equal(logistica.workers.find(w=>w.isCoordinator).name,'Álvaro Costa');
+ const pauSmall=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc6',kind:'get'}});
+ assert.equal(pauSmall.status,200);
+ assert.equal(pauSmall.workers.length,4);
+ const rated=await call(api,'smallCoord',{session:alvaro.session,body:{serviceId:'svc2',kind:'patch',workerId:'svc2-hand-1',changes:{rating:5,status:'CONTACTADO'}}});
+ assert.equal(rated.status,200);
+ assert.equal(rated.workers.find(w=>w.id==='svc2-hand-1').rating,5);
+ const forbidden=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc2',kind:'get'}});
+ assert.equal(forbidden.status,403);
+ const noCrewAccess=await call(api,'crew',{session:pau.session,body:{kind:'init',code:'svc7'}});
+ assert.equal(noCrewAccess.status,403);
+ const head=await call(api,'crew',{session:alvaro.session,body:{kind:'init',code:'svc7'}});
+ assert.equal(head.status,200);
+ assert.equal(head.workers.filter(w=>w.trabajo==='SFX').length,4);
+});

@@ -107,26 +107,26 @@ export async function handleCrewStore(storage,actor,body,allow){
  */
 export async function handleSmallCoord(storage,actor,body){
   const code=String(body?.serviceId||'');
-  if(actor!=='demo'||!['svc6','svc7'].includes(code))return fail('No autorizado para este equipo.',403);
-  const key=code==='svc6'?'small-team/svc6':'crew-full/svc7';
+  if(!((actor==='demo'&&['svc6','svc7'].includes(code))||(actor==='coord'&&['svc1','svc2'].includes(code))))return fail('No autorizado para este equipo.',403);
+  const key=code==='svc7'?'crew-full/svc7':`small-team/${code}`;
   let doc=await storage.get(key);
   if(!doc){
     if(code==='svc7'){
       await handleCrewStore(storage,'coord',{kind:'init',code:'svc7'},()=>true);
       doc=await storage.get(key);
     }else{
-      const base={start:'09:00',end:'16:00',status:'PENDIENTE',pause:'00:30',diet:'No',rating:0,incident:''};
-      doc={workers:[
+      const base={start:code==='svc2'?'08:00':code==='svc1'?'16:00':'09:00',end:code==='svc2'?'18:00':code==='svc1'?'23:30':'16:00',status:'PENDIENTE',pause:'00:30',diet:'No',rating:0,incident:''};
+      doc={workers:code==='svc6'?[
         {id:'demo',name:'Pau Ferrer Soler',role:'HAND B',phone:'670 555 221',...base,isCoordinator:true},
         {id:'small-1',name:'Marc Vidal',role:'HAND B',phone:'600 000 141',...base},
         {id:'small-2',name:'Laia Costa',role:'HAND A',phone:'600 000 142',...base},
         {id:'small-3',name:'Pol Navarro',role:'HAND B',phone:'600 000 143',...base}
-      ]};
+      ]:[{id:'coord',name:'Álvaro Costa',role:'HAND B',phone:'664 690 034',...base,isCoordinator:true},...Array.from({length:code==='svc2'?6:8},(_,i)=>({id:`${code}-hand-${i+1}`,name:['Marina Torres','Sergio Alarcón','Carla Vidal','Marc Vidal','Laia Costa','Pol Navarro','Ana Ruiz','David Soto'][i],role:i===2?'FORKLIFTER':i%3===0?'HAND A':'HAND B',phone:`600 000 ${String(i+1).padStart(3,'0')}`,...base}))]};
       await storage.put(key,doc);
     }
   }
   const mapped=()=>{
-    if(code==='svc6')return doc.workers.map(w=>({...w}));
+    if(code!=='svc7')return doc.workers.map(w=>({...w}));
     const allowed=new Set(['demo','fict-1','fict-2','fict-3']);
     return Object.values(doc.workers).filter(w=>allowed.has(w.id)&&w.trabajo==='SFX').map(w=>({
       id:w.id,name:w.personal,role:w.especialidad,phone:w.movil||'',start:w.actualStart||w.inicio,
@@ -136,7 +136,7 @@ export async function handleSmallCoord(storage,actor,body){
     }));
   };
   const kind=String(body?.kind||'get');
-  if(kind==='get')return {ok:true,serviceId:code,scope:code==='svc7'?'SFX':'GENERAL',workers:mapped()};
+  if(kind==='get')return {ok:true,serviceId:code,scope:code==='svc7'?'SFX':code==='svc2'?'LOGÍSTICA':code==='svc1'?'STAGE':'GENERAL',workers:mapped()};
   if(kind!=='patch')return fail('Operación no permitida.',400);
   const id=String(body?.workerId||'').slice(0,48);
   const change=body?.changes;
@@ -149,7 +149,7 @@ export async function handleSmallCoord(storage,actor,body){
   let updated=null;
   await storage.transaction(async tx=>{
     const rec=await tx.get(key)||doc;
-    if(code==='svc6'){
+    if(code!=='svc7'){
       const w=rec.workers.find(w=>w.id===id);
       if(!w)throw new Error('Este trabajador no pertenece al equipo.');
       for(const field of permitted){if(change[field]!==undefined)w[field]=field==='rating'?Math.max(0,Math.min(5,Number(change[field])||0)):String(change[field]).slice(0,200)}
@@ -170,13 +170,13 @@ export async function handleSmallCoord(storage,actor,body){
     }
     await tx.put(key,rec);
     doc=rec;
-    if(id==='demo'){
-      const start=code==='svc6'?updated.start:updated.actualStart||updated.inicio;
-      const end=code==='svc6'?updated.end:updated.actualEnd||updated.fin;
-      await tx.put('shift/'+code+'/demo',{start,end,updatedBy:actor,updatedAt:time()});
+    if(id===actor){
+      const start=code!=='svc7'?updated.start:updated.actualStart||updated.inicio;
+      const end=code!=='svc7'?updated.end:updated.actualEnd||updated.fin;
+      await tx.put(`shift/${code}/${actor}`,{start,end,updatedBy:actor,updatedAt:time()});
       if(change.status==='PRESENTE'){
-        const attendanceKey='attendance/'+code+'/demo';
-        if(!(await tx.get(attendanceKey)))await tx.put(attendanceKey,{serviceId:code,workerId:'demo',workerName:'Pau Ferrer Soler',category:'HAND B',team:code==='svc7'?'SFX':'GENERAL',start,end,status:'PRESENTE',method:'SMALL_COORD',scannedBy:actor,time:time()});
+        const attendanceKey=`attendance/${code}/${actor}`;
+        if(!(await tx.get(attendanceKey)))await tx.put(attendanceKey,{serviceId:code,workerId:actor,workerName:actor==='coord'?'Álvaro Costa':'Pau Ferrer Soler',category:'HAND B',team:code==='svc7'?'SFX':code==='svc2'?'LOGÍSTICA':'GENERAL',start,end,status:'PRESENTE',method:'SMALL_COORD',scannedBy:actor,time:time()});
       }
     }
   });

@@ -72,12 +72,29 @@ function open(service){
    doc.documentElement.style.setProperty('overflow-x','hidden','important');
    doc.body.style.setProperty('overflow-y','visible','important');
    doc.body.style.setProperty('height','auto','important');
+   // The original 11.2.33 startup only recognizes svc1–svc4.
+   // Open svc7 using the same in-frame loader, with full Crew Head permissions.
+   if(service.id==='svc7'){
+     const win=target.contentWindow;
+     if(typeof win?.firebaseLoadService==='function' && typeof win?.openServiceData==='function'){
+       win.firebaseLoadService('svc7').then(data=>{
+         if(target===iframe && data)win.openServiceData(data);
+         else if(target===iframe)throw new Error('No se encuentra SPECTRUM en el servidor.');
+       }).catch(error=>{
+         console.error('Crew Control svc7',error);
+         const screen=doc.getElementById('appScreen');
+         if(screen){screen.classList.remove('hidden');screen.insertAdjacentHTML('afterbegin',
+          '<div style="padding:24px;background:#fff1ed;border-radius:14px;margin:20px"><b>Error al cargar el servicio</b><p>'+
+          String(error?.message||error).replace(/[<>]/g,'')+'</p></div>');}
+       });
+     }else console.error('Crew Control: funciones de arranque no cargadas');
+   }
    doc.querySelector('.cc-portal-back')?.addEventListener('click',ev=>{
     ev.preventDefault();ev.stopImmediatePropagation();back();
    },true);
   }catch(err){console.warn('Crew Control: no se pudo aplicar el ajuste de scroll',err)}
  });
- iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=fullscreen-v11233-hierarchy';
+ iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=fullscreen-v11233-hierarchy-fix2';
  overlay.appendChild(iframe);
  // The old embedded card is never displayed, even if its markup was created earlier.
  root.replaceChildren();

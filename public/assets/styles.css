@@ -533,3 +533,51 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 .nova-small-table .btn{font-size:11px;padding:9px 13px}
 .nova-small-help{color:#777d87;font-size:12px;margin:0 0 8px}
 @media(max-width:700px){.nova-small-heading{padding:16px}.nova-small-toolbar{padding:12px}.nova-small-table-wrap{margin:0 -5px;width:calc(100% + 10px)}.nova-small-scope{gap:12px}}
+
+
+/* Same visual system for all coordination roles: compact control sidebar + full list. */
+.nova-unified-control{display:grid;gap:15px;min-width:0}
+.nova-unified-heading{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 23px;border:1px solid #e7e9ee;border-radius:20px;background:rgba(255,255,255,.85)}
+.nova-unified-heading h2{font-size:clamp(20px,2.6vw,29px);margin:5px 0 8px;color:#161616;line-height:1.2}
+.nova-unified-heading p{font-size:12px;color:#777d84;margin:0}
+.nova-unified-layout{display:grid;grid-template-columns:minmax(238px,275px) minmax(0,1fr);align-items:start;gap:14px;min-width:0}
+.nova-coord-sidebar{background:rgba(255,255,255,.88);border:1px solid #e4e6ea;border-radius:18px;overflow:hidden;position:sticky;top:16px;min-width:0}
+.nova-coord-sidehead{padding:18px;background:#111218;color:#fff;display:grid;gap:5px}
+.nova-coord-sidehead span{font-size:10px;letter-spacing:.09em;color:#ff9c4d;font-weight:850}
+.nova-coord-sidehead strong{font-size:18px;font-weight:850}
+.nova-coord-sidehead small{font-size:11px;color:#c6c9d0}
+.nova-coord-sidebody{padding:13px;display:grid;gap:12px}
+.nova-coord-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.nova-coord-metrics>div{border-radius:12px;background:#f5f6f8;padding:13px 10px;display:grid;gap:4px;min-width:0}
+.nova-coord-metrics b{font-size:22px;color:#171717}
+.nova-coord-metrics span{font-size:8.5px;color:#777;letter-spacing:.025em;font-weight:800}
+.nova-coord-side-title{font-size:11px;font-weight:800;color:#30353c}
+.nova-coord-filters{display:flex;flex-wrap:wrap;gap:6px}
+.nova-filter-button,.nova-coord-side-actions button{background:#f7f7f9;border:1px solid #e2e5e9;border-radius:9px;padding:8px 9px;font-size:10px;font-weight:700;cursor:pointer;color:#3d4148}
+.nova-filter-button.on{background:#111318;color:#fff;border-color:#111318}
+.nova-coord-side-actions{display:flex;flex-wrap:wrap;gap:7px}
+.nova-coord-selected,.nova-coord-sidebar-foot{font-size:11px;color:#666a72}
+.nova-coord-edit{width:100%;justify-content:center;font-size:11px!important;padding:10px!important}
+.nova-unified-main{min-width:0;display:grid;gap:12px}
+.nova-unified-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #eceef1;padding:12px 14px;border-radius:15px}
+.nova-unified-tools>div{display:grid;gap:2px;min-width:120px}.nova-unified-tools b{font-size:12px}.nova-unified-tools span{font-size:11px;color:#848890}
+.nova-unified-tools input{flex:1 1 190px;min-width:0;background:#f8f9fa;border:1px solid #e4e6ea;border-radius:10px;padding:10px;font-size:12px}
+.nova-unified-tools .btn{font-size:11px;padding:10px 12px}
+.nova-unified-list{display:grid;gap:7px;min-width:0}
+.nova-unified-worker{border:1px solid #e5e7eb;background:rgba(255,255,255,.94);border-left:4px solid transparent;border-radius:13px;padding:12px 13px;display:grid;grid-template-columns:minmax(115px,1.5fr) minmax(85px,.8fr) minmax(122px,1.2fr) minmax(115px,1.2fr) auto;align-items:center;gap:9px;min-width:0;cursor:pointer}
+.nova-unified-worker.selected{border-color:#f39f52;border-left:4px solid #f58220;background:#fff1e2;box-shadow:0 0 0 1px rgba(245,130,32,.18)}
+.nova-unified-name{border:0;background:transparent;padding:0;text-align:left;cursor:pointer;color:#202024;display:grid;gap:3px}
+.nova-unified-name strong{font-weight:800;font-size:12px;overflow-wrap:anywhere}.nova-unified-name small{font-size:9px;font-weight:850;color:#e46b0c}
+.nova-unified-role{display:grid;gap:3px;min-width:0}.nova-unified-role span{font-size:10px;font-weight:750}.nova-unified-role small{font-size:10px;color:#858a91}
+.nova-unified-worker select{max-width:100%;border:1px solid #dddfe4;background:#fff;border-radius:9px;padding:8px 5px;font-size:10px;color:#333}
+.nova-rating{display:flex;align-items:center;gap:1px;white-space:nowrap}
+.nova-star{border:0;background:transparent;padding:1px;color:#f17c20;font-size:20px;line-height:1;cursor:pointer}.nova-star:not(.active){color:#b6b6bb}
+.nova-star:hover,.nova-star:focus-visible{color:#f17c20!important;transform:scale(1.08)}
+.nova-unified-last{display:flex;gap:7px;align-items:center;justify-content:flex-end}.nova-unified-last a{font-size:10px;color:#ef7b15;text-decoration:none;font-weight:750}.nova-unified-last .btn{padding:7px 9px;font-size:10px}
+.nova-unified-hint,.nova-unified-empty{color:#828792;font-size:11px;padding:6px}
+.nova-modal-stars-label{display:grid;align-content:start;gap:8px}.nova-modal-stars{display:flex;gap:6px}
+.nova-modal-stars button{border:0;background:transparent;color:#babcc0;font-size:27px;line-height:1;cursor:pointer;padding:2px}.nova-modal-stars button.on{color:#f58220}
+.nova-modal-stars-label small{font-size:10px;color:#888}.nova-incident-field{grid-column:1/-1}
+@media(max-width:1150px){.nova-unified-worker{grid-template-columns:minmax(110px,1fr) minmax(65px,.8fr) minmax(105px,1.2fr);gap:8px}.nova-unified-worker .nova-rating{grid-column:2}.nova-unified-last{grid-column:3;justify-content:flex-end}.nova-unified-worker select{max-width:100%}}
+@media(max-width:880px){.nova-unified-layout{grid-template-columns:1fr}.nova-coord-sidebar{position:static}.nova-coord-sidebody{grid-template-columns:1fr 1fr;align-items:start}.nova-coord-metrics{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:590px){.nova-unified-heading{padding:14px}.nova-coord-sidebody{grid-template-columns:1fr}.nova-coord-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.nova-coord-metrics>div{padding:10px 6px}.nova-coord-metrics b{font-size:17px}.nova-coord-metrics span{font-size:7px}.nova-unified-tools{padding:9px}.nova-unified-worker{grid-template-columns:minmax(105px,1fr) minmax(80px,.9fr);gap:8px;padding:10px}.nova-unified-worker select{grid-column:1;grid-row:2}.nova-unified-worker .nova-rating{grid-column:2;grid-row:2}.nova-unified-last{grid-column:1/-1;grid-row:3;justify-content:space-between}.nova-star{font-size:23px}}
