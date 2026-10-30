@@ -20,6 +20,7 @@ function open(){
  box.addEventListener('click',e=>{if(e.target===box||e.target.closest('[data-inbox-close]'))close();const item=e.target.closest('[data-inbox-index]');if(item)render(Number(item.dataset.inboxIndex));});
  render(0);box.querySelector('[data-inbox-close]').focus();
 }
+window.NOVA_openInbox=open;
 trigger.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();open();},true);
 document.addEventListener('keydown',e=>{if(!box)return;if(e.key==='Escape'){e.preventDefault();close();}else if(e.key==='Tab'){const focusables=[...box.querySelectorAll('button:not([disabled])')];const first=focusables[0],last=focusables[focusables.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 const css=document.createElement('style');css.textContent=`
