@@ -297,7 +297,7 @@ function renderServices(){
       </div>
       <div class="service-actions">
         <button class="btn dark" data-open-service="${s.id}">Abrir ficha</button>
-        <button class="btn light" data-service-print="${s.id}">PDF</button>
+        <button class="btn light nova-download-btn" data-service-print="${s.id}" aria-label="Descargar ficha del servicio" title="Descargar ficha"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg></button>
       </div>
     </article>`).join('');
   window.NOVA_V15_CONFIRM?.refresh?.();
@@ -613,6 +613,13 @@ function renderContracts(){
 
 
 
+function downloadServiceSheet(service){
+ if(!service)return;
+ const fields=[['Servicio',service.name],['Fecha',service.date],['Horario',service.time],['Recinto',service.venue],['Dirección',service.address],['Categoría',service.role],['Equipo',service.team],['Acceso',service.access]];
+ const escape=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ const doc='<!doctype html><html lang="es"><meta charset="utf-8"><title>Ficha de servicio</title><style>body{font:16px Arial;max-width:760px;margin:48px auto;color:#17191e}h1{font-size:28px}td{padding:12px;border-bottom:1px solid #ddd}td:first-child{font-weight:bold;width:160px}</style><h1>Ficha de servicio</h1><table>'+fields.map(([label,val])=>'<tr><td>'+escape(label)+'</td><td>'+escape(val)+'</td></tr>').join('')+'</table><p>Documento de demostración.</p></html>';
+ downloadNovaFile('ficha-servicio-'+String(service.code||service.id).replace(/[^\w-]/g,'')+'.html',doc);
+}
 function printServiceSheet(service){
   const win=window.open('','_blank','width=900,height=800'); if(!win){toast('PDF','El navegador ha bloqueado la ventana de impresión.');return}
   win.document.write(`<html><head><title>${service.name}</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#171717}h1{font-size:28px}table{width:100%;border-collapse:collapse;margin-top:20px}td{padding:10px;border-bottom:1px solid #ddd}td:first-child{font-weight:bold;width:180px}.tag{color:#f58220;font-weight:bold}</style></head><body><div class="tag">FICHA DE SERVICIO</div><h1>${service.name}</h1><p>${service.date}</p><table><tr><td>Recinto</td><td>${service.venue}</td></tr><tr><td>Inicio</td><td>${service.time.split('–')[0]}</td></tr><tr><td>Fin</td><td>${service.time.split('–')[1]}</td></tr><tr><td>Categoría</td><td>${roleLabel(service)}</td></tr><tr><td>Equipo</td><td>${service.team}</td></tr><tr><td>Acceso</td><td>${service.access}</td></tr><tr><td>EPI</td><td>${service.epi}</td></tr></table><script>window.onload=()=>window.print()<\/script></body></html>`);win.document.close();
@@ -1259,7 +1266,7 @@ function toggleNotifications(force){const d=$('#notificationsDropdown');if(!d)re
     const docOpen=e.target.closest('[data-open-doc]');if(docOpen)return openPortalDocument(docOpen.dataset.openDoc);
     const tutorial=e.target.closest('[data-open-tutorial]');if(tutorial)return openTutorial(tutorial.dataset.openTutorial);
     const contract=e.target.closest('[data-open-contract]');if(contract)return openContract(contract.dataset.openContract);
-    const servicePrint=e.target.closest('[data-service-print]');if(servicePrint)return printServiceSheet(serviceById(servicePrint.dataset.servicePrint));
+    const servicePrint=e.target.closest('[data-service-print]');if(servicePrint)return downloadServiceSheet(serviceById(servicePrint.dataset.servicePrint));
     const month=e.target.closest('[data-payroll-month]');if(month)return renderPayrollMonthsSelect(month.dataset.payrollMonth);
     const bulkRate=e.target.closest('[data-bulk-rate]');if(bulkRate){
       const selected=crewState.workers.filter(w=>w.selected);
