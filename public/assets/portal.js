@@ -616,7 +616,23 @@ function openTutorial(kind){
   const [title,steps]=guides[kind]||['Tutorial',['Contenido no disponible']];
   openDemoModal(title,`<div class="tutorial-steps">${steps.map((x,i)=>`<div><b>${i+1}</b><span>${x}</span></div>`).join('')}</div><div class="crew-modal-actions"><button class="btn primary" onclick="closeDemoModal()">Cerrar</button></div>`)
 }
-function openContract(key){const c=contracts.find(x=>`${x[1]}-${x[2]}`===key)||contracts[0];openDemoModal('Contrato',`<h3>${c[0]}</h3><p>Fecha alta: <b>${c[1]}</b><br>Fecha baja: <b>${c[2]}</b></p><p>Contrato ficticio de personal técnico y auxiliar de eventos. Esta vista permite revisar el documento y utilizar la impresión del navegador para generar una copia.</p><div class="crew-modal-actions"><button class="btn light" onclick="closeDemoModal()">Cerrar</button><button class="btn primary" onclick="window.print()">Imprimir</button></div>`)}
+const novaDownloadIcon='<svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg>';
+function downloadNovaFile(name,content,type='text/html'){
+ const blob=new Blob([content],{type:type+';charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function novaSafeText(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function downloadNovaContract(key){
+ const c=contracts.find(x=>`${x[1]}-${x[2]}`===key)||contracts[0];
+ downloadNovaFile('contrato-demo-'+c[1].replaceAll('/','-')+'.html','<!doctype html><html lang="es"><meta charset="utf-8"><title>Contrato demo</title><body style="font:16px Arial;max-width:750px;margin:50px auto"><h1>'+novaSafeText(c[0])+'</h1><p>Alta: '+novaSafeText(c[1])+'<br>Baja: '+novaSafeText(c[2])+'</p><p>Documento ficticio de demostración; no es un contrato firmado.</p></body></html>');
+}
+function downloadNovaPayroll(){
+ const m=payrollMonths[currentPayrollMonth];if(!m)return;
+ const headers=['Fecha','Servicio','Cliente','Referencia','Estado','Categoría','Inicio','Fin','Horas trabajadas','Horas parada','Salario','Coordinación','Dietas','Suplidos','Otros','Km','Bruto'];
+ const csv=[headers,...m.rows.map(row=>row.slice(0,17))].map(row=>row.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';')).join('\r\n');
+ downloadNovaFile('liquidacion-demo-'+currentPayrollMonth+'.csv','\ufeff'+csv,'text/csv');
+}
+function openContract(key){const c=contracts.find(x=>`${x[1]}-${x[2]}`===key)||contracts[0];openDemoModal('Contrato',`<h3>${c[0]}</h3><p>Fecha alta: <b>${c[1]}</b><br>Fecha baja: <b>${c[2]}</b></p><p>Contrato ficticio de personal técnico y auxiliar de eventos.</p><div class="crew-modal-actions"><button class="btn light" onclick="closeDemoModal()">Cerrar</button><button class="btn primary nova-download-btn" type="button" onclick="downloadNovaContract('${c[1]}-${c[2]}')" aria-label="Descargar contrato">${novaDownloadIcon}<span>Descargar</span></button></div>`)}
 
 function openPortalDocument(id){
   const d=docs.find(x=>x.id===id); if(!d)return;
@@ -1246,7 +1262,7 @@ function toggleNotifications(force){const d=$('#notificationsDropdown');if(!d)re
   $('#clockServicePicker')?.addEventListener('change',renderClockService);
   $('#checkInBtn').onclick=()=>addClockLog('Entrada');
   $('#checkOutBtn').onclick=()=>addClockLog('Salida');
-  $('#printPayroll').onclick=()=>window.print();
+  $('#printPayroll').onclick=downloadNovaPayroll;
   $('#saveProfileBtn').onclick=saveProfileFromForm;
 
   document.addEventListener('input',e=>{
