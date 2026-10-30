@@ -1508,3 +1508,81 @@ html[data-nova-theme="dark"] #homeServices .service-time-pill b{
 #servicesList .service-card::selection,#servicesList .service-card *::selection{background:transparent;color:inherit}
 html[data-nova-theme="dark"] #servicesList .v10-status.confirmado{background:#16643b!important;color:#dcffe9!important;border-color:#3ac477!important}
 html[data-nova-theme="dark"] #servicesList .v10-status.rechazado{background:#733138!important;color:#ffdadc!important;border-color:#d86c74!important}
+
+
+/* Dark mode contrast audit v15: actual widgets, neutral text, semantic colors retained. */
+html[data-nova-theme="dark"]{
+ --nova-ink:#f4f7fb;--nova-soft:#c2ccda;--nova-panel:#293542;--nova-control:#354354;
+ color-scheme:dark;
+}
+html[data-nova-theme="dark"] :is(
+ #servicesList,#homeServices,#serviceDetail,#page-availability,#page-profile,
+ #page-documents,#page-payroll,#workerCoordDetail,#coordinationList,#demoModal,
+ #novaQrOverlay,#page-worker-coordination
+) :is(.service-main,.service-time-row,.detail-section,.detail-card,.mini-list,.kv,
+ .profile-check-grid,.availability-editor,.availability-summary,.nova-unified-role,
+ .nova-unified-tools,.nova-unified-heading,.nova-unified-worker,.nova-coord-sidebody,
+ .nova-coord-fold,.nova-coord-filters,.nova-three-ratings,.nova-rating-row,
+ .documents-list article,.payroll-meta,.payroll-table-wrap){
+ color:var(--nova-ink)!important;
+}
+html[data-nova-theme="dark"] :is(
+ #servicesList,#homeServices,#serviceDetail,#page-availability,#page-profile,
+ #page-documents,#page-payroll,#workerCoordDetail,#coordinationList,#demoModal
+) :is(.service-main h4,.service-main b,.service-time-pill b,.kv b,
+ .profile-check-grid label,.nova-unified-heading h2,.nova-unified-name strong,
+ .nova-coord-metrics b,.nova-unified-tools b,.nova-rating-row strong,
+ .documents-list h4,.payroll-meta b,.service-date b){
+ color:var(--nova-ink)!important;opacity:1!important
+}
+html[data-nova-theme="dark"] :is(
+ #servicesList,#homeServices,#serviceDetail,#page-availability,#page-profile,
+ #page-documents,#page-payroll,#workerCoordDetail,#coordinationList,#demoModal,#novaQrOverlay
+) :is(.service-main p,.muted,.hint,.kv span,.service-main .coordinator-label,
+ .nova-unified-heading p,.nova-coord-metrics span,.nova-unified-role small,
+ .nova-unified-tools span,.documents-list p,.payroll-meta span){
+ color:var(--nova-soft)!important
+}
+html[data-nova-theme="dark"] :is(
+ .nova-unified-tools,.nova-unified-worker,.nova-coord-sidebar,.nova-coord-sidebody,
+ .nova-coord-metrics>div,.nova-coord-fold,.profile-check-grid label,
+ .availability-editor,.availability-tip,.profile-panel,.payroll-meta,
+ .crew-modal-card,.crew-modal-list>div,.nova-three-ratings,.nova-rating-row
+){background:var(--nova-panel)!important;background-image:none!important;border-color:#536477!important}
+html[data-nova-theme="dark"] :is(
+ .nova-unified-tools,.nova-coord-filters,.availability-editor,.profile-panel,
+ .crew-modal-card,#demoModalBody,.nova-qr-modal
+) :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select){
+ background:var(--nova-control)!important;color:var(--nova-ink)!important;
+ border-color:#65768b!important
+}
+html[data-nova-theme="dark"] :is(.nova-unified-tools,.nova-coord-filters,.availability-editor,.profile-panel,.crew-modal-card) input::placeholder{
+ color:#bfcbda!important;opacity:1
+}
+html[data-nova-theme="dark"] :is(.service-time-pill,.chip:not(.orange),.role-pill:not(.orange)){
+ background:#313e50!important;border-color:#536477!important;color:#edf3fc!important
+}
+html[data-nova-theme="dark"] :is(.service-time-pill,.chip:not(.orange),.role-pill:not(.orange)) :is(b,span,strong){
+ color:#f4f7fb!important
+}
+html[data-nova-theme="dark"] :is(.nova-coord-filters,.nova-unified-tools) button:not(.on):not(.primary){
+ background:#3a495b!important;color:#f2f6fc!important;border-color:#65778c!important
+}
+html[data-nova-theme="dark"] .nova-coord-filters .nova-filter-button.on{
+ background:#ff8b2e!important;color:#1b2028!important
+}
+html[data-nova-theme="dark"] :is(.v10-status.confirmado,.basic-status.PRESENTE,.v10-event.confirmado){
+ background:#165b38!important;color:#baf8d1!important;border-color:#48c77c!important
+}
+html[data-nova-theme="dark"] :is(.v10-status.rechazado,.basic-status.NO-PRESENTADO,.v10-event.rechazado){
+ background:#792d37!important;color:#ffd3d7!important;border-color:#df6672!important
+}
+html[data-nova-theme="dark"] .availability-day-card.has-hours{
+ background:#195b3b!important;border-color:#4ccb84!important;color:#e9fff2!important
+}
+html[data-nova-theme="dark"] .availability-day-card.has-hours :is(b,em,span,small){
+ color:#e9fff2!important
+}
+html[data-nova-theme="dark"] :is(.btn.primary,.primary):not(.v10-status){
+ color:#191d24!important
+}
