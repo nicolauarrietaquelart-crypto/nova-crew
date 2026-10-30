@@ -295,6 +295,7 @@ function renderServices(){
         <button class="btn light" data-service-print="${s.id}">PDF</button>
       </div>
     </article>`).join('');
+  window.NOVA_V15_CONFIRM?.refresh?.();
 }
 
 function renderServiceDetail(s){
