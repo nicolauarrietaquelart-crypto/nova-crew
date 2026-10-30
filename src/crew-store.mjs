@@ -140,20 +140,44 @@ export async function handleSmallCoord(storage,actor,body){
     }));
   };
   const kind=String(body?.kind||'get');
-  if(kind==='get')return {ok:true,serviceId:code,scope:code==='svc7'?'SFX':code==='svc2'?'LOGÍSTICA':code==='svc1'?'STAGE':'GENERAL',workers:mapped()};
+  if(kind==='get')return {ok:true,serviceId:code,scope:code==='svc7'?'SFX':code==='svc2'?'LOGÍSTICA':code==='svc1'?'STAGE':'GENERAL',workers:mapped(),incidents:await storage.get('small-incidents/'+code)||[]};
+  if(kind==='incident'){
+    const scope=String(body?.scope||'worker');
+    const workerId=String(body?.workerId||'').slice(0,48);
+    const type=String(body?.incidentType||'').trim().slice(0,60);
+    const severity=String(body?.severity||'Leve').slice(0,24);
+    const notes=String(body?.notes||'').trim().slice(0,1500);
+    const newRole=String(body?.newRole||'').trim().slice(0,60);
+    if(!['general','worker'].includes(scope)||!type||!notes)return fail('Completa el ámbito, tipo y descripción de la incidencia.',400);
+    if(scope==='worker'&&!mapped().some(w=>w.id===workerId))return fail('Trabajador no autorizado.',403);
+    if(type==='Cambio de categoría'&&(scope!=='worker'||!newRole))return fail('Selecciona el trabajador y la nueva categoría.',400);
+    const incident={id:crypto.randomUUID(),scope,workerId:scope==='worker'?workerId:null,type,severity,notes,newRole:type==='Cambio de categoría'?newRole:null,status:'Abierta',at:new Date().toISOString(),author:actor};
+    const logKey='small-incidents/'+code;
+    await storage.transaction(async tx=>{
+      const log=await tx.get(logKey)||[];
+      log.push(incident);await tx.put(logKey,log);
+      if(type==='Cambio de categoría'){
+        const rec=await tx.get(key)||doc;
+        if(code==='svc7'){if(rec.workers?.[workerId])rec.workers[workerId].especialidad=newRole;}
+        else {const w=rec.workers.find(w=>w.id===workerId);if(w)w.role=newRole;}
+        await tx.put(key,rec);doc=rec;
+      }
+    });
+    return {ok:true,incident,workers:mapped()};
+  }
   if(kind!=='patch')return fail('Operación no permitida.',400);
   const id=String(body?.workerId||'').slice(0,48);
   const change=body?.changes;
   if(!change||typeof change!=='object'||Array.isArray(change))return fail('Modificación inválida.');
   const ratingFields=['ratingUniformidad','ratingActitud','ratingPuntualidad'];
-  const permitted=['start','end','status','pause','diet','role','rating','incident',...ratingFields];
+  const permitted=['start','end','status','pause','diet','rating',...ratingFields];
   if(Object.keys(change).some(k=>!permitted.includes(k)))return fail('Solo puedes editar horarios, estado y valoración de tu equipo.',403);
   if(['start','end'].some(k=>change[k]!==undefined&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(change[k]))))return fail('Horario no válido.');
   const accepted=['PENDIENTE','PRESENTE','CONTACTADO','NO CONTACTADO','NO PRESENTADO'];
   if(change.status!==undefined&&!accepted.includes(change.status))return fail('Estado no permitido.');
   if(change.role!==undefined&&(typeof change.role!=='string'||change.role.length>60||!change.role.trim()))return fail('Puesto no válido.',400);
   if(change.diet!==undefined&&!/^[0-3]$/.test(String(change.diet))&&!['Sí','No'].includes(change.diet))return fail('Dietas no válidas.',400);
-  if(change.pause!==undefined&&!['00:00','00:15','00:30','00:45','01:00','01:30','02:00'].includes(change.pause))return fail('Pausa no válida.',400);
+  if(change.pause!==undefined&&!['00:00','01:00','02:00','03:00'].includes(change.pause))return fail('Pausa no válida.',400);
   // Validate individually. A legacy single rating changes only Actitud.
   for(const field of [...ratingFields,'rating']){
     if(change[field]===undefined)continue;
