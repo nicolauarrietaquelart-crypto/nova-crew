@@ -6802,7 +6802,18 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
       }
     }
 
-  </style>
+  
+/* NOVA Crew shared rating layout; three independent dimensions. */
+.rating-row{grid-template-columns:minmax(120px,160px) 1fr!important;align-items:center!important;gap:14px!important;padding:11px 0!important}
+.rating-row strong{font-weight:800!important;font-size:14px!important;color:#202024!important}
+.rating-row .stars{gap:7px!important;flex-wrap:wrap!important}
+.rating-row .star-btn{font-size:30px!important;line-height:1!important;min-width:32px!important;min-height:35px!important;padding:0 2px!important;background:transparent!important;color:#c6c7ca!important;transition:color .12s ease!important}
+.rating-row .star-btn.on{color:#f58220!important}
+.rating-row .star-btn:hover{transform:scale(1.07)}
+@media(max-width:570px){.rating-row{grid-template-columns:110px 1fr!important;gap:7px!important}.rating-row strong{font-size:13px!important}.rating-row .stars{gap:1px!important}.rating-row .star-btn{min-width:27px!important;font-size:25px!important}}
+@media(prefers-reduced-motion:reduce){.rating-row .star-btn{transition:none!important}}
+
+</style>
 </head>
 <body>
   <button type="button" id="sidebarEdgeToggleBtn" class="sidebar-edge-toggle-v11225" onclick="toggleOperationalSidebar()" title="Mostrar panel" aria-label="Mostrar panel">

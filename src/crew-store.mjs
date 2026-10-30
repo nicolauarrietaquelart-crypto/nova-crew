@@ -115,7 +115,7 @@ export async function handleSmallCoord(storage,actor,body){
       await handleCrewStore(storage,'coord',{kind:'init',code:'svc7'},()=>true);
       doc=await storage.get(key);
     }else{
-      const base={start:code==='svc2'?'08:00':code==='svc1'?'16:00':'09:00',end:code==='svc2'?'18:00':code==='svc1'?'23:30':'16:00',status:'PENDIENTE',pause:'00:30',diet:'No',rating:0,incident:''};
+      const base={start:code==='svc2'?'08:00':code==='svc1'?'16:00':'09:00',end:code==='svc2'?'18:00':code==='svc1'?'23:30':'16:00',status:'PENDIENTE',pause:'00:30',diet:'No',rating:0,ratingUniformidad:0,ratingActitud:0,ratingPuntualidad:0,incident:''};
       doc={workers:code==='svc6'?[
         {id:'demo',name:'Pau Ferrer Soler',role:'HAND B',phone:'670 555 221',...base,isCoordinator:true},
         {id:'small-1',name:'Marc Vidal',role:'HAND B',phone:'600 000 141',...base},
@@ -126,12 +126,16 @@ export async function handleSmallCoord(storage,actor,body){
     }
   }
   const mapped=()=>{
-    if(code!=='svc7')return doc.workers.map(w=>({...w}));
+    if(code!=='svc7')return doc.workers.map(w=>({...w,
+      ratingUniformidad:Number(w.ratingUniformidad??0),
+      ratingActitud:Number(w.ratingActitud??w.rating??0),
+      ratingPuntualidad:Number(w.ratingPuntualidad??0)
+    }));
     const allowed=new Set(['demo','fict-1','fict-2','fict-3']);
     return Object.values(doc.workers).filter(w=>allowed.has(w.id)&&w.trabajo==='SFX').map(w=>({
       id:w.id,name:w.personal,role:w.especialidad,phone:w.movil||'',start:w.actualStart||w.inicio,
       end:w.actualEnd||w.fin,status:w.status||'PENDIENTE',pause:w.pausa||'00:30',
-      diet:w.nDieta?'Sí':'No',rating:w.ratingActitud||0,incident:w.notes||'',
+      diet:w.nDieta?'Sí':'No',rating:w.ratingActitud||0,ratingUniformidad:Number(w.ratingUniformidad||0),ratingActitud:Number(w.ratingActitud||0),ratingPuntualidad:Number(w.ratingPuntualidad||0),incident:w.notes||'',
       isCoordinator:!!w.isSubCoordinator
     }));
   };
@@ -141,18 +145,31 @@ export async function handleSmallCoord(storage,actor,body){
   const id=String(body?.workerId||'').slice(0,48);
   const change=body?.changes;
   if(!change||typeof change!=='object'||Array.isArray(change))return fail('Modificación inválida.');
-  const permitted=['start','end','status','pause','diet','rating','incident'];
+  const ratingFields=['ratingUniformidad','ratingActitud','ratingPuntualidad'];
+  const permitted=['start','end','status','pause','diet','rating','incident',...ratingFields];
   if(Object.keys(change).some(k=>!permitted.includes(k)))return fail('Solo puedes editar horarios, estado y valoración de tu equipo.',403);
   if(['start','end'].some(k=>change[k]!==undefined&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(change[k]))))return fail('Horario no válido.');
   const accepted=['PENDIENTE','PRESENTE','CONTACTADO','NO CONTACTADO','NO PRESENTADO'];
   if(change.status!==undefined&&!accepted.includes(change.status))return fail('Estado no permitido.');
+  // Validate individually. A legacy single rating changes only Actitud.
+  for(const field of [...ratingFields,'rating']){
+    if(change[field]===undefined)continue;
+    if(typeof change[field]!=='number'||!Number.isInteger(change[field])||change[field]<0||change[field]>5)
+      return fail('Las valoraciones deben ser estrellas enteras entre 0 y 5.',400);
+  }
+  if(change.rating!==undefined&&change.ratingActitud!==undefined)return fail('Valoración de actitud duplicada.',400);
   let updated=null;
   await storage.transaction(async tx=>{
     const rec=await tx.get(key)||doc;
     if(code!=='svc7'){
       const w=rec.workers.find(w=>w.id===id);
       if(!w)throw new Error('Este trabajador no pertenece al equipo.');
-      for(const field of permitted){if(change[field]!==undefined)w[field]=field==='rating'?Math.max(0,Math.min(5,Number(change[field])||0)):String(change[field]).slice(0,200)}
+      for(const field of permitted){
+        if(change[field]===undefined)continue;
+        if(field==='rating'){w.rating=change.rating;w.ratingActitud=change.rating;}
+        else if(ratingFields.includes(field)){w[field]=change[field];if(field==='ratingActitud')w.rating=change[field];}
+        else w[field]=String(change[field]).slice(0,200);
+      }
       updated={...w};
     }else{
       const allowed=['demo','fict-1','fict-2','fict-3'];
@@ -163,7 +180,8 @@ export async function handleSmallCoord(storage,actor,body){
       if(change.status!==undefined)w.status=change.status;
       if(change.pause!==undefined)w.pausa=String(change.pause).slice(0,12);
       if(change.diet!==undefined)w.nDieta=change.diet==='Sí'?1:0;
-      if(change.rating!==undefined)w.ratingActitud=Math.max(0,Math.min(5,Number(change.rating)||0));
+      for(const field of ratingFields){if(change[field]!==undefined)w[field]=change[field];}
+      if(change.rating!==undefined)w.ratingActitud=change.rating;
       if(change.incident!==undefined)w.notes=String(change.incident).slice(0,200);
       updated={...w};
       rec.root.updatedAt=time();

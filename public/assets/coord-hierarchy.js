@@ -17,12 +17,25 @@ const visible=()=>workers.filter(w=>{
    (statusFilter==='ALL'||w.status===statusFilter)&&
    (timeFilter==='ALL'||w.start===timeFilter);
 });
-const stars=(id,number,context='row')=>{
- const val=Math.min(5,Math.max(0,Number(number)||0));
- return '<div class="nova-rating" role="group" aria-label="Valoración de '+escape(id)+'">'+
- [1,2,3,4,5].map(n=>'<button type="button" class="nova-star '+(n<=val?'active':'')+'" data-nova-rate="'+n+'" data-nova-rate-id="'+escape(id)+'" data-nova-rate-context="'+context+'" title="'+n+' estrellas" aria-label="'+n+' estrellas" '+(busy?'disabled':'')+'>'+(n<=val?'★':'☆')+'</button>').join('')+
- '</div>';
+
+/* The same three separate dimensions as the full Crew Control. */
+const ratingFields=[['ratingUniformidad','Uniformidad','U'],['ratingActitud','Actitud','A'],['ratingPuntualidad','Puntualidad','P']];
+const currentRating=(w,field)=>Number(w[field]??(field==='ratingActitud'?w.rating:0))||0;
+const ratingSummary=w=>{
+ const values=ratingFields.map(([f])=>currentRating(w,f));
+ const nonzero=values.filter(x=>x>0);
+ const avg=nonzero.length?(nonzero.reduce((a,b)=>a+b,0)/nonzero.length).toFixed(1):'—';
+ return '<button type="button" class="nova-rating-summary" data-nova-edit="'+escape(w.id)+'" aria-label="Valorar Uniformidad, Actitud y Puntualidad de '+escape(w.name)+'"><span class="nova-rating-summary-main">★ '+avg+'</span><small>'+ratingFields.map(([f,label,short],i)=>short+' '+(values[i]||'—')).join(' · ')+'</small></button>';
 };
+function ratingModalRows(worker,multi){
+ return '<div class="nova-three-ratings">'+ratingFields.map(([field,label])=>{
+  const val=multi?0:currentRating(worker,field);
+  return '<div class="nova-rating-row" data-nova-rating-row="'+field+'"><strong>'+label+'</strong><div class="nova-modal-stars" role="group" aria-label="Valoración '+label+'">'+
+  [1,2,3,4,5].map(n=>'<button type="button" class="'+(n<=val?'on':'')+'" data-nova-modalstar="'+n+'" data-nova-rating-field="'+field+'" aria-label="'+label+' '+n+' estrellas" aria-pressed="'+(n===val?'true':'false')+'">★</button>').join('')+
+  '</div><button type="button" class="nova-rating-clear" data-nova-clear-rating="'+field+'">'+(multi?'Sin cambio':'Sin valoración')+'</button>'+
+  '<input type="hidden" data-nova-rating-input="'+field+'" value=""></div>';
+ }).join('')+'</div>';
+}
 function applyRoles(){
  const coord=account()==='coord';
  const set=(id,patch)=>{const s=service(id);if(s)Object.assign(s,patch)};
@@ -93,7 +106,7 @@ function render(){
  (w.isCoordinator?'<small>COORDINADOR · '+escape(serviceType)+'</small>':'')+'</button>'+
  '<div class="nova-unified-role"><span>'+escape(w.role)+'</span><small>'+escape(w.start)+'–'+escape(w.end)+'</small></div>'+
  '<select aria-label="Estado de '+escape(w.name)+'" data-nova-status="'+escape(w.id)+'">'+statuses.map(v=>'<option value="'+v+'" '+(w.status===v?'selected':'')+'>'+v+'</option>').join('')+'</select>'+
- stars(w.id,w.rating)+
+ ratingSummary(w)+
  '<div class="nova-unified-last">'+(w.phone?'<a href="tel:'+escape(w.phone.replace(/[^\d+]/g,''))+'">Llamar</a>':'')+
  '<button class="btn light" type="button" data-nova-edit="'+escape(w.id)+'">Ficha</button></div>'+
  '</article>').join('')+
@@ -131,26 +144,20 @@ function edit(ids){
  const first=workers.find(w=>w.id===ids[0]);if(!first||typeof openDemoModal!=='function')return;
  const multi=ids.length>1;
  const row=(id,label,val)=>'<label>'+label+'<input type="time" id="'+id+'" value="'+escape(val||'')+'"></label>';
- const starsModal=()=>{
-  const val=multi?0:Number(first.rating)||0;
-  return '<label class="nova-modal-stars-label">Valoración'+
-   '<div class="nova-modal-stars">'+[1,2,3,4,5].map(n=>'<button type="button" data-nova-modalstar="'+n+'" class="'+(n<=val?'on':'')+'" title="'+n+' estrellas">'+(n<=val?'★':'☆')+'</button>').join('')+'</div>'+
-   '<input type="hidden" id="novaModalRating" value="'+(multi?'':val)+'">'+
-   '<small>Incidencias y estrellas se guardan por separado</small></label>';
- };
  openDemoModal(multi?'Editar '+ids.length+' trabajadores':'Ficha de '+first.name,
  '<div class="basic-modal-grid">'+row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
  '<label>Estado<select id="novaEditStatus"><option value="">Mantener</option>'+statuses.map(v=>'<option value="'+v+'" '+(!multi&&v===first.status?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','00:15','00:30','00:45','01:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Dieta<select id="novaEditDiet"><option value="">Mantener</option><option '+(!multi&&first.diet==='Sí'?'selected':'')+'>Sí</option><option '+(!multi&&first.diet==='No'?'selected':'')+'>No</option></select></label>'+
- starsModal()+
+ ratingModalRows(first,multi)+
  '<label class="nova-incident-field">Incidencia / observaciones<input type="text" maxlength="200" id="novaEditIncident" value="'+(multi?'':escape(first.incident||''))+'"></label>'+
  '</div><div class="crew-modal-actions"><button type="button" class="btn light" id="novaEditCancel">Cancelar</button><button type="button" class="btn primary" id="novaEditSubmit">Guardar cambios</button></div>');
  setTimeout(()=>{
   el('novaEditCancel').onclick=()=>closeDemoModal();
   el('novaEditSubmit').onclick=async()=>{
-   const fields={start:el('novaEditStart').value,end:el('novaEditEnd').value,status:el('novaEditStatus').value,pause:el('novaEditPause').value,diet:el('novaEditDiet').value,rating:el('novaModalRating').value,incident:el('novaEditIncident').value};
-   const c=Object.fromEntries(Object.entries(fields).filter(([k,v])=>v!==''));if('rating' in c)c.rating=Number(c.rating);
+   const fields={start:el('novaEditStart').value,end:el('novaEditEnd').value,status:el('novaEditStatus').value,pause:el('novaEditPause').value,diet:el('novaEditDiet').value,incident:el('novaEditIncident').value};
+   for(const [field] of ratingFields)fields[field]=document.querySelector('[data-nova-rating-input="'+field+'"]')?.value||'';
+   const c=Object.fromEntries(Object.entries(fields).filter(([k,v])=>v!==''));for(const [field] of ratingFields){if(field in c)c[field]=Number(c[field]);}
    if(!Object.keys(c).length){closeDemoModal();return}
    const b=el('novaEditSubmit');b.disabled=true;b.textContent='Guardando…';
    try{
@@ -161,16 +168,28 @@ function edit(ids){
  },0);
 }
 document.addEventListener('click',e=>{
- const modalStar=e.target.closest('[data-nova-modalstar]');
+ const modalStar=e.target.closest('[data-nova-modalstar][data-nova-rating-field]');
  if(modalStar){
-  const n=Number(modalStar.dataset.novaModalstar);
-  if(el('novaModalRating'))el('novaModalRating').value=String(n);
-  document.querySelectorAll('[data-nova-modalstar]').forEach(st=>{const on=Number(st.dataset.novaModalstar)<=n;st.classList.toggle('on',on);st.textContent=on?'★':'☆'});
+  const field=modalStar.dataset.novaRatingField,n=Number(modalStar.dataset.novaModalstar);
+  const row=document.querySelector('[data-nova-rating-row="'+field+'"]');
+  const input=row?.querySelector('[data-nova-rating-input]');
+  if(!input||!ratingFields.some(([f])=>f===field))return;
+  input.value=String(n);
+  row.querySelectorAll('[data-nova-modalstar]').forEach(st=>{
+   st.classList.toggle('on',Number(st.dataset.novaModalstar)<=n);
+   st.setAttribute('aria-pressed',String(Number(st.dataset.novaModalstar)===n));
+  });
+  return;
+ }
+ const clear=e.target.closest('[data-nova-clear-rating]');
+ if(clear){
+  const field=clear.dataset.novaClearRating,row=document.querySelector('[data-nova-rating-row="'+field+'"]');
+  const input=row?.querySelector('[data-nova-rating-input]');if(!input)return;
+  input.value=clear.textContent==='Sin cambio'?'':'0';
+  row.querySelectorAll('[data-nova-modalstar]').forEach(st=>{st.classList.remove('on');st.setAttribute('aria-pressed','false')});
   return;
  }
  if(!e.target.closest('#workerCoordDetail')||!active)return;
- const rate=e.target.closest('[data-nova-rate-id]');
- if(rate){patch(rate.dataset.novaRateId,{rating:Number(rate.dataset.novaRate)});return}
  const action=e.target.closest('[data-nova-edit]');
  if(action){edit([action.dataset.novaEdit]);return}
  if(e.target.closest('[data-nova-refresh]')){load(active,true);return}
