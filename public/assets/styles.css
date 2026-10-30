@@ -1353,3 +1353,44 @@ html[data-nova-theme="dark"] body #availabilityDays .availability-day-card:not(.
 html[data-nova-theme="dark"] body .avail-hour.active{
  background:#185d3a!important;border-color:#49ca82!important;color:#fff!important
 }
+
+
+/* 2026-10-31 dark theme: actual rendered coordination, payroll and profile classes */
+html[data-nova-theme="dark"] :is(.nova-unified-heading,.nova-coord-sidebar,.nova-unified-worker,.nova-unified-list,.nova-unified-main,.nova-unified-toolbar,.nova-coord-metrics,.nova-coord-panel,.profile-check-grid label,.payroll-table-wrap,.crew-modal-list>div,.worker-modal-summary){
+ background:#293442!important;background-image:none!important;border-color:#49586c!important;color:#f3f6fc!important
+}
+html[data-nova-theme="dark"] .nova-unified-heading :is(h2,p),
+html[data-nova-theme="dark"] .nova-unified-worker :is(strong,b,span,.nova-unified-name,.nova-unified-role),
+html[data-nova-theme="dark"] .nova-coord-sidebar :is(b,strong,label,span,p),
+html[data-nova-theme="dark"] .profile-check-grid label{color:#f4f7fc!important}
+html[data-nova-theme="dark"] .nova-unified-worker.selected{background:#4b392a!important;border-color:#ef8c33!important}
+html[data-nova-theme="dark"] .nova-unified-name{color:#f4f7fc!important}
+html[data-nova-theme="dark"] :is(.nova-unified-control,.nova-unified-layout,.nova-coord-sidebar,.nova-unified-main) :is(input:not([type=checkbox]),textarea,select){
+ background:#364455!important;color:#f5f7fc!important;border-color:#607087!important
+}
+html[data-nova-theme="dark"] :is(.nova-unified-worker,.nova-coord-sidebar,.nova-unified-main) :is(small,.muted){color:#b9c5d5!important}
+html[data-nova-theme="dark"] :is(.nova-coord-metric,.nova-coord-metrics>div,.nova-coord-sidebar details,.nova-coord-sidebar summary){
+ background:#354253!important;color:#eef4fb!important;border-color:#546278!important
+}
+html[data-nova-theme="dark"] .payroll-table{background:#26313f!important;color:#f2f6fc!important}
+html[data-nova-theme="dark"] .payroll-table :is(th,td){background:#303c4b!important;color:#f3f6fc!important;border-color:#4b586b!important}
+html[data-nova-theme="dark"] .payroll-table tbody tr:nth-child(even) td{background:#283340!important}
+html[data-nova-theme="dark"] .payroll-table tr.flag td{color:#ff8f95!important}
+html[data-nova-theme="dark"] .payroll-table tfoot td{background:#405064!important}
+html[data-nova-theme="dark"] :is(.profile-check-grid label,.profile-editor .glass,.profile-editor .card,.profile-panel .glass){
+ background:#303b4b!important;color:#f5f7fc!important;border-color:#536073!important
+}
+html[data-nova-theme="dark"] .availability-base-preview span{background:#744722!important;color:#ffddb3!important}
+html[data-nova-theme="dark"] #demoModal :is(.basic-modal-grid,.nova-rating-grid,.nova-edit-rating,.rating-row,.worker-modal-summary){
+ background:#303c4b!important;color:#f4f7fb!important;border-color:#526074!important
+}
+html[data-nova-theme="dark"] #demoModal :is(.basic-modal-grid,.nova-rating-grid,.nova-edit-rating,.rating-row) :is(label,span,b,strong,small){color:#f3f6fc!important}
+html[data-nova-theme="dark"] #novaQrOverlay :is(.nova-qr-form,.nova-qr-hint,.nova-qr-modal) {color:#f4f7fc!important}
+html[data-nova-theme="dark"] #novaQrOverlay .nova-qr-form :is(input,select){
+ background:#303c4b!important;color:#fff!important;border-color:#647186!important
+}
+html[data-nova-theme="dark"] :is(.nova-qr-mode,.nova-qr-choice,.nova-qr-form label,.nova-qr-hint){color:#d8e1ed!important}
+html[data-nova-theme="dark"] .nova-qr-modal button:not(.primary):not(.btn.primary){border-color:#5d6d83!important}
+html[data-nova-theme="dark"] .sidebar :is(.sidebar-help,.sidebar-contact,.sidebar-support,.support-info,.support-box){
+ background:#303b49!important;color:#f2f6fc!important;border-color:#566478!important
+}
