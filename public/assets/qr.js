@@ -201,7 +201,7 @@
     title.textContent='Escanear QR de trabajador';
     const eligible=scannableServices();
     if(!eligible.some(s=>s.id===activeService)&&eligible.length)activeService=eligible[0].id;
-    root.innerHTML=`<div class="nova-qr-form">${renderModeSwitch('scan')}<p class="nova-qr-hint">En NOVA Crew Netlify, la <b>cámara se abre dentro de esta ventana</b> (Chrome Android o Safari iPhone, con permiso). Si no puedes usar vídeo, pulsa <b>Hacer foto</b>.</p><label>Servicio que coordino<select id="qrScanService">${eligible.map(s=>`<option value="${s.id}" ${s.id===activeService?'selected':''}>${qescape(s.name)}</option>`).join('')}</select></label><div class="nova-qr-actions"><label class="nova-qr-capture">📷 Hacer foto del QR <input id="qrCaptureImage" type="file" accept="image/*" capture="environment"></label><button type="button" class="btn dark" id="qrStartCamera">Escaneo en directo</button><button type="button" class="btn light" id="qrStopCamera">Detener</button></div><video id="qrVideo" class="nova-qr-cam" autoplay playsinline muted style="display:none"></video><canvas id="qrCanvas" style="display:none"></canvas><div id="qrPhotoArea"></div><p id="qrCameraStatus" class="nova-qr-camera-error" aria-live="polite"></p><div class="nova-qr-actions"><span class="nova-netlify-tag">Lector integrado · HTTPS</span></div><label>Alternativa: introducir código<input id="qrManualToken" type="text" placeholder="NOVAQR:…" autocomplete="off" spellcheck="false"></label><button class="btn primary" type="button" id="qrManualRedeem">Validar asistencia</button><div id="qrScanResult"></div></div>`;
+    root.innerHTML=`<div class="nova-qr-form">${renderModeSwitch('scan')}<p class="nova-qr-hint">Pulsa Escanear para abrir la cámara. Si no funciona, revisa el permiso de cámara del navegador.</p><label>Servicio que coordino<select id="qrScanService">${eligible.map(s=>`<option value="${s.id}" ${s.id===activeService?'selected':''}>${qescape(s.name)}</option>`).join('')}</select></label><div class="nova-qr-actions"><button type="button" class="btn dark" id="qrStartCamera">Escanear</button><button type="button" class="btn light" id="qrStopCamera" style="display:none">Detener</button></div><video id="qrVideo" class="nova-qr-cam" autoplay playsinline muted style="display:none"></video><canvas id="qrCanvas" style="display:none"></canvas><div id="qrPhotoArea"></div><p id="qrCameraStatus" class="nova-qr-camera-error" aria-live="polite"></p><div class="nova-qr-actions"></div><label>Introducir código manualmente<input id="qrManualToken" type="text" placeholder="NOVAQR:…" autocomplete="off" spellcheck="false"></label><button class="btn primary" type="button" id="qrManualRedeem">Validar asistencia</button><div id="qrScanResult"></div></div>`;
     bindModeSwitch();
     el('qrStartCamera').onclick=startCamera;
     el('qrStopCamera').onclick=stopCamera;
@@ -252,7 +252,7 @@
     try{
       scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
       const video=el('qrVideo');video.srcObject=scannerStream;video.style.display='block';await video.play();
-      scannerMessage('Cámara encendida. Enfoca el QR dentro de la imagen.');
+      scannerMessage('Cámara encendida. Enfoca el QR.');if(el('qrStopCamera'))el('qrStopCamera').style.display='inline-flex';
       scannerRunning=true;
       const frame=async()=>{
         if(!scannerRunning)return;
@@ -274,7 +274,7 @@
       stopCamera();
     }
   }
-  function stopCamera(){scannerRunning=false;clearTimeout(scanTimer);if(scannerStream)scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;const v=el('qrVideo');if(v){v.pause();v.srcObject=null;v.style.display='none'}}
+  function stopCamera(){if(el('qrStopCamera'))el('qrStopCamera').style.display='none';scannerRunning=false;clearTimeout(scanTimer);if(scannerStream)scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;const v=el('qrVideo');if(v){v.pause();v.srcObject=null;v.style.display='none'}}
   function openExternalScanner(){
     const webUrl=document.body.dataset.webappUrl||'';
     const scannerUrl=document.body.dataset.externalScanner||'';
