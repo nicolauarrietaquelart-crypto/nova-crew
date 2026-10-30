@@ -226,6 +226,23 @@ function handleNoticeAction(id){
   notice?.action?.();
 }
 
+// Swipe left on mobile alerts to dismiss. Existing X buttons remain available.
+let alertSwipe=null;
+document.addEventListener('touchstart',e=>{
+ const item=e.target.closest?.('#v15AlertPanel .v15-alert-item');
+ if(!item)return;
+ const t=e.touches[0];alertSwipe={item,x:t.clientX,y:t.clientY};
+},{passive:true});
+document.addEventListener('touchend',e=>{
+ if(!alertSwipe)return;
+ const {item,x,y}=alertSwipe;alertSwipe=null;
+ if(!item.isConnected)return;
+ const t=e.changedTouches[0],dx=t.clientX-x,dy=t.clientY-y;
+ if(dx< -75 && Math.abs(dx)>Math.abs(dy)*1.4){
+   const deleteButton=item.querySelector('[data-v15-dismiss-notice],[data-v15-dismiss-open]');
+   if(deleteButton){item.style.transition='transform .2s ease,opacity .2s ease';item.style.transform='translateX(-100%)';item.style.opacity='0';setTimeout(()=>deleteButton.click(),180);}
+ }
+},{passive:true});
 function mountProfileMenu(){
   const btn=$id('v15ProfileToggle');
   if(btn)btn.addEventListener('click',e=>{
