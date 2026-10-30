@@ -13,9 +13,12 @@
   const qescape=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const userid=()=>window.novaActiveAccount||'demo';
   const coordinator=()=>userid()==='coord';
-  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null};
+  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord'};
+  // Mirror Cloudflare's demo canScan grants. Enforcement remains on the server.
+  const QR_SCAN_SERVICES={demo:['svc3','svc4','svc6','svc7'],coord:['svc1','svc2','svc4','svc7']};
   const isOwnCoord=s=>!!s&&OWNERS[s.id]===userid();
   const isCrewManager=s=>!!s&&(isOwnCoord(s)||(s.id==='svc4'&&userid()==='coord'));
+  const canScanService=s=>!!s&&(QR_SCAN_SERVICES[userid()]||[]).includes(s.id);
   const isFuture=s=>!!s&&new Date(s.endISO)>new Date();
   let cloudRoster=null;
   function lsRead(key,other){try{return JSON.parse(localStorage.getItem(key)||'null')||other}catch(e){return other}}
@@ -108,7 +111,7 @@
     else renderChooser();
   }
   function closeOverlay(){stopCamera();clearInterval(expiresTimer);overlay.classList.add('hidden')}
-  function scannableServices(){return services.filter(s=>isFuture(s)&&isCrewManager(s));}
+  function scannableServices(){return services.filter(s=>isFuture(s)&&canScanService(s));}
   function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4'].includes(s.id):true));}
   function renderModeSwitch(active){
     return `<div class="nova-qr-switch"><button type="button" class="btn ${active==='worker'?'primary':'light'}" id="qrSwitchWorker">Mostrar mi QR</button><button type="button" class="btn ${active==='scan'?'primary':'light'}" id="qrSwitchScan" ${scannableServices().length?'':'disabled'}>Escanear QR</button></div>`;
@@ -170,7 +173,8 @@
   function renderScanner(){
     title.textContent='Escanear QR de trabajador';
     const eligible=scannableServices();
-    root.innerHTML=`<div class="nova-qr-form">${renderModeSwitch('scan')}<p class="nova-qr-hint">En NOVA Crew Netlify, la <b>cámara se abre dentro de esta ventana</b> (Chrome Android o Safari iPhone, con permiso). Si no puedes usar vídeo, pulsa <b>Hacer foto</b>.</p><label>Servicio que coordino<select id="qrScanService">${eligible.map(s=>`<option value="${s.id}">${qescape(s.name)}</option>`).join('')}</select></label><div class="nova-qr-actions"><label class="nova-qr-capture">📷 Hacer foto del QR <input id="qrCaptureImage" type="file" accept="image/*" capture="environment"></label><button type="button" class="btn dark" id="qrStartCamera">Escaneo en directo</button><button type="button" class="btn light" id="qrStopCamera">Detener</button></div><video id="qrVideo" class="nova-qr-cam" autoplay playsinline muted style="display:none"></video><canvas id="qrCanvas" style="display:none"></canvas><div id="qrPhotoArea"></div><p id="qrCameraStatus" class="nova-qr-camera-error" aria-live="polite"></p><div class="nova-qr-actions"><span class="nova-netlify-tag">Lector integrado · HTTPS</span></div><label>Alternativa: introducir código<input id="qrManualToken" type="text" placeholder="NOVAQR:…" autocomplete="off" spellcheck="false"></label><button class="btn primary" type="button" id="qrManualRedeem">Validar asistencia</button><div id="qrScanResult"></div></div>`;
+    if(!eligible.some(s=>s.id===activeService)&&eligible.length)activeService=eligible[0].id;
+    root.innerHTML=`<div class="nova-qr-form">${renderModeSwitch('scan')}<p class="nova-qr-hint">En NOVA Crew Netlify, la <b>cámara se abre dentro de esta ventana</b> (Chrome Android o Safari iPhone, con permiso). Si no puedes usar vídeo, pulsa <b>Hacer foto</b>.</p><label>Servicio que coordino<select id="qrScanService">${eligible.map(s=>`<option value="${s.id}" ${s.id===activeService?'selected':''}>${qescape(s.name)}</option>`).join('')}</select></label><div class="nova-qr-actions"><label class="nova-qr-capture">📷 Hacer foto del QR <input id="qrCaptureImage" type="file" accept="image/*" capture="environment"></label><button type="button" class="btn dark" id="qrStartCamera">Escaneo en directo</button><button type="button" class="btn light" id="qrStopCamera">Detener</button></div><video id="qrVideo" class="nova-qr-cam" autoplay playsinline muted style="display:none"></video><canvas id="qrCanvas" style="display:none"></canvas><div id="qrPhotoArea"></div><p id="qrCameraStatus" class="nova-qr-camera-error" aria-live="polite"></p><div class="nova-qr-actions"><span class="nova-netlify-tag">Lector integrado · HTTPS</span></div><label>Alternativa: introducir código<input id="qrManualToken" type="text" placeholder="NOVAQR:…" autocomplete="off" spellcheck="false"></label><button class="btn primary" type="button" id="qrManualRedeem">Validar asistencia</button><div id="qrScanResult"></div></div>`;
     bindModeSwitch();
     el('qrStartCamera').onclick=startCamera;
     el('qrStopCamera').onclick=stopCamera;
@@ -494,6 +498,7 @@
     updateDemoWorkerFromServer();
     setTimeout(consumeIncomingScan,150);
   }
+  window.NOVA_QR_CONTEXT={chooseService(id){if(services.some(s=>s.id===id))activeService=id;}};
   function init(){
     el('novaQrQuick').onclick=()=>openOverlay('menu');
     el('novaQrClose').onclick=closeOverlay;
