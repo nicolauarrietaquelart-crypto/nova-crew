@@ -198,7 +198,14 @@ function roleLabel(s){return String(s.role||'').toUpperCase()}
 function totalPersonnel(s){return (s.hands||0)+(s.crewHeads||0)+(s.forklifts||0)}
 
 function navigate(key){
-  $$('.page').forEach(p=>p.classList.remove('active'));
+  // Control horario is an action, not a standalone page.
+  // Use the exact same QR chooser as the header button and Crew Control.
+  if(key==='clock'){
+    $('#sidebar')?.classList.remove('open');
+    document.getElementById('novaQrQuick')?.click();
+    return;
+  }
+  $('.page').forEach(p=>p.classList.remove('active'));
   $('#'+pageIds[key])?.classList.add('active');
   document.body.classList.toggle('crew-mode',key==='crew-control');
   const root=key==='service-detail'?'services':(key==='worker-coordination'||key==='crew-control'?'coordination':key);
