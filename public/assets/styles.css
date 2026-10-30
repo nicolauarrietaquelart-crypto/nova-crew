@@ -1743,3 +1743,16 @@ button,input,select,textarea{font-family:inherit!important}
 .nova-locked-role small{color:#697483;font-size:11px}
 #novaIncidentWorkerWrap[hidden],#novaIncidentRoleWrap[hidden]{display:none!important}
 .nova-coord-header-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+
+/* Normal coordination editor: clear sections and a single stars-only control per rating. */
+.nova-coord-edit-form{display:grid;gap:16px}
+.nova-coord-edit-form>.basic-modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.nova-coord-edit-form .nova-locked-role{grid-column:1/-1;margin:0}
+.nova-coord-edit-form .nova-three-ratings{display:grid;gap:9px;background:#f7f8fa;border:1px solid #e3e7ed;border-radius:14px;padding:12px}
+.nova-coord-edit-form .nova-rating-row{display:grid;grid-template-columns:minmax(95px,1fr) auto auto;align-items:center;gap:10px;border:0;background:transparent;padding:5px 0}
+.nova-coord-edit-form .nova-modal-stars{display:flex;align-items:center;gap:3px}
+.nova-coord-edit-form .nova-modal-stars button{background:transparent;border:0;font-size:24px;padding:3px;color:#aab3be;box-shadow:none}
+.nova-coord-edit-form .nova-modal-stars button.on{color:#e88135}
+.nova-coord-edit-form #novaOpenIncident{justify-self:start}
+@media(max-width:640px){.nova-coord-edit-form>.basic-modal-grid{grid-template-columns:1fr}.nova-coord-edit-form .nova-rating-row{grid-template-columns:1fr auto}.nova-coord-edit-form .nova-rating-clear{grid-column:1/-1;justify-self:start}}
