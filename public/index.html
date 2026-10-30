@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=20261030-vector-download">
+  <link rel="stylesheet" href="/assets/styles.css?v=20261030-login-menu-fix">
 </head>
 <body data-webapp-url="" data-incoming-qr="" data-external-scanner="">
   <section id="loginView" class="login-view">
@@ -21,10 +21,10 @@
     <div class="login-stage">
       <form id="loginForm" class="login-card glass">
         <div class="login-orb"></div>
-        <div class="login-copy-small">DEMO · CLOUDFLARE · QR INTEGRADO</div>
+        
         <h1>Acceder</h1>
         <label>Usuario<input id="username" value="demo" autocomplete="username"></label>
-        <label>Contraseña<div class="password-row"><input id="password" type="password" value="crew2026" autocomplete="current-password"><button id="togglePassword" type="button">◉</button></div></label>
+        <label>Contraseña<div class="password-row"><input id="password" type="password" value="crew2026" autocomplete="current-password"><button id="togglePassword" type="button" aria-label="Mostrar contraseña" title="Mostrar contraseña"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
         <button class="btn primary full" type="submit">Entrar</button>
         <div class="login-bottom"><button type="button" class="link-btn" id="recoverBtn">Recuperar contraseña</button><span>Trabajador: <b>demo / crew2026</b><br>Coordinador: <b>coord / coord2026</b></span></div>
         <div id="loginError" class="login-error">Usuario o contraseña incorrectos.</div>
