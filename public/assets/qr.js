@@ -132,6 +132,9 @@
     el('qrChooseGps').onclick=()=>{
       if(!gps.length)return;
       closeOverlay();
+      if(typeof window.NOVA_CREW_GPS_OPEN==='function'&&document.body.classList.contains('crew-fullscreen-active')){
+        window.NOVA_CREW_GPS_OPEN();return;
+      }
       if(typeof window.navigate==='function')window.navigate('clock');
       const select=el('clockServicePicker');if(select){select.value=gps[0].id;select.dispatchEvent(new Event('change',{bubbles:true}));}
       document.querySelector('#page-clock .clock-layout')?.scrollIntoView({behavior:'smooth',block:'start'});
