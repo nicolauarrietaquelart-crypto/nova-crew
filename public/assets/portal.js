@@ -755,7 +755,7 @@ function renderCrewControl(s){
     <div class="crew-shell">
       <header class="crew-header">
         <div class="crew-brand">
-          <div class="crew-brand-mark">♧</div>
+          <div class="crew-brand-mark">N</div>
           <div><strong>CREW CONTROL</strong><span>Operaciones de personal · base integrada v11.2.30</span></div>
         </div>
         <div class="crew-header-actions">
@@ -1155,7 +1155,7 @@ function bind(){
   $('#mobileMenu').onclick=()=>$('#sidebar').classList.add('open');
   $('#mobileClose').onclick=()=>$('#sidebar').classList.remove('open');
   $('#notificationsBtn').onclick=()=>toggleNotifications();
-  $('#messagesBtn').onclick=()=>{window.location.href='mailto:personal@novacrew.demo?subject=Consulta%20Área%20de%20Empleado'};
+  $('#messagesBtn').onclick=()=>{if(typeof window.NOVA_openInbox==='function')window.NOVA_openInbox();else toast('Mensajes','No se ha podido abrir la bandeja de mensajes.')};
   $('#homeViewService').onclick=()=>{const s=window.homeNextService||getUpcomingService();renderServiceDetail(s);navigate('service-detail')};
 
 
@@ -1678,7 +1678,7 @@ function renderCrewControl(s){
   $('#crewControlRoot').innerHTML=`
     <div class="crew-shell">
       <header class="crew-header">
-        <div class="crew-brand"><div class="crew-brand-mark">♧</div><div><strong>CREW CONTROL</strong><span>Operaciones de personal · demo v11.2.30</span></div></div>
+        <div class="crew-brand"><div class="crew-brand-mark">N</div><div><strong>CREW CONTROL</strong><span>Operaciones de personal · demo v11.2.30</span></div></div>
         <div class="crew-header-actions"><button id="crewBack" class="light">← Área empleado</button><button id="crewControlView" class="light">◉ Control</button><button id="crewDuplicate" class="light">Duplicar</button><button id="crewCloseService" class="dark">${crewState.closed?'Reabrir':'Cerrar'}</button><button id="crewExit" class="light">Salir</button></div>
       </header>
       <div class="crew-workspace">
