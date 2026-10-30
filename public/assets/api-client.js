@@ -40,7 +40,7 @@
       const a=Array.isArray(args)?args:[];
       switch(method){
         case 'novaIssueQr':return request('issue',{serviceId:a[1]});
-        case 'novaRedeemQr':return request('redeem',{token:a[0],expectedService:a[2]||''});
+        case 'novaRedeemQr':return request('redeem',{token:a[0],expectedService:a[2]||'',direction:a[3]==='salida'?'salida':'entrada'});
         case 'novaDirectClock':return request('direct',{serviceId:a[1]});
         case 'novaSelfClock':return request('selfClock',{serviceId:a[1]});
         case 'novaGetAttendance':return request('attendance',{serviceId:a[0]});
