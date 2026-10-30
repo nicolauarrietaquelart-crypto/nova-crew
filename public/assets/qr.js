@@ -149,7 +149,18 @@
     el('qrServiceSelect').onchange=e=>{activeService=e.target.value;setWorkerMode()};
     el('qrGenerateBtn').onclick=issue;
     el('qrDirectBtn').onclick=directCheckin;
-    const own=document.createElement('button');own.type='button';own.className='btn primary';own.id='qrSelfClockBtn';own.textContent='Fichar mi turno (coordinador)';own.onclick=()=>performOwnClock('novaSelfClock',own);
+    const own=document.createElement('button');own.type='button';own.className='btn primary';own.id='qrSelfClockBtn';own.textContent='Fichar mi turno (coordinador)';own.onclick=()=>{
+      const service=chosenService();
+      if(!isOwnCoord(service)){toast('Control horario','Solo puedes fichar como coordinador de un servicio a tu cargo.');return;}
+      closeOverlay();
+      if(typeof window.NOVA_CREW_GPS_OPEN==='function'&&document.body.classList.contains('crew-fullscreen-active')){
+        window.NOVA_CREW_GPS_OPEN();return;
+      }
+      if(typeof window.navigate==='function')window.navigate('clock');
+      const select=el('clockServicePicker');
+      if(select){select.value=service.id;select.dispatchEvent(new Event('change',{bubbles:true}));}
+      document.querySelector('#page-clock .clock-layout')?.scrollIntoView({behavior:'smooth',block:'start'});
+    };
     el('qrDirectBtn').parentElement.append(own);
     setWorkerMode();
   }
