@@ -1,21 +1,13 @@
-NOVA CREW V13 — NETLIFY (DEMO GRATIS)
-===================================
+NOVA CREW v14 — CLOUDFLARE
 
-1. Descomprime el ZIP.
-2. Sube TODO el proyecto a un repositorio GitHub.
-3. Netlify > Add new project > Import an existing project > GitHub.
-4. Selecciona el repositorio y pulsa Deploy.
-5. Publicar: public/ ; Functions: netlify/functions (incluidos en netlify.toml).
-6. Abre la URL HTTPS que te dé Netlify DESDE DOS MOVILES.
+1) Sube NOVA_Crew_v14_Cloudflare.zip (SIN DESCOMPRIMIR) a tu repo GitHub nova-crew.
+2) Crea .github/workflows/instalar-cloudflare.yml con el contenido del instalador proporcionado aparte.
+3) GitHub -> Actions -> Instalar NOVA Crew v14 Cloudflare -> Run workflow.
+4) Cloudflare -> Workers & Pages -> Create application -> GitHub -> elige repo nova-crew.
+5) Worker name: nova-crew-demo; Deploy command: npx wrangler deploy.
+6) Despliega. Cloudflare usará wrangler.jsonc y creará el almacén Durable Object automáticamente.
 
-TRABAJADOR: demo / crew2026
-COORDINADOR: coord / coord2026
+IMPORTANTE: NO selecciones Cloudflare Pages/solo estáticos: el QR necesita el Worker.
 
-NEON DISTRICT: trabajador demo enseña su QR; coord lo escanea.
-URBAN WAVE: coord enseña su QR como HAND; demo lo escanea como Crew Head.
-ELECTRA: demo ficha directamente porque no hay coordinador.
-
-El lector usa la cámara DENTRO de NOVA Crew, no abre una web externa.
-El backend compartido necesita Netlify Functions y Blobs. Un HTML suelto no sirve.
-
-LEER README.md para instrucciones, límites y pruebas.
+Demo: demo / crew2026 (trabajador); coord / coord2026 (coordinador).
+Lee README.md para instrucciones detalladas y limitaciones.

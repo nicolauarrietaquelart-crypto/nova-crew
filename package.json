@@ -1,10 +1,14 @@
 {
-  "name": "nova-crew-v13-netlify-demo",
-  "version": "13.0.0",
+  "name": "nova-crew-v14-cloudflare-demo",
+  "version": "14.0.0",
   "private": true,
   "type": "module",
-  "description": "NOVA Crew demo: retained portal UI with camera QR check-in and Netlify Blobs",
-  "scripts": {"test":"node --test test/*.test.mjs"},
-  "dependencies": {"@netlify/blobs":"latest"},
+  "description": "NOVA Crew demo, QR scanning and shared attendance on Cloudflare Workers Free",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {"wrangler": "^4.0.0"},
   "engines": {"node": ">=20"}
 }

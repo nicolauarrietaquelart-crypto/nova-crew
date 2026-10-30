@@ -1,6 +1,5 @@
 node_modules/
-.netlify/
-.env
-.env.*
+.wrangler/
+.dev.vars
+.env*
 .DS_Store
-*.log

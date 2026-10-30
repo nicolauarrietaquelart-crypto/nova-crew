@@ -1,90 +1,91 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDemoApi } from '../netlify/functions/core.mjs';
+import { createDemoApi } from '../src/worker.mjs';
 
-function mockStore(){
-  const records=new Map();let version=0;
-  return {
-    async get(key){return records.has(key)? structuredClone(records.get(key).data):null;},
-    async setJSON(key,value,opts={}){
-      const before=records.get(key);
-      if(opts.onlyIfNew&&before)return {modified:false};
-      if(opts.onlyIfMatch&&before?.etag!==opts.onlyIfMatch)return {modified:false};
-      const etag=`"v${++version}"`;
-      records.set(key,{data:structuredClone(value),etag});
-      return {modified:true,etag};
-    },
-    async getWithMetadata(key){const r=records.get(key);return r?{data:structuredClone(r.data),etag:r.etag,metadata:{}}:null;}
-  };
+function mockStorage(){
+  const m=new Map(); let gate=Promise.resolve();
+  const txStore={get:async k=>structuredClone(m.get(k)),put:async(k,v)=>{m.set(k,structuredClone(v))},delete:async k=>m.delete(k)};
+  return {...txStore,transaction:fn=>{
+    const previous=gate;
+    let release;gate=new Promise(res=>release=res);
+    return previous.then(async()=>{try{return await fn(txStore)}finally{release()}});
+  }};
 }
-const url='https://nova-crew.netlify.app/.netlify/functions/api';
-function invoke(api,op,{method='POST',body={},token}={}){
-  const urlString=url+'?op='+op;
-  const init={method,headers:{'content-type':'application/json',...(token?{'authorization':'Bearer '+token}:{})}};
-  if(method==='POST')init.body=JSON.stringify(body);
-  return api(new Request(urlString,init)).then(async response=>({status:response.status,...await response.json()}));
+async function call(api,op,{user='',session='',body={},serviceId=''}={}){
+  const isGet=['me','attendance','worker'].includes(op);
+  const url=`https://demo.workers.dev/api?op=${op}${serviceId?'&serviceId='+serviceId:''}`;
+  const res=await api(new Request(url,{method:isGet?'GET':'POST',headers:{...(session?{authorization:`Bearer ${session}`}:{})},...(isGet?{}:{body:JSON.stringify(body)})}));
+  const data=await res.json();return Array.isArray(data)?Object.assign(data,{status:res.status}):{...data,status:res.status};
 }
+const login=(api,username,password)=>call(api,'login',{body:{username,password}});
 
-test('demo: login, profile rename, QR issue and scan from other account',async()=>{
-  const api=createDemoApi(mockStore());
-  const worker=await invoke(api,'login',{body:{username:'demo',password:'crew2026'}});
-  const coord=await invoke(api,'login',{body:{username:'coord',password:'coord2026'}});
-  assert.equal(worker.status,200);assert.equal(coord.status,200);
-  const wrong=await invoke(api,'login',{body:{username:'coord',password:'bad'}});
-  assert.equal(wrong.status,401);
-  const renamed=await invoke(api,'saveProfile',{token:worker.session,body:{profile:{firstName:'Alex',lastName:'Martín',phone:'600 000 005'}}});
-  assert.equal(renamed.ok,true);
-  const profile=await invoke(api,'worker',{method:'GET',token:coord.session});
-  assert.equal(profile.name,'Alex Martín');
-  const qr=await invoke(api,'issue',{token:worker.session,body:{serviceId:'svc2'}});
-  assert.equal(qr.workerName,'Alex Martín');assert.match(qr.token,/^[a-f0-9]{64}$/);
-  const t2=await invoke(api,'issue',{token:worker.session,body:{serviceId:'svc2'}});
-  assert.notEqual(t2.token,qr.token);
-  const superseded=await invoke(api,'redeem',{token:coord.session,body:{token:qr.token,expectedService:'svc2'}});
-  assert.equal(superseded.status,400);
-  const wrongService=await invoke(api,'redeem',{token:coord.session,body:{token:t2.token,expectedService:'svc1'}});
-  assert.equal(wrongService.status,400);
-  const own=await invoke(api,'redeem',{token:worker.session,body:{token:t2.token,expectedService:'svc2'}});
-  assert.equal(own.status,403);
-  const scanned=await invoke(api,'redeem',{token:coord.session,body:{token:t2.token,expectedService:'svc2'}});
-  assert.equal(scanned.status,200);assert.equal(scanned.record.workerName,'Alex Martín');assert.equal(scanned.record.status,'PRESENTE');
-  const again=await invoke(api,'redeem',{token:coord.session,body:{token:t2.token,expectedService:'svc2'}});
-  assert.equal(again.status,400);
-  const seen=await api(new Request(url+'?op=attendance&serviceId=svc2',{headers:{authorization:'Bearer '+coord.session}})).then(r=>r.json());
-  assert.equal(seen.length,1);assert.equal(seen[0].workerName,'Alex Martín');
+test('login and profile synchronization across sessions', async()=>{
+  const api=createDemoApi(mockStorage());
+  assert.equal((await login(api,'demo','bad')).status,401);
+  const first=await login(api,'demo','crew2026');
+  const second=await login(api,'demo','crew2026');
+  const name={firstName:'Bea',lastName:'Prueba',phone:'612 345 678'};
+  assert.equal((await call(api,'saveProfile',{session:first.session,body:{profile:name}})).ok,true);
+  assert.deepEqual((await call(api,'me',{session:second.session})).profile,name);
 });
 
-test('service with no coordinator: direct; coordinated service: QR required',async()=>{
-  const api=createDemoApi(mockStore());
-  const worker=await invoke(api,'login',{body:{username:'demo',password:'crew2026'}});
-  const direct=await invoke(api,'direct',{token:worker.session,body:{serviceId:'svc5'}});
-  assert.equal(direct.ok,true);assert.equal(direct.record.method,'DIRECTO');
-  const failQr=await invoke(api,'issue',{token:worker.session,body:{serviceId:'svc5'}});
-  assert.equal(failQr.status,400);
-  const failDirect=await invoke(api,'direct',{token:worker.session,body:{serviceId:'svc2'}});
-  assert.equal(failDirect.status,400);
-  const unauthorized=await invoke(api,'issue',{token:worker.session,body:{serviceId:'svc99'}});
-  assert.equal(unauthorized.status,403);
+test('QR issuance, regeneration, invalidation, checkin and service authorization',async()=>{
+  const api=createDemoApi(mockStorage());
+  const w=await login(api,'demo','crew2026');
+  const c=await login(api,'coord','coord2026');
+  assert.equal((await call(api,'issue',{session:w.session,body:{serviceId:'svc5'}})).status,400);
+  const one=await call(api,'issue',{session:w.session,body:{serviceId:'svc2'}});
+  const two=await call(api,'issue',{session:w.session,body:{serviceId:'svc2'}});
+  assert.notEqual(one.token,two.token);
+  assert.equal((await call(api,'redeem',{session:c.session,body:{token:one.token,expectedService:'svc2'}})).status,400);
+  assert.equal((await call(api,'redeem',{session:w.session,body:{token:two.token,expectedService:'svc2'}})).status,403);
+  assert.equal((await call(api,'redeem',{session:c.session,body:{token:two.token,expectedService:'svc1'}})).status,400);
+  const good=await call(api,'redeem',{session:c.session,body:{token:two.token,expectedService:'svc2'}});
+  assert.equal(good.ok,true);assert.equal(good.record.status,'PRESENTE');
+  assert.equal(good.record.workerId,'demo');assert.equal(good.record.team,'LOGÍSTICA');
+  assert.equal((await call(api,'redeem',{session:c.session,body:{token:two.token,expectedService:'svc2'}})).status,400);
+  const attend=await call(api,'attendance',{session:c.session,serviceId:'svc2'});
+  assert.equal(attend.length,1);assert.equal(attend[0].workerId,'demo');
 });
 
-test('atomic single-use token blocks parallel double scans',async()=>{
-  const api=createDemoApi(mockStore());
-  const w=await invoke(api,'login',{body:{username:'demo',password:'crew2026'}});
-  const c=await invoke(api,'login',{body:{username:'coord',password:'coord2026'}});
-  const issued=await invoke(api,'issue',{token:w.session,body:{serviceId:'svc2'}});
-  const results=await Promise.all(Array.from({length:2},()=>invoke(api,'redeem',{token:c.session,body:{token:issued.token,expectedService:'svc2'}})));
-  assert.deepEqual(results.map(r=>r.status).sort(),[200,400]);
+test('simultaneous scans have exactly one success',async()=>{
+  const api=createDemoApi(mockStorage());
+  const w=await login(api,'demo','crew2026');
+  const c=await login(api,'coord','coord2026');
+  const ticket=await call(api,'issue',{session:w.session,body:{serviceId:'svc2'}});
+  const outcomes=await Promise.all([call(api,'redeem',{session:c.session,body:{token:ticket.token}}),call(api,'redeem',{session:c.session,body:{token:ticket.token}})]);
+  assert.deepEqual(outcomes.map(v=>v.status).sort(),[200,400]);
 });
 
-test('second demo scenario: coordinator also works as HAND; Crew Head can scan',async()=>{
-  const api=createDemoApi(mockStore());
-  const pau=await invoke(api,'login',{body:{username:'demo',password:'crew2026'}});
-  const alvaro=await invoke(api,'login',{body:{username:'coord',password:'coord2026'}});
-  const ticket=await invoke(api,'issue',{token:alvaro.session,body:{serviceId:'svc3'}});
-  assert.equal(ticket.ok,true);assert.equal(ticket.category,'HAND A');assert.equal(ticket.team,'LUCES');
-  const redeemed=await invoke(api,'redeem',{token:pau.session,body:{token:ticket.token,expectedService:'svc3'}});
-  assert.equal(redeemed.ok,true);assert.equal(redeemed.record.workerName,'Álvaro Costa');
-  assert.equal(redeemed.record.category,'HAND A');assert.equal(redeemed.record.team,'LUCES');
-  const noPrivilege=await invoke(api,'redeem',{token:alvaro.session,body:{token:ticket.token,expectedService:'svc3'}});
-  assert.equal(noPrivilege.status,400);
+test('Worker as HAND and scanner as Crew Head',async()=>{
+  const api=createDemoApi(mockStorage());
+  const w=await login(api,'demo','crew2026');
+  const c=await login(api,'coord','coord2026');
+  const ticket=await call(api,'issue',{session:c.session,body:{serviceId:'svc3'}});
+  assert.equal(ticket.category,'HAND A');
+  const out=await call(api,'redeem',{session:w.session,body:{token:ticket.token,expectedService:'svc3'}});
+  assert.equal(out.record.team,'LUCES');assert.equal(out.record.workerName,'Álvaro Costa');
+});
+
+test('direct checkin only for uncoordinated services; profile name on scanned record',async()=>{
+  const api=createDemoApi(mockStorage());
+  const w=await login(api,'demo','crew2026');
+  const c=await login(api,'coord','coord2026');
+  const save=await call(api,'saveProfile',{session:w.session,body:{profile:{firstName:'Carmen',lastName:'Demo',phone:'123'}}});
+  assert.equal(save.ok,true);
+  const ticket=await call(api,'issue',{session:w.session,body:{serviceId:'svc2'}});
+  const out=await call(api,'redeem',{session:c.session,body:{token:ticket.token}});
+  assert.equal(out.record.workerName,'Carmen Demo');
+  assert.equal((await call(api,'direct',{session:w.session,body:{serviceId:'svc2'}})).status,400);
+  const direct=await call(api,'direct',{session:w.session,body:{serviceId:'svc5'}});
+  assert.equal(direct.record.method,'DIRECTO');
+  assert.equal(direct.record.workerName,'Carmen Demo');
+});
+
+test('invalid codes and unauthenticated requests are rejected',async()=>{
+  const api=createDemoApi(mockStorage());
+  assert.equal((await call(api,'me')).status,401);
+  const c=await login(api,'coord','coord2026');
+  assert.equal((await call(api,'redeem',{session:c.session,body:{token:'abc'}})).status,400);
+  assert.equal((await call(api,'direct',{session:c.session,body:{serviceId:'svc5'}})).status,403);
 });

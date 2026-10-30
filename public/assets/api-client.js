@@ -1,7 +1,7 @@
-/* NOVA Crew v13 · Netlify Functions · Same-origin API. Demo credentials only. */
+/* NOVA Crew v13 · Cloudflare Workers · Same-origin API. Demo credentials only. */
 (() => {
   'use strict';
-  const root='/.netlify/functions/api';
+  const root='/api';
   let session='';
   let account='';
   async function request(op,payload){
@@ -28,7 +28,7 @@
     logout:()=>{account='';session='';},
     me:()=>request('me'),
     saveProfile:profile=>request('saveProfile',{profile}),
-    // Adapts previous Apps Script method names to a Netlify backend.
+    // Adapts previous Apps Script method names to a Cloudflare backend.
     call:async(method,args=[])=>{
       if(!session)throw new Error('Inicia sesión antes de utilizar el fichaje.');
       const a=Array.isArray(args)?args:[];
@@ -38,7 +38,7 @@
         case 'novaDirectClock':return request('direct',{serviceId:a[1]});
         case 'novaGetAttendance':return request('attendance',{serviceId:a[0]});
         case 'novaGetDemoWorker':return request('worker');
-        default:throw new Error('Acción no disponible en Netlify: '+method);
+        default:throw new Error('Acción no disponible en Cloudflare: '+method);
       }
     }
   };

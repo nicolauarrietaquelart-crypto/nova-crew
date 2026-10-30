@@ -1,111 +1,79 @@
-# NOVA Crew v13 — Demo completa para Netlify
+# NOVA Crew v14 — Cloudflare Workers (demo)
 
-**Una sola web HTTPS con escáner QR integrado en el portal**, conservando la interfaz y los módulos de la v12. No utiliza Google Apps Script.
+**Proyecto web completo**, migrado de la v13 de Netlify a Cloudflare Workers + Durable Objects SQLite. Cámara QR dentro de la misma web, sesiones demo, fichaje compartido entre móviles y mantenimiento de las secciones del portal.
 
-## 1. Publicación recomendada (gratis para una demo pequeña)
+## ¿Qué está incluido?
 
-Para desplegar **la aplicación Y su backend**, publica **todo este proyecto** en Netlify desde un repositorio Git (no solo `public/index.html`).
+- `public/`: portal NOVA Crew (HTML, CSS, JS) procedente de v13; el lector de QR usa `getUserMedia` + jsQR (CDN) con respaldo de fotografía y entrada manual.
+- `public/assets/api-client.js`: llamadas al backend en la misma URL (`/api`), sin Netlify.
+- `src/worker.mjs`: backend Cloudflare Workers; genera QR, los valida, conserva perfil básico y fichajes en almacenamiento compartido.
+- `wrangler.jsonc`: el nombre `nova-crew-demo`, assets estáticos y Durable Object SQLite `DemoState`. Se crea con el primer despliegue, sin D1 externo.
+- `test/`: pruebas del backend con Node.js (opcionales para el usuario).
 
-1. Crea una cuenta gratuita en [GitHub](https://github.com/) y un repositorio nuevo, por ejemplo `nova-crew-demo` (privado si prefieres mantener el código fuera de vista).
-2. Sube al repositorio el contenido de esta carpeta: `package.json`, `netlify.toml`, `public/` y `netlify/`. Puedes utilizar GitHub Desktop para hacerlo sin comandos. **No subas fotos ni datos reales de empleados**.
-3. Entra en [Netlify](https://app.netlify.com/) → **Add new project → Import an existing project → GitHub**. Autoriza el repositorio y selecciónalo.
-4. Netlify leerá `netlify.toml`: directorio de publicación `public`, funciones `netlify/functions`, Node 22. No hace falta comando de compilación; las dependencias del `package.json` se instalan en el despliegue.
-5. Pulsa **Deploy**. Cuando termine, abre tu URL `https://NOMBRE.netlify.app` desde Chrome Android o Safari iPhone.
-6. Permite el acceso a cámara cuando el navegador lo pida. Si lo bloqueaste, actívalo en los permisos del sitio.
+**Advertencia:** solo demo. Las credenciales son públicas y los perfiles y servicios son ficticios. No utilizar para fichaje laboral oficial ni datos personales reales. Solo nombre/teléfono, QR y asistencia están sincronizados en el servidor; el resto sigue siendo la demo local.
 
-**Importante:** un despliegue estático de un solo HTML o solo de la carpeta `public` no es suficiente: necesitas que Netlify publique la Function y aprovisione Blobs. La integración se ha preparado para ese mecanismo; aquí no se ha publicado en una cuenta real de Netlify.
+## Publicación sin programas: GitHub → Cloudflare
 
-Alternativa con terminal, una vez instalado Node.js:
+Si **ya tienes la v13 subida en tu repositorio**, utiliza el instalador adjunto `instalar_nova_cloudflare.yml`. No hace falta cargar carpetas en GitHub:
+
+1. En GitHub → `nova-crew` → **Add file → Upload files**, sube el archivo `NOVA_Crew_v14_Cloudflare.zip` sin descomprimir y pulsa **Commit changes**.
+2. Ve a **Add file → Create new file**, nómbralo `.github/workflows/instalar-cloudflare.yml` y pega el contenido del instalador `.yml` adjunto a la descarga.
+3. Guarda con **Commit changes**.
+4. Abre **Actions → Instalar NOVA Crew v14 Cloudflare → Run workflow**. Espera al resultado verde. Deben aparecer `public/`, `src/`, `test/`, `wrangler.jsonc` y `package.json` en la raíz. El ZIP se borra automáticamente después de extraerse.
+5. Abre [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages → Create application → GitHub** (la etiqueta exacta puede variar ligeramente).
+6. Conecta tu GitHub, selecciona **el mismo repositorio `nova-crew`**, rama principal `main`, directorio raíz `/` y crea un **Worker**, no una web de Pages estática.
+7. **Nombre del Worker:** `nova-crew-demo` para coincidir con `wrangler.jsonc`.
+8. **Build command:** vacío, si lo permite; **Deploy command:** `npx wrangler deploy`. Cloudflare instala las dependencias Node en sus Builds. Selecciona el plan Workers **Free**.
+9. Pulsa **Deploy**. La primera publicación creará automáticamente el Durable Object SQLite según `wrangler.jsonc`; no tienes que crear una base D1 ni copiar IDs.
+10. Abre la URL HTTPS `https://nova-crew-demo.TU-SUBDOMINIO.workers.dev`. Concede permiso para usar la cámara cuando el coordinador pulse **Escaneo en directo**.
+
+**Si al desplegar aparece «Worker name mismatch»:** revisa que el nombre del Worker sea `nova-crew-demo`, el del archivo `wrangler.jsonc`.
+**Si aparece «missing Durable Object binding»:** comprueba que Cloudflare haya desplegado el Worker que usa `wrangler.jsonc` y no solo `public`.
+**Si se muestra «Module not found» o «wrangler not found»:** comprueba que el `package.json` esté en la raíz y que la carpeta base sea `/`.
+
+## Usuarios demo
+
+| Tipo | Usuario | Contraseña |
+|------|---------|------------|
+| Trabajador, también Crew Head en svc3 | `demo` | `crew2026` |
+| Coordinador normal, también HAND en svc3 | `coord` | `coord2026` |
+
+### Prueba A: coordinación normal
+
+- En el móvil del trabajador entra con `demo` → icono QR → **Mostrar mi QR** → NEON DISTRICT (`svc2`).
+- En el móvil del coordinador entra con `coord` → icono QR → **Escanear trabajador** → NEON DISTRICT → **Escaneo en directo**.
+- Apunta a la pantalla del trabajador, acepta la confirmación y observa que aparece `PRESENTE`, con nombre, equipo y horario.
+
+### Prueba B: Crew Control
+
+- En un móvil entra con `coord`: muestra el QR para URBAN WAVE (`svc3`) como HAND A.
+- En el otro móvil entra con `demo`: escanea en ese mismo servicio como Crew Head.
+- Ambos ven el registro en su servicio.
+
+### Prueba C: servicio sin coordinador
+
+- `demo` selecciona ELECTRA LIVE (`svc5`) → **Fichar directamente**, sin QR ni geolocalización.
+
+Los códigos se regeneran cada vez, caducan a los 90 segundos y se consumen de forma atómica para que dos coordinadores no puedan validar el mismo código simultáneamente.
+
+## Lo que sí y no cambia
+
+**Sincroniza entre móviles:** inicio de sesión demo, nombre/teléfono básico, QR, fichajes y presencia.
+
+**Solo demostración local (sin backend empresarial):** fotografías, disponibilidad, incidencias/valoraciones, documentos, formación, liquidaciones, notas de servicio y algunas confirmaciones. El cambio de nombre se transmite al nombre del trabajador del QR y a sus listados, pero puede tardar unos segundos en el dispositivo remoto.
+
+## Seguridad y límites
+
+Los usuarios ficticios son conocidos y se comparten entre los asistentes de una demo. Si el sitio se hace público, cualquiera puede entrar con estas credenciales y alterar los datos ficticios. No introducir información verdadera. No sirve como sistema de control horario en producción.
+
+Cloudflare Workers Free y Durable Objects SQLite tienen cuotas diarias, pero no requieren contratar una base de datos externa. Según la disponibilidad real de tu cuenta, las cuotas pueden cambiar. Verifica en Cloudflare el estado del plan gratuito.
+
+## Desarrollo local (opcional, no hace falta instalar nada en tu PC para publicar)
 
 ```bash
 npm install
-npx netlify-cli login
-npx netlify-cli deploy --prod
+npm test
+npx wrangler dev
 ```
 
-El asistente de la CLI puede solicitarte crear/enlazar el proyecto. Si quieres probar localmente, usa `npx netlify-cli dev` (el almacén local de Blobs es independiente del de producción).
-
-## 2. Cuentas ficticias de demostración
-
-| Perfil | Usuario | Contraseña |
-|---|---|---|
-| Trabajador (Pau Ferrer Soler; nombre editable) | `demo` | `crew2026` |
-| Coordinador (Álvaro Costa) | `coord` | `coord2026` |
-
-Los usuarios y contraseñas son **públicos y solo sirven para la demo**. No utilices esta aplicación para datos laborales reales ni control horario oficial.
-
-### Escenario A — Fichaje normal (2 móviles)
-
-1. Móvil 1: entra como `demo`, pulsa el icono **▦** del encabezado → **Enseñar mi QR**.
-2. Elige **NEON DISTRICT · ARENA MONTJUÏC** y pulsa **Generar QR**.
-3. Móvil 2: entra como `coord`, pulsa el mismo icono → **Escanear trabajador**. Selecciona NEON DISTRICT.
-4. Pulsa **Escaneo en directo** y permite usar la cámara. Enfoca el QR del otro móvil. Si falla la cámara, utiliza **Hacer foto del QR**.
-5. La pantalla del coordinador confirma **PRESENTE** y muestra nombre, rol, equipo y horario; la ficha del trabajador lo refleja en unos segundos.
-6. Abre **Coordinación → NEON DISTRICT** para ver el trabajador marcado como presente.
-
-### Escenario B — Fichaje en Crew Control
-
-1. Móvil 1: entra como `coord` (Álvaro también tiene asignado un turno como HAND A en URBAN WAVE). Enseña su QR de **URBAN WAVE FEST · FÒRUM HALL**.
-2. Móvil 2: entra como `demo`, abre **Escanear trabajador**, selecciona URBAN WAVE y escanea.
-3. En **Crew Control** de URBAN WAVE, el fichaje del trabajador aparece como PRESENTE, con equipo **LUCES**.
-
-### Escenario C — Servicio sin coordinador
-
-La cuenta `demo` selecciona **ELECTRA LIVE · SANT JORDI HUB** → **Fichar directamente**. No hay QR ni restricción GPS en la demo.
-
-### Personalización
-
-Cambia el nombre o teléfono de la cuenta `demo` en **Mi perfil → Guardar cambios**. El backend lo almacena con el ID `demo`, por lo que se conserva la correspondencia con su QR y su registro; se refleja en el otro dispositivo cuando se actualiza su lista.
-
-## 3. Cómo funciona el sistema
-
-- **Frontend:** HTML, CSS y JavaScript derivados de NOVA Crew v12, con la cámara dentro del mismo portal.
-- **Lectura:** cámara web (`getUserMedia`) + `jsQR` 1.4.0, cargado por CDN; `BarcodeDetector` es un segundo recurso opcional, no obligatorio.
-- **Backend:** Netlify Function `netlify/functions/api.mjs` (Node.js).
-- **Persistencia compartida:** Netlify Blobs site-wide con consistencia fuerte.
-- **Autorización demo:** el login emite una sesión aleatoria de 256 bits; se almacena el hash de la sesión en servidor, caduca a las 8 horas. El frontend mantiene el token solo en memoria; al recargar, se vuelve a mostrar login.
-- **QR:** 256 bits aleatorios, 90 segundos, se guarda su hash, solo un QR activo por trabajador y servicio. Escanearlo comprueba rol, servicio y vencimiento y consume el código con una escritura condicional por ETag para evitar dobles usos simultáneos.
-- **Asistencia:** queda en Netlify Blobs y se consulta periódicamente para actualizar la interfaz en ambos dispositivos.
-
-## 4. Qué está realmente sincronizado
-
-**Compartido entre dispositivos en esta versión:** inicio de sesión demo, nombre y teléfono básicos, QR activos, fichajes, última asistencia por persona/servicio.
-
-**Sigue como demostración local de la v12:** otros detalles del perfil, fotografía, disponibilidad, agenda/confirmaciones, formación, incidencias, valoraciones, edición masiva, liquidaciones, contratos y documentos. Estos módulos conservan su interfaz e interacciones simuladas, pero **NO están conectados a una base de datos empresarial** y **NO se sincronizan automáticamente entre móviles**. La fotografía de perfil se guarda en el navegador del dispositivo.
-
-Esta distinción es importante para presentarla con precisión. Se puede conectar el resto posteriormente a una base de datos real, conservando la interfaz.
-
-## 5. Requisitos, límites y seguridad
-
-- Cámara en directo solo en un contexto seguro **HTTPS** y con permiso del usuario. El sitio `*.netlify.app` ya dispone de HTTPS. No se ha probado una cámara física en este entorno.
-- El navegador debe cargar `https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js`; si el CDN no responde, Chrome compatible puede usar `BarcodeDetector` como respaldo, además de entrada manual.
-- Netlify Free tiene un límite mensual de créditos. Para presentaciones cortas, debería ser suficiente, pero hay cuotas y el proyecto puede dejar de atender peticiones cuando se agoten.
-- Es una **demo**, no control de jornada válido para producción: sin recuperación de cuentas, sin gestión robusta de empleados reales, sin permisos granulares, sin historial auditado completo ni garantías legales de fichaje. Las credenciales aparecen en la web y pueden usarlas terceros que conozcan la URL.
-- Los servicios, personal, teléfonos y documentos son ficticios. No emplees datos reales en esta versión pública.
-- Blobs es apropiado aquí como almacén pequeño de demostración; para grandes volúmenes/transacciones relacionales, migra a Netlify DB u otra base de datos.
-
-## 6. Archivos principales
-
-```text
-public/
-  index.html                 Todo el portal de NOVA Crew
-  assets/styles.css          Estilo original adaptado
-  assets/portal.js           Portal de empleado y Crew Control
-  assets/extras.js           Agenda y confirmaciones ficticias
-  assets/qr-encoder.js       Generador de QR MIT
-  assets/qr.js               Lector por cámara, UI y fichaje
-  assets/api-client.js       API de Netlify
-netlify/functions/
-  api.mjs                    Función pública HTTPS
-  core.mjs                   Reglas, roles, sesiones, QR y asistencia
-netlify.toml                 Configuración del sitio y Functions
-package.json                Dependencias y pruebas
-```
-
-## 7. Pruebas incluidas
-
-`npm test` ejecuta pruebas unitarias de login, perfil, flujo normal, fichaje sin coordinador, QR regenerado, QR de un solo uso, doble escaneo concurrente y ficha en Crew Control. Se probó además la interfaz con un navegador automatizado y un backend simulado (prueba de integración local), **no contra Netlify publicado**.
-
-## 8. Créditos
-
-Codificador QR Arase (`qr-encoder.js`), licencia MIT según el archivo fuente de la v12. Lector [jsQR 1.4.0](https://github.com/cozmo/jsQR), licencia Apache-2.0, servido por CDN. La tipografía Plus Jakarta Sans se sirve mediante Google Fonts.
+No se ha probado aún con cámaras físicas en móviles ni en una cuenta real de Cloudflare; se ha verificado el backend con pruebas automatizadas de Node.js. El escáner de vídeo integrado necesita HTTPS, permiso de cámara y conectividad al CDN de jsQR.
