@@ -206,8 +206,10 @@ function openShiftModal(id){
     </div>`);
   setTimeout(()=>{
     $id('v15NoAttend').onclick=()=>{
+      mutateState(st=>{if(!st.dismissed.includes(s.id))st.dismissed.push(s.id);});
       closeDemoModal?.();
-      toast('Servicio descartado','No has enviado disponibilidad para este servicio.');
+      renderShifts();updateAlerts();window.NOVA_V16?.refresh?.();
+      toast('Servicio descartado','El servicio desaparece de la lista de disponibles.');
     };
     $id('v15YesAttend').onclick=()=>openInterestConfirmShift(s);
   },0);
@@ -332,7 +334,7 @@ function patchFunctions(){
   if(typeof oldNavigate==='function')window.navigate=function(page){oldNavigate(page);updateCounters();if(page==='home')fetchShifts();};
 }
 
-window.NOVA_V15={updateAlerts,fetchShifts};
+window.NOVA_V15={updateAlerts,fetchShifts,visibleShifts,getAllShifts:()=>shifts.slice(),isDismissed:id=>readState().dismissed.includes(id)||readState().accepted.includes(id)};
 mountProfileMenu();
 patchFunctions();
 hideHomeAvailableSection();

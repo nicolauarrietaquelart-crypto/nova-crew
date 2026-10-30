@@ -43,7 +43,7 @@
   }
   function decorateServiceCards(){
     document.querySelectorAll('#servicesList .service-card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;card.querySelector('.v10-inline-tools')?.remove();const s=findService(b.dataset.openService);if(s)card.insertAdjacentHTML('beforeend',serviceControls(s));});
-    document.querySelectorAll('#homeServices .card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;card.querySelector('.v10-inline-tools')?.remove();const s=findService(b.dataset.openService);if(s)card.insertAdjacentHTML('beforeend',`<div class="v10-inline-tools">${badge(s.id)}</div>`);});
+    document.querySelectorAll('#homeServices .card').forEach(card=>{const b=card.querySelector('[data-open-service]');if(!b)return;card.querySelector('.v10-inline-tools')?.remove();const s=findService(b.dataset.openService);if(s)card.insertAdjacentHTML('beforeend',`<div class="v10-inline-tools v16-home-confirm">${badge(s.id)}${statusOf(s.id)==='PENDIENTE'?`<button class="btn dark" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button>`:''}</div>`);});
   }
   function decorateServiceDetail(){
     const box=document.getElementById('serviceDetail');if(!box)return;

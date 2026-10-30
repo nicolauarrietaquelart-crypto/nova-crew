@@ -96,7 +96,7 @@ export function createDemoApi(storage) {
         return json({ok:true,roster,shifts,coordinators:Object.fromEntries(Object.entries(DEMO_SERVICES).map(([id,s])=>[id,s.coordinator]))});
       }
       if(op==='openShifts'){
-        const rows=[];for(const s of OPEN_SHIFTS){const v=await get(`interest/${actor}/${s.id}`);rows.push({...s,interest:v?{status:'ENVIADO',requestedAt:v.requestedAt}:null});}
+        const rows=[];for(const s of OPEN_SHIFTS){const v=await get(`interest/${actor}/${s.id}`);const interestCount=(await Promise.all(Object.keys(DEMO_ACCOUNTS).map(id=>get(`interest/${id}/${s.id}`)))).filter(Boolean).length;const remaining=Math.max(0,s.places-interestCount);if(remaining>0)rows.push({...s,places:remaining,interest:v?{status:'ENVIADO',requestedAt:v.requestedAt}:null});}
         return json({ok:true,shifts:rows});
       }
       if(op==='interest'){
@@ -104,7 +104,7 @@ export function createDemoApi(storage) {
         const id=st(body.shiftId,40),shift=OPEN_SHIFTS.find(s=>s.id===id);if(!shift)return bad('Servicio libre desconocido.',404);
         const key=`interest/${actor}/${id}`;
         if(body.withdraw===true)return bad('Una disponibilidad ya enviada no puede retirarse desde la app. Contacta con oficina.',409);
-        const existing=await get(key);if(existing)return json({ok:true,status:'ENVIADO',shiftId:id});
+        const existing=await get(key);if(existing)return json({ok:true,status:'ENVIADO',shiftId:id});const others=(await Promise.all(Object.keys(DEMO_ACCOUNTS).map(who=>get(`interest/${who}/${id}`)))).filter(Boolean).length;if(others>=shift.places)return bad('El servicio ya no tiene plazas disponibles.',409);
         await put(key,{requestedAt:new Date().toISOString()});
         return json({ok:true,status:'ENVIADO',shiftId:id,message:'Interés registrado. La oficina decidirá si asigna el servicio. No se ha asignado.'});
       }
