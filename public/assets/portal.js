@@ -479,8 +479,8 @@ function renderClockService(){
   $('#workerCoords').textContent='Pulsa “Comprobar ubicación”';
   $('#geoStatus').className='geo-status neutral';
   $('#geoStatus').textContent=clockAllowed(s)?'Comprueba tu posición para fichar.':'El fichaje se habilita una hora antes del inicio del servicio.';
-  $('#checkInBtn').disabled=true;
-  $('#checkOutBtn').disabled=true;
+  $('#checkInBtn').disabled=false;
+  $('#checkOutBtn').disabled=false;
 }
 function haversine(a,b){
   const R=6371000,rad=x=>x*Math.PI/180;
@@ -492,7 +492,6 @@ function checkLocation(){
   const s=window.clockService||findClockService();
   // Geolocation is required regardless of the employee's role or coordinator assignment.
   window.lastClockLocation=null;window.lastDistance=null;
-  $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
   if(!gpsEligible(s)){$('#geoStatus').className='geo-status bad';$('#geoStatus').textContent='Este servicio requiere fichaje mediante QR con su coordinador.';return Promise.resolve(false);}
   if(!clockAllowed(s)){$('#geoStatus').className='geo-status bad';$('#geoStatus').textContent='Todavía no puedes fichar. Se habilita una hora antes del servicio.';return Promise.resolve(false);}
   if(!s?.coords||!navigator.geolocation){
@@ -515,13 +514,11 @@ function checkLocation(){
     $('#geoStatus').textContent=ok?`Ubicación validada. Estás a ${Math.round(dist)} m del recinto.`:
       dist>RADIUS_METERS?`No puedes fichar: estás a ${Math.round(dist)} m del recinto (máximo ${RADIUS_METERS} m).`:
       'No puedes fichar: la ubicación es demasiado imprecisa. Activa la ubicación precisa y vuelve a intentarlo.';
-    $('#checkInBtn').disabled=!ok;$('#checkOutBtn').disabled=!ok;
     resolve(ok);
   },err=>{
     window.lastClockLocation=null;
     $('#geoStatus').className='geo-status bad';
     $('#geoStatus').textContent='No puedes fichar sin conceder permiso de ubicación. Revisa los ajustes del navegador.';
-    $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
     toast('Geolocalización',err.message||'Permiso denegado');resolve(false);
   },{enableHighAccuracy:true,timeout:15000,maximumAge:0}));
 }
@@ -529,7 +526,12 @@ let clockSubmissionPending=false;
 async function addClockLog(type){
   if(clockSubmissionPending)return;
   clockSubmissionPending=true;
-  $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+  const inBtn=$('#checkInBtn'),outBtn=$('#checkOutBtn');
+  inBtn.disabled=true;outBtn.disabled=true;
+  const activeButton=type==='Entrada'?inBtn:outBtn;
+  const priorLabel=activeButton.textContent;
+  activeButton.textContent='Comprobando GPS…';
+  $('#geoStatus').setAttribute('role','status');
   try{
     // Obtain a fresh GPS fix on every entry/exit, even after manual verification.
     const valid=gpsEligible(window.clockService||findClockService())&&clockAllowed(window.clockService||findClockService())&&await checkLocation();
@@ -548,7 +550,8 @@ async function addClockLog(type){
     clockSubmissionPending=false;
     // A new location fix is required for the next action.
     window.lastClockLocation=null;
-    $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+    inBtn.disabled=false;outBtn.disabled=false;
+    activeButton.textContent=priorLabel;
   }
 }
 
@@ -1240,7 +1243,6 @@ function toggleNotifications(force){const d=$('#notificationsDropdown');if(!d)re
 
   $('#backFromService').onclick=()=>navigate('services');
   $('#backFromWorkerCoord').onclick=()=>navigate('coordination');
-  $('#checkLocationBtn').onclick=checkLocation;
   $('#clockServicePicker')?.addEventListener('change',renderClockService);
   $('#checkInBtn').onclick=()=>addClockLog('Entrada');
   $('#checkOutBtn').onclick=()=>addClockLog('Salida');
