@@ -866,18 +866,3 @@ html[data-nova-theme="dark"] #appView .sidebar-brand{background:transparent!impo
  #servicesList .nova-mobile-confirm .btn[data-v10-confirm]{background:#ff8627!important;color:#141414!important;border-color:#ff8627!important}
  #servicesList .nova-mobile-confirm .v10-status.confirmado{background:#dff7e8!important;color:#17663b!important}
 }
-
-/* High-specificity theme bridge for legacy opaque sections. */
-html[data-nova-theme="dark"] #appView,
-html[data-nova-theme="dark"] .app-layout,
-html[data-nova-theme="dark"] .content,
-html[data-nova-theme="dark"] #mainScroller,
-html[data-nova-theme="dark"] .page,
-html[data-nova-theme="dark"] .main,
-html[data-nova-theme="dark"] .availability-layout{background:transparent!important;color:#f2f4f7!important}
-html[data-nova-theme="dark"] :is(.portal-topbar,.sidebar,.glass,.service-card,.v10-calendar-panel,.availability-layout>.card,.glass.card,.clock-main,.detail-card,.payroll-meta,.home-summary,.mini-list>div,.v10-mini-service){background:linear-gradient(145deg,rgba(47,53,65,.94),rgba(27,32,41,.91))!important;color:#f2f4f7!important;border:1px solid rgba(255,255,255,.16)!important}
-html[data-nova-theme="dark"] :is(.service-card h4,.service-main p,.service-card p,.service-date,.chip,.service-time-pill,.section-title-row h3,.service-time-pill b,.portal-topbar h2,.topbar-title,.v10-status,.v10-inline-tools,.nav-btn,.sidebar-nav){color:#f2f4f7!important}
-html[data-nova-theme="dark"] :is(.service-time-pill,.chip,.service-date,.v10-status,.v10-inline-tools .btn.light,.service-actions .btn.light){background:rgba(28,33,42,.8)!important;border-color:rgba(255,255,255,.2)!important;color:#f4f6f8!important}
-html[data-nova-theme="dark"] .btn.primary,html[data-nova-theme="dark"] .nova-mobile-confirm .btn[data-v10-confirm]{background:#ff8627!important;color:#101319!important}
-html[data-nova-theme="dark"] .v10-status.confirmado{color:#7ee5a6!important;border-color:#397456!important}
-html[data-nova-theme="dark"] #novaThemeToggle{background:rgba(72,79,92,.9)!important;color:#f3f5f8!important}
