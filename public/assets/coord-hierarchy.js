@@ -106,7 +106,7 @@ function render(){
  '<button class="nova-unified-name" type="button" data-nova-open-worker="'+escape(w.id)+'" aria-label="Abrir ficha de '+escape(w.name)+'"><strong>'+escape(w.name)+'</strong>'+
  (w.isCoordinator?'<small>COORDINADOR · '+escape(serviceType)+'</small>':'')+'</button>'+
  '<div class="nova-unified-role"><span>'+escape(w.role)+'</span><small>'+escape(w.start)+'–'+escape(w.end)+'</small></div>'+
- '<select aria-label="Estado de '+escape(w.name)+'" data-nova-status="'+escape(w.id)+'">'+statuses.map(v=>'<option value="'+v+'" '+(w.status===v?'selected':'')+'>'+v+'</option>').join('')+'</select>'+
+ '<select class="nova-status-select" data-status="'+escape(w.status)+'" aria-label="Estado de '+escape(w.name)+'" data-nova-status="'+escape(w.id)+'">'+statuses.map(v=>'<option value="'+v+'" '+(w.status===v?'selected':'')+'>'+v+'</option>').join('')+'</select>'+
  ratingSummary(w)+
  '<div class="nova-unified-last">'+(w.phone?'<a href="tel:'+escape(w.phone.replace(/[^\d+]/g,''))+'">Llamar</a>':'')+
  '</div>'+
@@ -249,6 +249,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
  const sel=e.target.closest('[data-nova-status]');if(!sel||!active)return;
+ sel.dataset.status=sel.value;
  patch(sel.dataset.novaStatus,{status:sel.value});
 });
 document.addEventListener('input',e=>{
