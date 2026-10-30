@@ -4,11 +4,38 @@
 const root=document.getElementById('crewControlRoot');
 if(!root)return;
 let overlay=null, iframe=null, current=null, previousFocus=null;
+let qrOriginalParent=null,qrOriginalNext=null;
+function qrElement(){return document.getElementById('novaQrOverlay');}
+function restoreQr(){
+ const qr=qrElement();
+ if(!qr||!qrOriginalParent)return;
+ if(!qr.classList.contains('hidden'))document.getElementById('novaQrClose')?.click();
+ if(qrOriginalNext&&qrOriginalNext.parentNode===qrOriginalParent)
+   qrOriginalParent.insertBefore(qr,qrOriginalNext);
+ else qrOriginalParent.appendChild(qr);
+ qr.classList.remove('nova-crew-qr-over-workspace');
+ qrOriginalParent=null;qrOriginalNext=null;
+}
+function openCrewQr(){
+ const qr=qrElement(),button=document.getElementById('novaQrQuick');
+ if(!overlay||!qr||!button){
+   if(typeof window.toast==='function')window.toast('Fichaje QR','No se encuentra el lector QR de NOVA CREW.');
+   return;
+ }
+ if(qr.parentElement!==overlay){
+   qrOriginalParent=qr.parentElement;
+   qrOriginalNext=qr.nextSibling;
+   overlay.appendChild(qr);
+ }
+ qr.classList.add('nova-crew-qr-over-workspace');
+ button.click(); // reuse the exact NOVA CREW QR application, camera, and API session
+}
 function allowed(s){
  const actor=window.novaActiveAccount||window.NOVA_API?.account;
  return !!s && (s.coordinatorUserId===actor||s.privilege==='crew'||s.assignedCoordinator);
 }
 function destroy(){
+ restoreQr();
  if(iframe){iframe.remove();iframe=null}
  if(overlay){overlay.remove();overlay=null}
  current=null;
@@ -61,7 +88,8 @@ function open(service){
    },true);
   }catch(err){console.warn('Crew Control: no se pudo aplicar el ajuste de scroll',err)}
  });
- iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=cloudflare&rev=20261030-unified';
+ const reference=String(service.serviceReference||service.reference||'').trim();
+ iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+(reference?'&reference='+encodeURIComponent(reference):'')+'&ui=cloudflare&rev=20261030-qr-direct';
  overlay.appendChild(iframe);
  // The old embedded card is never displayed, even if its markup was created earlier.
  root.replaceChildren();
@@ -71,7 +99,7 @@ window.closeCrewFullscreen=back;
 window.addEventListener('message',event=>{
  if(!iframe||event.source!==iframe.contentWindow||event.origin!==location.origin)return;
  if(event.data?.type==='NOVA_CC_BACK')back();
- if(event.data?.type==='NOVA_CC_QR')document.getElementById('novaQrQuick')?.click();
+ if(event.data?.type==='NOVA_CC_QR')openCrewQr();
  if(event.data?.type==='NOVA_CC_ERROR' && typeof window.toast==='function')window.toast('Crew Control',event.data.error||'No se pudo cargar el servicio.');
 });
 // Intercept both navigation routes before old delegated click handlers can recreate the nested card.
@@ -87,9 +115,14 @@ document.addEventListener('click',ev=>{
 },true);
 document.addEventListener('keydown',ev=>{
  if(ev.key==='Escape'&&overlay&&!overlay.classList.contains('hidden')){
+  if(!qrElement()?.classList.contains('hidden')){
+   ev.preventDefault();ev.stopImmediatePropagation();
+   document.getElementById('novaQrClose')?.click();
+   return;
+  }
   // Escape may be consumed by an open modal; visible back button remains primary.
   if(!document.getElementById('novaQrOverlay')?.classList.contains('hidden'))return;
   back();
  }
-});
+},true);
 })();
