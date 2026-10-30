@@ -1696,7 +1696,7 @@ function openBasicBulkEdit(){
       <label>Categoría<select id="bbRole"><option value="">Sin cambio</option><option>HAND A</option><option>HAND B</option><option>FORKLIFTER</option><option>CREW HEAD</option></select></label>
       <label>Estado<select id="bbStatus"><option value="">Sin cambio</option>${STATUS_OPTIONS_V8.map(v=>`<option>${v}</option>`).join('')}</select></label>
       <label>Reserva<select id="bbReserve"><option value="">Sin cambio</option><option value="1">Marcar reserva</option><option value="0">Quitar reserva</option></select></label>
-      <label>Pausa<select id="bbPause"><option value="">Sin cambio</option><option value="00:00">Sin pausa</option><option value="00:15">15 min</option><option value="00:30">30 min</option><option value="00:45">45 min</option><option value="01:00">1 hora</option><option value="01:30">1 h 30 min</option><option value="02:00">2 horas</option></select></label>
+      <label>Pausa<select id="bbPause"><option value="">Sin cambio</option><option value="00:00">Sin pausa</option><option value="01:00">1 hora</option><option value="02:00">2 horas</option><option value="03:00">3 horas</option></select></label>
       <label>Dieta<select id="bbDiet"><option value="">Sin cambio</option><option value="No">Sin dieta</option><option value="Sí">Con dieta</option></select></label>
       <label>Entrada real<input id="bbRealStart" type="time"></label>
       <label>Fin real<input id="bbRealEnd" type="time"></label>
@@ -1734,7 +1734,7 @@ function editBasicWorker(id){
       <label>Categoría<select id="bmRole">${['HAND A','HAND B','FORKLIFTER','CREW HEAD'].map(v=>`<option ${v===w.role?'selected':''}>${v}</option>`).join('')}</select></label>
       <label>Inicio previsto<input id="bmStart" type="time" value="${w.start}"></label><label>Fin previsto<input id="bmEnd" type="time" value="${w.end}"></label>
       <label>Entrada real<input id="bmRealStart" type="time" value="${w.realStart||''}"></label><label>Fin real<input id="bmRealEnd" type="time" value="${w.realEnd||''}"></label>
-      <label>Pausa<select id="bmPause">${['00:00','00:15','00:30','00:45','01:00','01:30','02:00'].map(v=>`<option ${v===w.pause?'selected':''}>${v}</option>`).join('')}</select></label>
+      <label>Pausa<select id="bmPause">${['00:00','01:00','02:00','03:00'].map(v=>`<option ${v===w.pause?'selected':''}>${v}</option>`).join('')}</select></label>
       <label>Dieta<select id="bmDiet"><option ${w.diet==='No'?'selected':''}>No</option><option ${w.diet==='Sí'?'selected':''}>Sí</option></select></label>
       <label>Estado<select id="bmStatus">${STATUS_OPTIONS_V8.map(v=>`<option ${v===w.status?'selected':''}>${v}</option>`).join('')}</select></label>
       <label>Reserva<select id="bmReserve"><option value="0" ${!w.reserve?'selected':''}>No</option><option value="1" ${w.reserve?'selected':''}>Sí</option></select></label>
@@ -1810,7 +1810,7 @@ function openBulkEdit(){
       <label>Equipo<select id="bulkTeam"><option value="">Sin cambio</option>${[...teams,'FORKLIFTER','SIN EQUIPO'].map(t=>`<option>${t}</option>`).join('')}</select></label>
       <label>Estado<select id="bulkStatus"><option value="">Sin cambio</option>${STATUS_OPTIONS_V8.map(v=>`<option>${v}</option>`).join('')}</select></label>
       <label>Reserva<select id="bulkReserve"><option value="">Sin cambio</option><option value="1">Marcar reserva</option><option value="0">Quitar reserva</option></select></label>
-      <label>Pausa<select id="bulkPause"><option value="">Sin cambio</option><option value="00:00">Sin pausa</option><option value="00:15">15 min</option><option value="00:30">30 min</option><option value="00:45">45 min</option><option value="01:00">1 hora</option><option value="01:30">1 h 30 min</option><option value="02:00">2 horas</option></select></label>
+      <label>Pausa<select id="bulkPause"><option value="">Sin cambio</option><option value="00:00">Sin pausa</option><option value="01:00">1 hora</option><option value="02:00">2 horas</option><option value="03:00">3 horas</option></select></label>
       <label>Dieta<select id="bulkDiet"><option value="">Sin cambio</option><option value="No">Sin dieta</option><option value="Sí">Con dieta</option></select></label>
       <label>Entrada real<input id="bulkActualStart" type="time"></label><label>Fin real<input id="bulkActualEnd" type="time"></label>
       <label>Horario real<select id="bulkScheduleMode"><option value="">Usar horas indicadas</option><option value="PLANNED">Usar horario previsto</option></select></label>
@@ -1842,7 +1842,7 @@ function editCrewWorker(id){
       <label>Bloque<select id="cmWorkType">${['LOAD IN','SHOW','LOAD OUT'].map(t=>`<option ${t===w.workType?'selected':''}>${t}</option>`).join('')}</select></label>
       <label>Inicio previsto<input id="cmStart" type="time" value="${w.start}"></label><label>Fin previsto<input id="cmEnd" type="time" value="${w.end}"></label>
       <label>Entrada real<input id="cmActualStart" type="time" value="${w.actualStart||''}"></label><label>Fin real<input id="cmActualEnd" type="time" value="${w.actualEnd||''}"></label>
-      <label>Pausa<select id="cmPause">${['00:00','00:15','00:30','00:45','01:00','01:30','02:00'].map(v=>`<option ${v===w.pause?'selected':''}>${v}</option>`).join('')}</select></label>
+      <label>Pausa<select id="cmPause">${['00:00','01:00','02:00','03:00'].map(v=>`<option ${v===w.pause?'selected':''}>${v}</option>`).join('')}</select></label>
       <label>Dieta<select id="cmDiet"><option ${w.diet==='No'?'selected':''}>No</option><option ${w.diet==='Sí'?'selected':''}>Sí</option></select></label>
       <label>Estado<select id="cmStatus">${STATUS_OPTIONS_V8.map(v=>`<option ${v===w.status?'selected':''}>${v}</option>`).join('')}</select></label>
       <label>Reserva<select id="cmReserve"><option value="0" ${!w.reserve?'selected':''}>No</option><option value="1" ${w.reserve?'selected':''}>Sí</option></select></label>
