@@ -1464,3 +1464,30 @@ html[data-nova-theme="dark"] #workerCoordDetail .nova-filter-button.on{backgroun
  #workerCoordDetail .nova-coord-sidebar{grid-column:1!important;grid-row:2!important;position:relative!important;top:0!important}
  #workerCoordDetail .nova-unified-main{grid-column:1!important;grid-row:3!important}
 }
+
+
+/* Structural coordination layout: two genuine columns; no display:contents. */
+#workerCoordDetail .nova-unified-control{display:block!important}
+#workerCoordDetail .nova-unified-layout{
+ display:grid!important;grid-template-columns:minmax(238px,275px) minmax(0,1fr)!important;
+ align-items:start!important;gap:14px!important
+}
+#workerCoordDetail .nova-coord-sidebar{grid-column:1!important;grid-row:1!important;min-width:0}
+#workerCoordDetail .nova-unified-main{grid-column:2!important;grid-row:1!important;display:grid!important;gap:12px!important}
+#workerCoordDetail .nova-unified-heading{grid-column:auto!important;grid-row:auto!important}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-tools,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-sidebody,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-metrics>div,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-filters .nova-filter-button,
+html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-heading{
+ background:#273442!important;background-image:none!important;color:#f4f7fb!important;
+ border-color:#536477!important
+}
+html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-filters .nova-filter-button.on{
+ background:#ff8b2e!important;color:#161b22!important
+}
+@media(max-width:900px){
+ #workerCoordDetail .nova-unified-layout{grid-template-columns:minmax(0,1fr)!important}
+ #workerCoordDetail .nova-coord-sidebar{grid-column:1!important;grid-row:1!important;position:relative!important;top:0!important}
+ #workerCoordDetail .nova-unified-main{grid-column:1!important;grid-row:2!important}
+}
