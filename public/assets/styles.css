@@ -805,3 +805,11 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
  #appView .sidebar-brand{position:sticky;top:0;z-index:2;background:rgba(248,249,251,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
  .login-card .password-row #togglePassword{right:5px!important}
 }
+
+/* iPhone menu: top-down liquid glass, uniform translucent surface */
+@media(max-width:900px){
+ #appView .sidebar{left:8px!important;right:8px!important;top:8px!important;bottom:auto!important;width:calc(100% - 16px)!important;max-width:none!important;height:auto!important;max-height:calc(100dvh - 24px)!important;padding:18px 15px 22px!important;border-radius:25px!important;transform:translate3d(0,-115%,0)!important;background:linear-gradient(145deg,rgba(251,252,254,.91),rgba(241,244,248,.88))!important;border:1px solid rgba(255,255,255,.92)!important;box-shadow:0 25px 80px rgba(15,20,30,.24),inset 0 1px rgba(255,255,255,.98)!important;backdrop-filter:blur(32px) saturate(150%)!important;-webkit-backdrop-filter:blur(32px) saturate(150%)!important;transition:transform .36s cubic-bezier(.22,1,.36,1),visibility .36s!important}
+ #appView .sidebar.open{transform:translate3d(0,0,0)!important}
+ #appView .sidebar-brand{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;position:relative!important}
+ #appView .sidebar-nav{background:transparent!important}
+}
