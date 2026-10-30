@@ -5,7 +5,7 @@
   let session='';
   let account='';
   async function request(op,payload){
-    const isGet=['me','worker','roster','attendance','openShifts'].includes(op);
+    const isGet=['me','worker','roster','attendance','openShifts','confirmations'].includes(op);
     const url=new URL(root,location.origin==='null'?'https://nova.local':location.origin);url.searchParams.set('op',op);
     if(op==='attendance')url.searchParams.set('serviceId',String(payload?.serviceId||''));
     const response=await fetch(url.href,{
@@ -28,6 +28,8 @@
     logout:()=>{account='';session='';},
     me:()=>request('me'),
     roster:()=>request('roster'),
+    confirmations:()=>request('confirmations'),
+    confirmAssignment:(serviceId,status,reason='')=>request('confirmAssignment',{serviceId,status,reason}),
     crewRequest:(payload)=>request('crew',payload),
     smallCoord:(serviceId,kind='get',workerId='',changes={})=>request('smallCoord',{serviceId,kind,workerId,changes}),
     openShifts:()=>request('openShifts'),
