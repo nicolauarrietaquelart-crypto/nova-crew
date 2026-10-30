@@ -205,7 +205,7 @@ function navigate(key){
     document.getElementById('novaQrQuick')?.click();
     return;
   }
-  $('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   $('#'+pageIds[key])?.classList.add('active');
   document.body.classList.toggle('crew-mode',key==='crew-control');
   const root=key==='service-detail'?'services':(key==='worker-coordination'||key==='crew-control'?'coordination':key);
