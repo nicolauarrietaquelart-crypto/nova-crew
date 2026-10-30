@@ -936,3 +936,224 @@ html[data-nova-theme="dark"] .nova-choice-vector svg{stroke:#f4f6fa!important}
 @media(prefers-reduced-motion:reduce){
  #novaThemeToggle{transition:none!important}
 }
+
+
+/* NOVA CREW · unified liquid-glass dark theme v20261030-r2
+   Component-level parity. Does not modify authentication or Crew Control iframe. */
+html[data-nova-theme="dark"]{
+  --nova-surface:linear-gradient(145deg,rgba(47,55,68,.90),rgba(28,34,44,.89));
+  --nova-surface-soft:rgba(31,38,49,.78);
+  --nova-surface-raised:rgba(45,53,66,.90);
+  --nova-border:rgba(235,241,250,.15);
+  --nova-border-strong:rgba(235,241,250,.23);
+  --nova-text:#f3f6fb;
+  --nova-text-muted:#b9c3d2;
+  --nova-accent:#ff8a2c;
+  --nova-shadow:0 18px 46px rgba(0,0,0,.26);
+}
+html[data-nova-theme="dark"] body,
+html[data-nova-theme="dark"] #appView,
+html[data-nova-theme="dark"] .app-layout{
+  color:var(--nova-text)!important;
+}
+html[data-nova-theme="dark"] :is(
+  .home-hero,.profile-summary,.detail-card,.clock-main,.clock-side,
+  .payroll-table-wrap,.documents-list article,.v10-side-stack>.glass,
+  .v15-alert-panel,.notifications-dropdown,.v10-calendar-panel,
+  .nova-inbox,.nova-qr-modal,.nova-gps-modal-sheet,.nova-crew-gps-dialog,
+  .modal-content,.demo-modal,.v15-profile-menu
+){
+  background:var(--nova-surface)!important;
+  border:1px solid var(--nova-border)!important;
+  color:var(--nova-text)!important;
+  box-shadow:var(--nova-shadow),inset 0 1px 0 rgba(255,255,255,.08)!important;
+  backdrop-filter:blur(22px) saturate(145%)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(145%)!important;
+}
+/* The countdown and home KPIs were hard-coded as white even in dark mode. */
+html[data-nova-theme="dark"] :is(
+  .countdown>div,.home-summary>div,
+  .detail-section,.notice-box,.v15-shift,.v15-modal-service-box,
+  .v10-mini-service,.v10-calendar-upcoming,.v10-day,
+  .availability-row,.availability-blank,.availability-day-card,
+  .availability-summary-item,.mini-list>div,
+  .location-compare>div:not(.distance-circle),
+  .notification-item,.notification-item>span,
+  .nova-inbox-item,.nova-message-entry,.nova-qr-choice
+){
+  background:var(--nova-surface-soft)!important;
+  border-color:var(--nova-border)!important;
+  color:var(--nova-text)!important;
+}
+/* Keep service and availability semantic states distinct in both themes. */
+html[data-nova-theme="dark"] .v10-day.has-service{
+  background:rgba(133,78,34,.24)!important;
+  border-color:rgba(255,153,76,.39)!important;
+}
+html[data-nova-theme="dark"] .v10-day.today{
+  border-color:var(--nova-accent)!important;
+  box-shadow:inset 0 0 0 1px var(--nova-accent)!important;
+}
+html[data-nova-theme="dark"] .v10-day.outside{opacity:.43}
+html[data-nova-theme="dark"] :is(.availability-day-card.has-hours,.avail-hour.active){
+  background:rgba(39,106,73,.36)!important;
+  border-color:rgba(105,210,151,.4)!important;
+  color:#d2ffe3!important;
+}
+html[data-nova-theme="dark"] :is(.v10-day .v10-event,.v10-day .v10-event.confirmado,.v10-day .v10-event.rechazado){
+  color:#fff!important;
+}
+html[data-nova-theme="dark"] .v10-day .v10-event.confirmado{background:#216e48!important}
+html[data-nova-theme="dark"] .v10-day .v10-event.rechazado{background:#963e34!important}
+html[data-nova-theme="dark"] :is(
+  .v10-calendar-head-actions button,.avail-hour,
+  .availability-row select,.availability-row input,
+  .availability-note textarea,.v15-profile-menu button,
+  .payroll-month-btn,.v10-modal-form input,.v10-modal-form select,
+  .v10-modal-form textarea,.form-grid input,
+  .worker-form input,.worker-form select,.worker-form textarea
+){
+  background:rgba(24,31,41,.86)!important;
+  border-color:var(--nova-border)!important;
+  color:var(--nova-text)!important;
+}
+html[data-nova-theme="dark"] :is(
+  .countdown b,.home-summary b,.home-summary strong,
+  .detail-section h4,.v15-shift h4,
+  .v15-alert-copy b,.availability-day-card b,
+  .availability-day-card span,.v16-urgent-row b,
+  .nova-inbox-article h3,.nova-inbox-item strong,
+  .nova-message-entry strong,.notification-item b
+){color:var(--nova-text)!important}
+html[data-nova-theme="dark"] :is(
+  .countdown span,.home-summary span,.v15-shift p,
+  .v15-alert-copy small,.v16-urgent-head span,.v16-urgent-row small,
+  .v10-weekdays span,.v10-mini-service small,.availability-summary-item,
+  .nova-inbox-article p,.nova-inbox-article small,
+  .nova-inbox-item span,.nova-inbox-item small,
+  .notification-item small,.payroll-meta span
+){color:var(--nova-text-muted)!important}
+html[data-nova-theme="dark"] :is(.home-summary .orange,.kicker,.detail-section h4,.v15-shift-tag,.v15-urgent-inline){
+  color:var(--nova-accent)!important;
+}
+html[data-nova-theme="dark"] .home-summary .green{color:#84dcb0!important}
+/* Urgent cards retain an amber warning accent without any white/beige patches. */
+html[data-nova-theme="dark"] .v16-urgent-home{
+  background:linear-gradient(140deg,rgba(61,43,34,.94),rgba(34,32,39,.92))!important;
+  border:1px solid rgba(255,143,67,.34)!important;
+  color:var(--nova-text)!important;
+  box-shadow:var(--nova-shadow)!important;
+}
+html[data-nova-theme="dark"] .v16-urgent-row{
+  background:rgba(28,33,41,.76)!important;
+  border:1px solid rgba(255,150,76,.21)!important;
+  color:var(--nova-text)!important;
+}
+html[data-nova-theme="dark"] .v16-urgent-head strong{color:#ffbf8b!important}
+/* Notices, messages, and the active inbox row share the same dark surfaces. */
+html[data-nova-theme="dark"] .v15-alert-item{
+  background:rgba(26,32,41,.64)!important;
+  border:1px solid var(--nova-border)!important;
+  border-radius:14px;
+  color:var(--nova-text)!important;
+}
+html[data-nova-theme="dark"] :is(.v15-alert-panel,.notifications-dropdown,.nova-inbox) :is(.v15-alert-item,.notification-item,.nova-message-entry){
+  border-bottom-color:var(--nova-border)!important;
+}
+html[data-nova-theme="dark"] .nova-inbox nav{
+  background:rgba(20,26,35,.54)!important;
+  border-right-color:var(--nova-border)!important;
+  border-bottom-color:var(--nova-border)!important;
+}
+html[data-nova-theme="dark"] .nova-inbox-article{
+  background:transparent!important;
+  color:var(--nova-text)!important;
+}
+html[data-nova-theme="dark"] .nova-inbox-item.selected{
+  background:rgba(255,138,44,.13)!important;
+  box-shadow:inset 4px 0 var(--nova-accent)!important;
+}
+html[data-nova-theme="dark"] .nova-message-entry,
+html[data-nova-theme="dark"] .nova-message-delete{
+  background:transparent!important;
+}
+html[data-nova-theme="dark"] .nova-inbox>footer{
+  color:var(--nova-text-muted)!important;
+  border-color:var(--nova-border)!important;
+}
+html[data-nova-theme="dark"] .v15-profile-menu button:hover{
+  background:rgba(255,255,255,.09)!important;
+}
+/* Consistent dismiss buttons across notifications, inbox, attendance and QR. */
+html[data-nova-theme="dark"] :is(
+  #novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],
+  .nova-crew-gps-close,.nova-gps-modal-close,
+  .nova-inbox>header [data-inbox-close],.nova-message-delete
+){
+  background:rgba(61,72,87,.66)!important;
+  border:1px solid var(--nova-border)!important;
+  color:var(--nova-accent)!important;
+  box-shadow:none!important;
+}
+:is(
+  #novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],
+  .nova-crew-gps-close,.nova-gps-modal-close,
+  .nova-inbox>header [data-inbox-close],.nova-message-delete
+){
+  min-width:40px;
+  min-height:40px;
+  display:inline-grid;
+  place-items:center;
+  padding:0;
+  border-radius:12px;
+  line-height:1;
+}
+:is(
+  #novaQrClose,#closeNotifications,.v15-dismiss,[data-v15-close],
+  .nova-crew-gps-close,.nova-gps-modal-close,
+  .nova-inbox>header [data-inbox-close],.nova-message-delete
+) svg{
+  display:block;width:19px;height:19px;flex:none;stroke:currentColor;
+}
+html[data-nova-theme="dark"] :is(.btn.light,.icon-btn,.icon-only,.back-btn,.nova-download-only){
+  color:var(--nova-text)!important;
+  border-color:var(--nova-border)!important;
+  background:rgba(67,77,92,.49)!important;
+}
+html[data-nova-theme="dark"] .btn.primary{
+  background:#ff8a2c!important;color:#14171d!important;
+  border-color:transparent!important;
+}
+html[data-nova-theme="dark"] .btn.dark{
+  background:#0a0d13!important;color:#fff!important;
+  border-color:rgba(255,255,255,.1)!important;
+}
+html[data-nova-theme="dark"] :is(.v15-urgent-pill,.v15-urgent-inline){
+  background:#ff8a2c!important;color:#171819!important;
+}
+html[data-nova-theme="dark"] :is(input,select,textarea)::placeholder{color:#9da9ba!important}
+html[data-nova-theme="dark"] :is(input,select,textarea):focus-visible,
+html[data-nova-theme="dark"] button:focus-visible{
+  outline:2px solid rgba(255,151,72,.9);
+  outline-offset:2px;
+}
+html[data-nova-theme="dark"] :is(
+  .payroll-table-wrap th,.payroll-table-wrap td,.availability-summary-item,
+  .nova-inbox>footer
+){border-color:var(--nova-border)!important}
+/* The home banner and nested cards should not overflow on narrow iPhones. */
+@media(max-width:900px){
+  html[data-nova-theme="dark"] body{background-attachment:scroll!important}
+  html[data-nova-theme="dark"] :is(.v16-urgent-home,.v16-urgent-row,.home-hero,.v15-alert-panel,.nova-inbox){
+    min-width:0;max-width:100%;box-sizing:border-box;
+  }
+  html[data-nova-theme="dark"] .v16-urgent-row{
+    flex-wrap:wrap;gap:9px;
+  }
+  html[data-nova-theme="dark"] .v16-urgent-row>div{min-width:0;flex:1 1 170px}
+  html[data-nova-theme="dark"] .v15-alert-item{padding:13px}
+  html[data-nova-theme="dark"] .nova-inbox nav{border-right:0!important}
+}
+@media(prefers-reduced-motion:reduce){
+  #novaThemeToggle{transition:none!important}
+}
