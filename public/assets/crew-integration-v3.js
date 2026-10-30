@@ -88,7 +88,7 @@ function open(service){
    },true);
   }catch(err){console.warn('Crew Control: no se pudo aplicar el ajuste de scroll',err)}
  });
- iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=fullscreen-v11235-demo';
+ iframe.src='/crew-control-full.html?service='+encodeURIComponent(service.id)+'&ui=fullscreen-v11235-unified&rev=20261030';
  overlay.appendChild(iframe);
  // The old embedded card is never displayed, even if its markup was created earlier.
  root.replaceChildren();
