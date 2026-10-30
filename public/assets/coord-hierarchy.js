@@ -92,11 +92,11 @@ function sidebar(){
 function render(){
  const root=el('workerCoordDetail');if(!root||!active)return;
  const serviceType=roleTitle(active),list=visible();
- root.innerHTML='<div class="nova-unified-control">'+
+ root.innerHTML='<div class="nova-unified-control"><div class="nova-unified-layout">'+
+ sidebar()+'<section class="nova-unified-main">'+
  '<div class="nova-unified-heading"><div><span class="kicker">'+escape(serviceType)+' · '+escape(active.type||'SERVICIO')+'</span>'+
  '<h2>'+escape(active.name)+'</h2><p>'+escape(active.venue)+' · '+escape(active.date)+' · '+escape(active.time)+'</p></div>'+
  '<button type="button" class="btn light" data-nova-refresh>Actualizar</button></div>'+
- '<div class="nova-unified-layout">'+sidebar()+'<section class="nova-unified-main">'+
  '<div class="nova-unified-tools"><div><b>'+list.length+' trabajadores</b><span>'+escape(serviceType)+' · '+selected.size+' seleccionados</span></div>'+
  '<input id="novaUnifiedSearch" type="search" placeholder="Buscar trabajador…" value="'+escape(query)+'" autocomplete="off">'+
  '<button class="btn dark" data-nova-bulk type="button">Editar seleccionados ('+selected.size+')</button></div>'+
