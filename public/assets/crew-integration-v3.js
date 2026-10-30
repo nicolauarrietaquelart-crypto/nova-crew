@@ -39,6 +39,7 @@ function closeCrewGps(){
   if(gpsOriginalNext?.parentNode===gpsOriginalParent)gpsOriginalParent.insertBefore(panel,gpsOriginalNext);
   else gpsOriginalParent.appendChild(panel);
  }
+ const selector=panel?.querySelector('#clockServicePicker');if(selector)selector.disabled=false;
  gpsDialog.remove();gpsDialog=null;gpsOriginalParent=null;gpsOriginalNext=null;
 }
 function openCrewGps(){
