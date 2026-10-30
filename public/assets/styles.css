@@ -866,3 +866,73 @@ html[data-nova-theme="dark"] #appView .sidebar-brand{background:transparent!impo
  #servicesList .nova-mobile-confirm .btn[data-v10-confirm]{background:#ff8627!important;color:#141414!important;border-color:#ff8627!important}
  #servicesList .nova-mobile-confirm .v10-status.confirmado{background:#dff7e8!important;color:#17663b!important}
 }
+
+/* Stable NOVA themes. This layer is independent of authentication and can be toggled instantly. */
+.nova-download-only,#printPayroll.nova-download-btn,.crew-modal-actions .nova-download-btn{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ flex:0 0 44px!important;width:44px!important;min-width:44px!important;height:44px!important;
+ min-height:44px!important;padding:0!important;border-radius:13px!important;
+ gap:0!important;vertical-align:middle;
+}
+.nova-download-only svg,#printPayroll.nova-download-btn svg,.crew-modal-actions .nova-download-btn svg{
+ width:21px!important;height:21px!important;display:block!important;flex:none!important;
+}
+#novaThemeToggle{transition:background-color .22s ease,color .22s ease,transform .18s ease}
+#novaThemeToggle:active{transform:scale(.94)}
+html[data-nova-theme="dark"]{
+ color-scheme:dark;
+ --bg:#161a22;--bg2:#252c36;--text:#f4f6fa;--muted:#b5bece;
+ --card:rgba(43,50,62,.86);--card-strong:rgba(45,52,65,.95);
+ --line:rgba(255,255,255,.14);--line2:rgba(255,255,255,.22);
+ --shadow:0 16px 48px rgba(0,0,0,.36);
+}
+html[data-nova-theme="dark"] body{
+ color:#f4f6fa!important;
+ background:radial-gradient(ellipse 85% 62% at 100% 0,rgba(74,85,105,.28),transparent 70%),linear-gradient(155deg,#171b23,#202630 70%,#14181f)!important;
+ background-attachment:fixed!important;
+}
+html[data-nova-theme="dark"] :is(#appView,.app-layout,.app-main,#mainScroller,.main-content,.page,.availability-layout,.service-list){
+ color:#f4f6fa!important;background:transparent!important;
+}
+html[data-nova-theme="dark"] :is(.glass,.glass.card,.sidebar,.portal-topbar,.service-card,.detail-card,.clock-main,.availability-layout>.card,.v10-calendar-panel,.v10-mini-service,.payroll-meta,.login-card,.nova-qr-modal,.nova-inbox,.nova-gps-modal-sheet,.nova-crew-gps-dialog,.demo-modal,.modal-content,.notification-item,.v15-alert-panel,.notifications-dropdown){
+ color:#f4f6fa!important;
+ background:linear-gradient(150deg,rgba(53,61,74,.88),rgba(30,36,47,.82))!important;
+ border-color:rgba(255,255,255,.17)!important;
+ box-shadow:0 19px 48px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.09)!important;
+ backdrop-filter:blur(26px) saturate(145%)!important;
+ -webkit-backdrop-filter:blur(26px) saturate(145%)!important;
+}
+html[data-nova-theme="dark"] :is(.sidebar-brand,.service-main,.service-actions,.home-hero,.page-tools,.payroll-table-wrap,.v10-inline-tools,.v10-calendar-upcoming){
+ color:#f4f6fa!important;background:transparent!important;
+}
+html[data-nova-theme="dark"] :is(h1,h2,h3,h4,h5,h6,p,label,strong,th,td,.nav-btn,.service-main h4,.service-main p,.service-date,.section-title-row,.v10-status,.service-time-pill,.clock-service,.availability-month-head strong){
+ color:#f4f6fa;
+}
+html[data-nova-theme="dark"] :is(.muted,small,.service-main>p,.login-bottom,.service-date span,.service-time-row,.login-card label,.subtitle,.hint){
+ color:#b8c2d0!important;
+}
+html[data-nova-theme="dark"] :is(.chip,.service-time-pill,.service-date,.payroll-month-btn,.v10-status,.v10-day,.v10-mini-service,.availability-day-card,.availability-blank,.availability-summary-item,.login-card input,.login-card .password-row #togglePassword,input,select,textarea,.nova-qr-choice,.nova-message-entry,.nova-inbox-item,.nova-qr-form label,.mini-list>div){
+ background:rgba(24,30,40,.80)!important;
+ border-color:rgba(255,255,255,.15)!important;color:#eff3f8!important;
+}
+html[data-nova-theme="dark"] :is(.btn.light,.icon-btn,.icon-only,.back-btn,.service-actions .btn.light,.nova-download-only,#novaThemeToggle){
+ background:rgba(73,81,96,.43)!important;
+ border-color:rgba(255,255,255,.18)!important;color:#f4f6fa!important;
+}
+html[data-nova-theme="dark"] :is(.nav-btn.active,.btn.dark){background:#090c12!important;color:#fff!important}
+html[data-nova-theme="dark"] :is(.btn.primary,.nova-mobile-confirm .btn[data-v10-confirm]){background:#ff8627!important;color:#15171b!important}
+html[data-nova-theme="dark"] .v10-status.confirmado{background:rgba(28,110,70,.4)!important;color:#a5f3c2!important;border-color:rgba(98,222,145,.45)!important}
+html[data-nova-theme="dark"] .v10-status.pendiente{background:rgba(158,97,29,.22)!important;color:#ffd09a!important}
+html[data-nova-theme="dark"] :is(.login-view,.login-stage){background:transparent!important}
+html[data-nova-theme="dark"] .login-header{background:linear-gradient(115deg,#11151d,#1a1f28)!important}
+html[data-nova-theme="dark"] .login-card .login-orb{opacity:.74}
+html[data-nova-theme="dark"] .nav-btn:not(.active):hover{background:rgba(255,255,255,.11)!important}
+html[data-nova-theme="dark"] .nova-choice-vector svg{stroke:#f4f6fa!important}
+@media(max-width:900px){
+ html[data-nova-theme="dark"] #appView .sidebar{
+  background:linear-gradient(145deg,rgba(48,57,69,.95),rgba(28,35,46,.94))!important;
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ #novaThemeToggle{transition:none!important}
+}
