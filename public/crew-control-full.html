@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <base target="_self">
+  <script>if(new URLSearchParams(location.search).has('service'))document.documentElement.classList.add('nova-crew-integrated');</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -6813,6 +6814,24 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
 @media(max-width:570px){.rating-row{grid-template-columns:110px 1fr!important;gap:7px!important}.rating-row strong{font-size:13px!important}.rating-row .stars{gap:1px!important}.rating-row .star-btn{min-width:27px!important;font-size:25px!important}}
 @media(prefers-reduced-motion:reduce){.rating-row .star-btn{transition:none!important}}
 
+
+.nova-crew-integrated #startScreen{display:none!important}
+.nova-crew-open-status{display:none}
+.nova-crew-integrated .nova-crew-open-status:not(.is-complete){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:280px;padding:35px 20px;text-align:center;border-radius:22px;background:#fff;color:#16171b}
+.nova-crew-open-status p{margin:0;color:#70737b;font-size:13px}
+.nova-crew-open-status strong{font-size:21px}
+.nova-crew-open-loader{border:3px solid #f2e4db;border-top-color:#f58220;width:36px;height:36px;border-radius:50%;animation:nova-spin .85s linear infinite}
+.nova-crew-open-status.is-error .nova-crew-open-loader{display:none}
+.nova-crew-open-status #novaCrewOpenRetry{border:0;border-radius:12px;padding:12px 18px;background:#f58220;color:#111;font-weight:800;cursor:pointer}
+@keyframes nova-spin{to{transform:rotate(360deg)}}
+#novaCrewServiceReference[hidden],.service-code[hidden]{display:none!important}
+.cc-portal-qr.nova-qr-quick{display:inline-flex!important;gap:7px!important;align-items:center!important;justify-content:center!important;background:#f58220!important;color:#111!important;border:0!important}
+.cc-portal-qr.nova-qr-quick svg{width:20px;height:20px;flex:none}
+body > header,body > header.crew-header-floating-v11233{position:fixed!important;top:9px!important;left:12px!important;right:12px!important;width:calc(100% - 24px)!important;min-height:66px!important;height:68px!important;border:1px solid rgba(255,255,255,.2)!important;border-bottom:3px solid #f58220!important;border-radius:19px!important;background:#101014!important;box-shadow:0 8px 25px rgba(10,10,12,.2)!important;transform:none!important;z-index:1600!important}
+body > header > .wrap{max-width:none!important}
+body{padding-top:88px!important}
+@media(max-width:900px){body{padding-top:82px!important}body > header,body > header.crew-header-floating-v11233{top:6px!important;left:7px!important;right:7px!important;width:calc(100% - 14px)!important;height:65px!important;min-height:65px!important;border-radius:16px!important}}
+@media(prefers-reduced-motion:reduce){.nova-crew-open-loader{animation:none}}
 </style>
 </head>
 <body>
@@ -6823,7 +6842,7 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
   <div class="wrap cc-demo-header">
     <div class="cc-portal-actions">
       <button type="button" class="cc-portal-back" id="ccReturnEmployee">← Volver al Área de Empleado</button>
-      <button type="button" class="cc-portal-qr" id="ccScanWorker">Escanear QR</button>
+      <button type="button" class="cc-portal-qr nova-qr-quick" id="ccScanWorker" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg><span>QR</span></button>
     </div>
     <div class="brand">
       <div class="demo-mark" aria-hidden="true" style="font:900 25px Arial,sans-serif;color:white;display:grid;place-items:center">N</div>
@@ -6845,6 +6864,12 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
   aria-hidden="true"></div>
 
 <main class="wrap">
+  <section id="novaCrewOpenStatus" class="nova-crew-open-status" role="status" aria-live="polite">
+    <div class="nova-crew-open-loader" aria-hidden="true"></div>
+    <strong id="novaCrewOpenTitle">Abriendo Crew Control…</strong>
+    <p id="novaCrewOpenMessage">Cargando el servicio asignado desde NOVA CREW.</p>
+    <button type="button" id="novaCrewOpenRetry" onclick="location.reload()" hidden>Reintentar</button>
+  </section>
   <section id="startScreen" class="card login-card">
     <h2>Acceder a un servicio</h2>
     <div class="lead">Código de servicio</div>
@@ -6866,8 +6891,8 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
 
   <section id="appScreen" class="hidden">
     <div class="service-top">
-      <div class="service-code">
-        <span>Servicio</span>
+      <div class="service-code" id="novaCrewServiceReference" hidden>
+        <span>Referencia</span>
         <span id="serviceCodeBadge" class="code-pill">000000</span>
         <button class="secondary icon-btn compact-code-btn" onclick="copyServiceCode()" title="Copiar código"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M5 16H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1"></path></svg><span>Copiar</span></button>
       </div>
@@ -9028,7 +9053,10 @@ function openServiceData(service){
   syncMobileOperationalToggleV11234();
   updateSidebarToggleButton();
 
-  document.getElementById('serviceCodeBadge').textContent=service.code;
+  const actualReference=String(service.serviceReference||service.reference||new URLSearchParams(location.search).get('reference')||'').trim().slice(0,90);
+  const refPanel=document.getElementById('novaCrewServiceReference');
+  if(refPanel)refPanel.hidden=!actualReference;
+  document.getElementById('serviceCodeBadge').textContent=actualReference;
   document.getElementById('serviceName').value=service.serviceName||'';
   document.getElementById('serviceDate').value=service.serviceDate||'';
   document.getElementById('venue').value=service.venue||'';
@@ -9083,7 +9111,7 @@ function finalizeCloseServiceView(){
 
 function copyServiceCode(){
   if(!state.service)return;
-  navigator.clipboard.writeText(state.service.code)
+  navigator.clipboard.writeText(document.getElementById('serviceCodeBadge')?.textContent||'')
     .then(()=>setSaveState('Código copiado','saved')).catch(()=>{});
 }
 
@@ -11701,7 +11729,7 @@ function workerRowHtml(w){
     </td>
 
     <td class="worker-name mobile-name">
-      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}${w.isSubCoordinator?'<span class="coordinator-badge" style="background:#ff7a14;color:#111">COORDINADOR '+escapeHtml(w.subCoordinatorScope||'EQUIPO')+'</span>':''}
+      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${(w.isCoordinator||w.isSubCoordinator)?'<span class="coordinator-badge">CS · COORD.</span>':''}
     </td>
 
     <td class="mobile-role"><span class="role">${escapeHtml(w.especialidad)}</span></td>
@@ -13988,7 +14016,7 @@ function openWorkerModal(id){
     ` · Pausa ${escapeHtml(formatPauseLabel(w.pausa||'00:00'))}`+
     ` · ${Number(w.nDieta||0)} dieta${Number(w.nDieta||0)===1?'':'s'}`+
     (w.isReserve?' <span class="reserve-badge">RESERVA</span>':'')+
-    (w.isCoordinator?' <span class="coordinator-badge">CS · COORDINADOR</span>':'');
+    ((w.isCoordinator||w.isSubCoordinator)?' <span class="coordinator-badge">CS · COORD.</span>':'');
   document.getElementById('modalArrivalTime').textContent=w.arrivalAt||'Todavía no registrada';
   document.getElementById('modalArrivalRecord').classList.toggle('empty-arrival',!w.arrivalAt);
   document.getElementById('modalActualStart').value=w.actualStart||w.inicio||'';
@@ -14280,8 +14308,17 @@ window.addEventListener('scroll',closeTeamColorPalette,true);
     if(!allowed){console.error('Código de Crew Control no válido:',code);return;}
     const el=document.getElementById('serviceCodeInput');if(el)el.value=code;
     Promise.resolve().then(()=>firebaseLoadService(code)).then(service=>{
-      if(service){openServiceData(service);window.parent?.postMessage({type:'NOVA_CC_READY',service:code},location.origin)}
-    }).catch(err=>{window.parent?.postMessage({type:'NOVA_CC_ERROR',service:code,error:String(err?.message||err)},location.origin);const t=document.getElementById('startStatus');if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}});
+      if(service){
+        openServiceData(service);
+        document.getElementById('novaCrewOpenStatus')?.classList.add('is-complete');
+        window.parent?.postMessage({type:'NOVA_CC_READY',service:code},location.origin);
+      }else throw new Error('No se ha encontrado el servicio asignado.');
+    }).catch(err=>{window.parent?.postMessage({type:'NOVA_CC_ERROR',service:code,error:String(err?.message||err)},location.origin);const t=document.getElementById('startStatus');
+      if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}
+      const status=document.getElementById('novaCrewOpenStatus');status?.classList.add('is-error');
+      const title=document.getElementById('novaCrewOpenTitle');if(title)title.textContent='No se ha podido abrir Crew Control';
+      const msg=document.getElementById('novaCrewOpenMessage');if(msg)msg.textContent=String(err?.message||err);
+      const retry=document.getElementById('novaCrewOpenRetry');if(retry)retry.hidden=false;});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
