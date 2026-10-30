@@ -504,3 +504,10 @@ body.crew-fullscreen-active{overflow:hidden!important;overscroll-behavior:none}
 .crew-fullscreen-workspace{position:fixed;inset:0;z-index:9700;display:flex;width:100vw;height:100dvh;overflow:hidden;background:#f3f3f3}
 .crew-fullscreen-workspace.hidden{display:none!important}
 .crew-fullscreen-frame{flex:1;display:block;width:100%;height:100%;border:0;background:#f3f3f3}
+
+/* Force removal of the older embedded Crew Control toolbar and frames. */
+#crewControlRoot .ccframe-toolbar{display:none!important}
+#crewControlRoot .ccframe-container{display:none!important}
+body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!important}
+.crew-fullscreen-workspace{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;max-height:none!important;display:flex!important;overflow:hidden!important;z-index:99999!important;background:#f3f3f3!important}
+.crew-fullscreen-frame{display:block!important;width:100%!important;height:100%!important;min-width:0!important;max-width:none!important;flex:1 1 auto!important;border:0!important;overflow:auto!important;background:#f3f3f3!important}

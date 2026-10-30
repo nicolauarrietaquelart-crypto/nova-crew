@@ -5957,6 +5957,13 @@
     .cc-portal-qr{background:#f58220!important;color:#111!important;border:0!important}
     .cc-portal-qr:hover{background:#ff983f!important}
     @media(max-width:710px){.cc-portal-actions{float:none;justify-content:space-between;margin:0 0 9px;padding:0}.cc-portal-actions button{font-size:10.5px;min-height:35px;padding:7px 9px;white-space:normal}.cc-portal-back{flex:1 1 auto}.cc-portal-qr{flex:0 0 auto}}
+
+    /* v2: keep scrolling active inside the fullscreen document. */
+    html{height:auto!important;min-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important;scrollbar-width:none!important}
+    body{height:auto!important;min-height:100vh!important;overflow-x:hidden!important;overflow-y:visible!important;touch-action:pan-y pinch-zoom}
+    header{position:sticky!important;top:0!important;z-index:90!important}
+    .cc-portal-back{cursor:pointer;pointer-events:auto!important}
+    .cc-portal-actions{z-index:95!important}
   </style>
 </head>
 <body>
@@ -5964,7 +5971,7 @@
     <span id="sidebarEdgeToggleGlyph">›</span>
   </button>
 <header><div class="cc-portal-actions">
-    <button type="button" class="cc-portal-back" onclick="window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin)" aria-label="Volver al Área de Empleado">← Volver al Área de Empleado</button>
+    <button type="button" class="cc-portal-back" onclick="if(window.parent!==window && typeof window.parent.closeCrewFullscreen==='function'){window.parent.closeCrewFullscreen()}else{window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin)}" aria-label="Volver al Área de Empleado">← Volver al Área de Empleado</button>
     <button type="button" class="cc-portal-qr" onclick="window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)">Escanear QR</button>
   </div>
   <div class="wrap">
