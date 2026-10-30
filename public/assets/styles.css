@@ -1436,3 +1436,31 @@ html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-metrics>div b{color:
 html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-metrics>div span{color:#becbdc!important}
 html[data-nova-theme="dark"] #workerCoordDetail .nova-unified-worker.selected{background:#55412f!important;border-left-color:#ff8a2c!important}
 html[data-nova-theme="dark"] #workerCoordDetail .nova-filter-button.on{background:#f58220!important;color:#1d1b1b!important}
+
+
+/* Coordination layout: operational sidebar starts beside the service title. */
+#workerCoordDetail .nova-unified-control{
+ display:grid!important;grid-template-columns:minmax(238px,275px) minmax(0,1fr)!important;
+ grid-template-rows:auto minmax(0,1fr)!important;
+ gap:14px!important;align-items:start!important;
+}
+#workerCoordDetail .nova-unified-layout{display:contents!important}
+#workerCoordDetail .nova-coord-sidebar{
+ grid-column:1!important;grid-row:1 / span 2!important;
+ top:16px!important;align-self:start!important
+}
+#workerCoordDetail .nova-unified-heading{
+ grid-column:2!important;grid-row:1!important;
+ width:100%!important;min-width:0!important;box-sizing:border-box!important;margin:0!important
+}
+#workerCoordDetail .nova-unified-main{
+ grid-column:2!important;grid-row:2!important;min-width:0!important
+}
+.nova-coord-page-actions{display:flex!important;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap}
+.nova-coord-page-actions #openWorkerCoordServiceSheet{min-height:42px;padding:10px 15px}
+@media(max-width:900px){
+ #workerCoordDetail .nova-unified-control{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto!important}
+ #workerCoordDetail .nova-unified-heading{grid-column:1!important;grid-row:1!important}
+ #workerCoordDetail .nova-coord-sidebar{grid-column:1!important;grid-row:2!important;position:relative!important;top:0!important}
+ #workerCoordDetail .nova-unified-main{grid-column:1!important;grid-row:3!important}
+}
