@@ -1698,3 +1698,26 @@ button,input,select,textarea,option,label{
  font-family:var(--nova-ui-font)!important;
 }
 button,input,select,textarea{font-family:inherit!important}
+
+
+/* Availability half-hour tiles: same navigation font, drag on mouse and touch. */
+#availabilityDragGrid,#availabilityDragGrid .avail-hour,
+#demoModal .availability-editor .availability-hours-grid .avail-hour{
+ font-family:"Plus Jakarta Sans","Segoe UI Variable","Segoe UI",Arial,sans-serif!important;
+ font-variant-numeric:tabular-nums!important;
+ letter-spacing:0!important;
+}
+#availabilityDragGrid{
+ touch-action:none!important;
+ -webkit-user-select:none!important;user-select:none!important;
+ overscroll-behavior:contain!important;
+}
+#availabilityDragGrid .avail-hour{
+ touch-action:none!important;
+ -webkit-user-select:none!important;user-select:none!important;
+ -webkit-touch-callout:none!important;
+ cursor:crosshair!important;
+}
+#availabilityDragGrid .avail-hour.active{
+ background:#196d42!important;color:#fff!important;border-color:#33965d!important;
+}
