@@ -112,6 +112,7 @@
     else if(mode==='worker')renderWorker();
     else renderChooser();
   }
+  window.NOVA_OPEN_ATTENDANCE_MENU=()=>openOverlay('menu');
   function closeOverlay(){stopCamera();clearInterval(expiresTimer);overlay.classList.add('hidden')}
   function scannableServices(){return services.filter(s=>isFuture(s)&&canScanService(s));}
   function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4'].includes(s.id):true));}
@@ -135,9 +136,7 @@
       if(typeof window.NOVA_CREW_GPS_OPEN==='function'&&document.body.classList.contains('crew-fullscreen-active')){
         window.NOVA_CREW_GPS_OPEN();return;
       }
-      if(typeof window.navigate==='function')window.navigate('clock');
-      const select=el('clockServicePicker');if(select){select.value=gps[0].id;select.dispatchEvent(new Event('change',{bubbles:true}));}
-      document.querySelector('#page-clock .clock-layout')?.scrollIntoView({behavior:'smooth',block:'start'});
+      window.NOVA_GPS_MODAL_OPEN?.(gps[0].id);
     };
   }
   function renderWorker(){
@@ -156,10 +155,7 @@
       if(typeof window.NOVA_CREW_GPS_OPEN==='function'&&document.body.classList.contains('crew-fullscreen-active')){
         window.NOVA_CREW_GPS_OPEN();return;
       }
-      if(typeof window.navigate==='function')window.navigate('clock');
-      const select=el('clockServicePicker');
-      if(select){select.value=service.id;select.dispatchEvent(new Event('change',{bubbles:true}));}
-      document.querySelector('#page-clock .clock-layout')?.scrollIntoView({behavior:'smooth',block:'start'});
+      window.NOVA_GPS_MODAL_OPEN?.(service.id);
     };
     el('qrDirectBtn').parentElement.append(own);
     setWorkerMode();
