@@ -122,10 +122,18 @@
     if(scan)scan.onclick=renderScanner;
   }
   function renderChooser(){
-    title.textContent='Fichaje y escaneo QR';
-    root.innerHTML=`<p class="nova-qr-hint">Selecciona lo que necesitas hacer para este servicio. Un mismo empleado puede enseñar su QR cuando trabaja y escanear los de su equipo si coordina.</p><div class="nova-qr-choices"><button class="nova-qr-choice primary" id="qrChooseShow"><b>▦</b><strong>Enseñar mi QR</strong><span>Para registrar mi asistencia cuando hay coordinador.</span></button><button class="nova-qr-choice" id="qrChooseScan" ${scannableServices().length?'':'disabled'}><b>▣</b><strong>Escanear trabajador</strong><span>Para servicios en los que tengo funciones de coordinación.</span></button></div>`;
+    title.textContent='Fichaje de asistencia';
+    const gps=issuableServices().filter(x=>!serviceHasCoordinator(x)||isOwnCoord(x));
+    root.innerHTML=`<p class="nova-qr-hint">Elige cómo quieres registrar la asistencia.</p><div class="nova-qr-choices"><button type="button" class="nova-qr-choice primary" id="qrChooseShow"><b>▦</b><strong>Mostrar mi QR</strong><span>Genera tu código de asistencia.</span></button><button type="button" class="nova-qr-choice" id="qrChooseScan" ${scannableServices().length?'':'disabled'}><b>▣</b><strong>Escanear QR</strong><span>Escanea el código de un trabajador de tu equipo.</span></button><button type="button" class="nova-qr-choice" id="qrChooseGps" ${gps.length?'':'disabled'}><b>⌖</b><strong>Fichar con geolocalización</strong><span>Sin coordinador o cuando eres el coordinador del servicio.</span></button></div>`;
     el('qrChooseShow').onclick=renderWorker;
     el('qrChooseScan').onclick=renderScanner;
+    el('qrChooseGps').onclick=()=>{
+      if(!gps.length)return;
+      closeOverlay();
+      if(typeof window.navigate==='function')window.navigate('clock');
+      const select=el('clockServicePicker');if(select){select.value=gps[0].id;select.dispatchEvent(new Event('change',{bubbles:true}));}
+      document.querySelector('#page-clock .clock-layout')?.scrollIntoView({behavior:'smooth',block:'start'});
+    };
   }
   function renderWorker(){
     title.textContent='Mi código de asistencia';
