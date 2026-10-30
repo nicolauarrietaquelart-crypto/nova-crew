@@ -86,7 +86,7 @@ function sidebar(){
  '<div class="nova-coord-side-actions"><button data-nova-select-visible type="button">Seleccionar visibles</button><button data-nova-clear type="button">Limpiar selección</button></div>'+
  '<div class="nova-coord-selected">'+selected.size+' seleccionados</div>'+
  '<button class="btn dark nova-coord-edit" type="button" data-nova-bulk>Editar selección</button>':'')+
- '<div class="nova-coord-sidebar-foot">Incidencias: '+workers.filter(w=>w.incident).length+' · Dietas: '+workers.filter(w=>w.diet==='Sí').length+'</div>'+
+ '<div class="nova-coord-sidebar-foot">Incidencias: '+workers.filter(w=>w.incident).length+' · Dietas: '+workers.reduce((sum,w)=>sum+(w.diet==='Sí'?1:Number(w.diet)||0),0)+'</div>'+
  '</div></aside>';
 }
 function render(){
