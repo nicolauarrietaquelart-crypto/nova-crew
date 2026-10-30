@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Crew Control v11.2.33 | Gestión de personal</title>
+  <title>Crew Control v11.2.35 | Gestión de personal</title>
   
   <style>
     :root{
@@ -5993,7 +5993,7 @@
 
   
     /* =========================================================
-       Crew Control v11.2.33 | visual clarity + efficient first paint
+       Crew Control v11.2.34 | visual clarity + efficient first paint
        ========================================================= */
     .metric-present-v11232 strong{color:#14864c!important}
     .metric-contacted-v11232 strong{color:#d96b0d!important}
@@ -6372,6 +6372,436 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
  body.control-sidebar-open .personnel-sidebar-v121{position:static!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important}
 }
 @media(max-width:430px){.cc-demo-header .subtitle{display:none!important}.cc-portal-back{max-width:144px}}
+
+    /* ===========================================================
+       v11.2.34 — mobile header dropdown, compact crew operations.
+       Reuses the existing sidebar and application state, no extra
+       database calls, no per-row blur or costly animations.
+       =========================================================== */
+    .mobile-ops-toggle-v11234,
+    .mobile-ops-more-v11234,
+    .mobile-operational-drawer-v11234{display:none!important}
+    .arrival-mode-v128{display:none!important}
+
+    @media(max-width:900px){
+      body > header > .wrap{
+        display:flex!important;
+        align-items:center!important;
+        justify-content:space-between!important;
+        gap:8px!important;
+        min-width:0!important;
+      }
+      .mobile-ops-toggle-v11234:not([hidden]){
+        display:inline-flex!important;
+        flex:0 0 38px!important;
+        width:38px!important;
+        height:38px!important;
+        min-height:38px!important;
+        align-items:center!important;
+        justify-content:center!important;
+        padding:0!important;
+        border-radius:13px!important;
+        border:1px solid rgba(255,255,255,.30)!important;
+        background:rgba(255,255,255,.11)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.17)!important;
+        color:#fff!important;
+        cursor:pointer!important;
+        touch-action:manipulation!important;
+      }
+      .mobile-ops-toggle-v11234[hidden]{display:none!important;}
+      .mobile-ops-toggle-v11234 svg{
+        width:19px!important;
+        height:19px!important;
+        stroke:currentColor!important;
+        stroke-width:2.5!important;
+        stroke-linecap:round!important;
+        stroke-linejoin:round!important;
+        fill:none!important;
+        transform:none!important;
+      }
+      .mobile-ops-toggle-v11234[aria-expanded="true"]{
+        background:#ff7a14!important;
+        color:#111!important;
+        border-color:#ff7a14!important;
+      }
+      .mobile-ops-toggle-v11234[aria-expanded="true"] svg{
+        transform:rotate(180deg)!important;
+      }
+      .mobile-operational-drawer-v11234{
+        position:fixed!important;
+        display:none!important;
+        z-index:1295!important;
+        top:calc(var(--crew-header-h, 60px) + 6px)!important;
+        left:8px!important;
+        right:8px!important;
+        width:auto!important;
+        height:auto!important;
+        max-height:calc(100dvh - var(--crew-header-h, 60px) - 22px)!important;
+        overflow-x:hidden!important;
+        overflow-y:auto!important;
+        padding:4px!important;
+        margin:0!important;
+        border:1px solid rgba(255,255,255,.90)!important;
+        border-top:2px solid #ff7a14!important;
+        border-radius:18px!important;
+        background:rgba(249,250,252,.97)!important;
+        box-shadow:0 16px 42px rgba(17,20,26,.22),inset 0 1px 0 rgba(255,255,255,.96)!important;
+        backdrop-filter:blur(7px) saturate(118%)!important;
+        -webkit-backdrop-filter:blur(7px) saturate(118%)!important;
+        overscroll-behavior:contain!important;
+        scrollbar-width:thin!important;
+        scrollbar-color:rgba(100,102,110,.32) transparent!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-expanded-v11234{
+        display:block!important;
+      }
+      body > header.crew-header-floating-v11233 ~ .mobile-operational-drawer-v11234{
+        top:64px!important;
+      }
+      .mobile-operational-drawer-v11234 .personnel-sidebar-v121{
+        display:block!important;
+        position:static!important;
+        inset:auto!important;
+        width:100%!important;
+        max-width:100%!important;
+        height:auto!important;
+        max-height:none!important;
+        overflow:visible!important;
+        padding:10px!important;
+        margin:0!important;
+        border:0!important;
+        border-radius:14px!important;
+        background:rgba(255,255,255,.46)!important;
+        box-shadow:none!important;
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+        contain:none!important;
+        transform:none!important;
+      }
+      .mobile-operational-drawer-v11234 .personnel-sidebar-title-v121{
+        display:flex!important;
+        align-items:center!important;
+        justify-content:space-between!important;
+        padding:0!important;
+        margin:0 0 8px!important;
+        min-height:0!important;
+        background:transparent!important;
+        color:#111!important;
+        border:0!important;
+        border-radius:0!important;
+      }
+      .mobile-operational-drawer-v11234 .personnel-sidebar-title-v121 h2{
+        margin:0!important;
+        padding:0!important;
+        font-size:13px!important;
+        font-weight:850!important;
+        color:#111!important;
+        line-height:1.2!important;
+      }
+      .mobile-operational-drawer-v11234 #sidebarCollapseBtn{display:none!important;}
+      .mobile-operational-drawer-v11234 .sidebar-operational-head-v122,
+      .mobile-operational-drawer-v11234 #operationalAlerts,
+      .mobile-operational-drawer-v11234 #stats{
+        display:none!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-operational-v122{
+        display:flex!important;
+        flex-direction:column!important;
+        gap:6px!important;
+        margin:0 0 7px!important;
+        padding:0!important;
+      }
+      .mobile-operational-drawer-v11234 .operational-work-nav-v11232{
+        width:100%!important;
+        min-height:34px!important;
+      }
+      .mobile-operational-drawer-v11234 .operational-time-filters-v1210{
+        margin:0!important;
+        padding:0!important;
+        max-height:36px!important;
+        min-height:0!important;
+      }
+      .mobile-operational-drawer-v11234 .operational-work-chip-v122,
+      .mobile-operational-drawer-v11234 .operational-time-chip-v1210{
+        font-size:10px!important;
+        font-weight:800!important;
+        padding:6px 9px!important;
+        min-height:32px!important;
+        border-radius:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #operationalDashboard{
+        display:grid!important;
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+        gap:5px!important;
+        margin:0!important;
+        padding:0!important;
+      }
+      .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127{
+        min-width:0!important;
+        min-height:58px!important;
+        height:auto!important;
+        padding:8px 5px!important;
+        border-radius:12px!important;
+        background:#fff!important;
+        border:1px solid rgba(13,17,25,.08)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.95)!important;
+      }
+      .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127 strong{
+        font-size:clamp(12px,3.3vw,18px)!important;
+        line-height:1.15!important;
+        white-space:nowrap!important;
+        overflow:visible!important;
+        font-weight:900!important;
+      }
+      .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127 span{
+        display:block!important;
+        margin-top:3px!important;
+        font-size:9px!important;
+        line-height:1.08!important;
+        white-space:normal!important;
+        overflow-wrap:break-word!important;
+        text-overflow:clip!important;
+        color:#636771!important;
+      }
+      .mobile-operational-drawer-v11234 .metric-present-v11232 strong{color:#13844b!important;}
+      .mobile-operational-drawer-v11234 .metric-contacted-v11232 strong{color:#d66a07!important;}
+      .mobile-operational-drawer-v11234 .metric-absent-v11232 strong{color:#c23131!important;}
+      .mobile-operational-drawer-v11234 .days-nav{
+        display:flex!important;
+        width:100%!important;
+        flex-wrap:nowrap!important;
+        overflow-x:auto!important;
+        gap:4px!important;
+        padding:0!important;
+        margin:3px 0 5px!important;
+        scrollbar-width:none!important;
+      }
+      .mobile-operational-drawer-v11234 .days-nav::-webkit-scrollbar{display:none!important;}
+      .mobile-operational-drawer-v11234 .days-nav .day-tab,
+      .mobile-operational-drawer-v11234 .days-nav .day-btn{
+        font-size:10px!important;
+        min-height:30px!important;
+        padding:5px 8px!important;
+      }
+      .mobile-operational-drawer-v11234 .toolbar.personnel-sidebar-toolbar-v121{
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+        gap:6px!important;
+        padding:0!important;
+        margin:0!important;
+        align-items:stretch!important;
+      }
+      .mobile-operational-drawer-v11234 #searchWorker{
+        grid-column:1/-1!important;
+        grid-row:1!important;
+        width:100%!important;
+        min-width:0!important;
+        min-height:34px!important;
+        margin:0!important;
+        padding:7px 12px!important;
+        font-size:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #quickStatusFilter{
+        grid-column:1!important;
+        grid-row:2!important;
+        width:100%!important;
+        min-width:0!important;
+        min-height:36px!important;
+        font-size:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #scopeSelectBtn{
+        grid-column:2!important;
+        grid-row:2!important;
+        width:100%!important;
+        margin:0!important;
+        min-width:0!important;
+        min-height:36px!important;
+        font-size:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #selectedCounter{
+        grid-column:1/-1!important;
+        grid-row:3!important;
+        min-height:28px!important;
+        height:28px!important;
+        margin:0!important;
+        padding:4px!important;
+        font-size:11px!important;
+        border-radius:9px!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-actions-v124{
+        grid-column:1/-1!important;
+        grid-row:4!important;
+        display:grid!important;
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+        gap:6px!important;
+        padding:0!important;
+        margin:0!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124{
+        width:100%!important;
+        min-width:0!important;
+        height:38px!important;
+        min-height:38px!important;
+        font-size:18px!important;
+        border-radius:12px!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.visible{display:none!important;}
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.rate{display:none!important;}
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.present,
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.absent,
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.changes-v125{
+        display:flex!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-actions-v124{
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      }
+      .mobile-ops-more-v11234{
+        display:flex!important;
+        grid-column:1/-1!important;
+        grid-row:5!important;
+        align-items:center!important;
+        justify-content:center!important;
+        gap:6px!important;
+        width:100%!important;
+        min-height:30px!important;
+        border:1px solid rgba(0,0,0,.08)!important;
+        background:rgba(255,255,255,.76)!important;
+        color:#353941!important;
+        border-radius:10px!important;
+        font-size:10px!important;
+        font-weight:750!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-link-actions-v129,
+      .mobile-operational-drawer-v11234 #sidebarPdfManager{
+        display:none!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 .sidebar-link-actions-v129{
+        display:grid!important;
+        grid-column:1/-1!important;
+        grid-row:6!important;
+        margin:0!important;
+        padding:0!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 #sidebarPdfManager:not(.hidden){
+        display:block!important;
+        grid-column:1/-1!important;
+        grid-row:7!important;
+        margin:0!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 .sidebar-icon-btn-v124.rate{
+        display:flex!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 .sidebar-icon-actions-v124{
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+      }
+      #mobileOperationalHome{display:none!important;}
+    }
+    @media(max-width:700px){
+      .mobile-operational-drawer-v11234{
+        top:calc(var(--crew-header-h, 58px) + 6px)!important;
+        border-radius:17px!important;
+      }
+      body > header.crew-header-floating-v11233 ~ .mobile-operational-drawer-v11234{
+        top:63px!important;
+      }
+    }
+
+  
+
+    /* v11.2.35 — touch reorder + deep glass. Single lightweight dark gradient,
+       no continuously animated filters or backdrops on worker rows. */
+    .work-group > summary.work-group-head,
+    .integrated-modal-head-v129,
+    .bulk-changes-head-v125,
+    .personnel-sidebar-title-v121,
+    body > header,
+    body > header.crew-header-floating-v11233{
+      background:linear-gradient(140deg,#1b1b20 0%,#111115 58%,#211e20 100%)!important;
+      background-color:#111115!important;
+      color:#fff!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10),
+        inset 0 -1px 0 rgba(255,122,20,.15)!important;
+    }
+    .operational-work-chip-v122.active,
+    .sidebar-ops-counter-v124,
+    .selected-counter{
+      background:linear-gradient(140deg,#202025 0%,#111114 90%)!important;
+      color:#fff!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10)!important;
+    }
+    .work-group-head .group-bulk-btn{
+      background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.04))!important;
+      border-color:rgba(255,122,20,.40)!important;
+    }
+    .work-group.work-drop-target-v11227,
+    .work-group.touch-work-target-v11235{
+      outline:2px solid #ff7a14!important;
+      outline-offset:0!important;
+      box-shadow:0 0 0 2px rgba(255,122,20,.25),
+        inset 0 1px 0 rgba(255,255,255,.24)!important;
+    }
+    .work-group.touch-work-target-v11235 > summary.work-group-head{
+      background:linear-gradient(140deg,#2c211e 0%,#171518 65%,#322016 100%)!important;
+    }
+    .touch-work-ghost-v11235{
+      position:fixed!important;
+      z-index:4000!important;
+      width:max-content!important;
+      max-width:min(60vw,225px)!important;
+      padding:11px 14px!important;
+      border-radius:13px!important;
+      color:#fff!important;
+      background:linear-gradient(135deg,#29272b,#111115)!important;
+      border:1px solid rgba(255,122,20,.90)!important;
+      box-shadow:0 12px 25px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.13)!important;
+      font-size:12px!important;
+      font-weight:900!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      pointer-events:none!important;
+      user-select:none!important;
+      -webkit-user-select:none!important;
+      touch-action:none!important;
+    }
+    @media(max-width:900px){
+      /* The black service strip replaces arrows as the touch reorder surface. */
+      .work-order-touch-v11227,
+      .work-order-touch-v11227 button{display:none!important;}
+      .work-drag-handle-v11227{
+        display:inline-flex!important;
+        min-width:22px!important;
+        width:22px!important;
+        height:28px!important;
+        margin-right:3px!important;
+        color:rgba(255,255,255,.65)!important;
+        pointer-events:none!important;
+      }
+      .work-group > summary.work-group-head{
+        user-select:none!important;
+        -webkit-user-select:none!important;
+        touch-action:pan-y!important;
+        -webkit-touch-callout:none!important;
+        cursor:grab!important;
+      }
+      body.touch-work-reordering-v11235 .work-group-head{cursor:grabbing!important;}
+      .mobile-ops-toggle-v11234:not([hidden]){
+        background:linear-gradient(150deg,rgba(255,255,255,.20),rgba(255,255,255,.07))!important;
+        border-color:rgba(255,255,255,.40)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.24)!important;
+      }
+      .mobile-ops-toggle-v11234[aria-expanded="true"]{
+        background:linear-gradient(145deg,#ff9d4b,#ff7a14)!important;
+        color:#111!important;
+        border-color:#ff7a14!important;
+      }
+      .mobile-operational-drawer-v11234{
+        background:linear-gradient(165deg,rgba(254,254,255,.98),rgba(240,244,248,.96))!important;
+        box-shadow:0 16px 40px rgba(16,20,29,.18),
+          inset 0 1px 0 rgba(255,255,255,.99)!important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -6398,8 +6828,17 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
         <div class="subtitle">Operaciones de personal</div>
       </div>
     </div>
+    <button type="button" id="mobileOperationalToggleV11234"
+      class="mobile-ops-toggle-v11234" onclick="toggleMobileOperationalPanelV11234()"
+      aria-label="Desplegar control operativo" aria-controls="mobileOperationalDrawerV11234"
+      aria-expanded="false" title="Desplegar control operativo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
   </div>
 </header>
+
+<div id="mobileOperationalDrawerV11234" class="mobile-operational-drawer-v11234"
+  aria-hidden="true"></div>
 
 <main class="wrap">
   <section id="startScreen" class="card login-card">
@@ -6570,6 +7009,11 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
           <span>⚡</span><strong>Llegadas</strong>
         </button>
 
+        <button type="button" id="mobileOperationalMoreV11234"
+          class="mobile-ops-more-v11234" onclick="toggleMobileOperationalMoreV11234()"
+          aria-expanded="false" aria-label="Mostrar incidencias, equipos y PDF">
+          <span>Más opciones</span><span class="mobile-ops-more-chevron-v11234">⌄</span>
+        </button>
         <div class="sidebar-link-actions-v129">
           <button type="button" class="sidebar-link-btn-v129" onclick="openIncidentsBoardModal()" title="Ver incidencias">
             <span class="icon">⚠</span><span class="label">Incidencias</span><span id="sidebarIncidentsCount" class="sidebar-utility-badge-v1210">0</span>
@@ -7270,7 +7714,7 @@ function firebaseServiceRoot(service){
     requirements:Array.from(service.requirements||[],r=>sanitizeFirestore(r)),
     audit:Array.from(service.audit||[],a=>sanitizeFirestore(a)),
     backend:'FIRESTORE',
-    schemaVersion:'11.2.33'
+    schemaVersion:'11.2.34'
   });
 }
 
@@ -8322,6 +8766,66 @@ function openScenariosTeamsModal(){
 }
 
 
+
+/* v11.2.34 — compact, collapsible mobile operational panel. */
+function syncMobileOperationalToggleV11234(){
+  const toggle=document.getElementById('mobileOperationalToggleV11234');
+  if(!toggle)return;
+  const visible=Boolean(state.service) && window.matchMedia('(max-width: 900px)').matches;
+  toggle.hidden=!visible;
+  if(!visible)setMobileOperationalPanelV11234(false);
+}
+
+function setMobileOperationalPanelV11234(open){
+  const drawer=document.getElementById('mobileOperationalDrawerV11234');
+  const toggle=document.getElementById('mobileOperationalToggleV11234');
+  if(!drawer || !toggle)return;
+  const allowed=Boolean(state.service) && window.matchMedia('(max-width: 900px)').matches;
+  const expanded=Boolean(open)&&allowed;
+  drawer.classList.toggle('mobile-ops-expanded-v11234',expanded);
+  drawer.setAttribute('aria-hidden',String(!expanded));
+  toggle.setAttribute('aria-expanded',String(expanded));
+  toggle.setAttribute('aria-label',expanded?'Ocultar control operativo':'Desplegar control operativo');
+  toggle.title=expanded?'Ocultar control operativo':'Desplegar control operativo';
+  if(!expanded){
+    drawer.classList.remove('mobile-ops-more-open-v11234');
+    const more=document.getElementById('mobileOperationalMoreV11234');
+    if(more)more.setAttribute('aria-expanded','false');
+  }else{
+    requestAnimationFrame(()=>{
+      if(typeof updateOperationalWorkNextButton==='function')updateOperationalWorkNextButton();
+    });
+  }
+}
+
+function mobileOperationalPanelIsOpenV11235(){
+  return Boolean(document.getElementById('mobileOperationalDrawerV11234')
+    ?.classList.contains('mobile-ops-expanded-v11234'));
+}
+
+function toggleMobileOperationalPanelV11234(){
+  const drawer=document.getElementById('mobileOperationalDrawerV11234');
+  if(!drawer)return;
+  const wasOpen=mobileOperationalPanelIsOpenV11235();
+  setMobileOperationalPanelV11234(!wasOpen);
+  // Navigate only when the user deliberately closes the panel.
+  if(wasOpen && state.operationalWorkFilter!=='ALL'){
+    focusOperationalWorkBlock(state.operationalWorkFilter,state.operationalTimeFilter);
+  }
+}
+
+function toggleMobileOperationalMoreV11234(){
+  const drawer=document.getElementById('mobileOperationalDrawerV11234');
+  const more=document.getElementById('mobileOperationalMoreV11234');
+  if(!drawer || !more)return;
+  const open=drawer.classList.toggle('mobile-ops-more-open-v11234');
+  more.setAttribute('aria-expanded',String(open));
+}
+
+// The mobile control panel closes only via its banner arrow.
+
+window.addEventListener('resize',syncMobileOperationalToggleV11234,{passive:true});
+
 function mountPersonnelSidebarPortal(){
   syncPersonnelSidebarPlacement();
 }
@@ -8329,17 +8833,18 @@ function mountPersonnelSidebarPortal(){
 
 function syncPersonnelSidebarPlacement(){
   const sidebar=document.querySelector('.personnel-sidebar-v121');
-  const mobileHome=document.getElementById('mobileOperationalHome');
+  const mobileDrawer=document.getElementById('mobileOperationalDrawerV11234');
   if(!sidebar)return;
 
   const isMobile=window.matchMedia('(max-width: 900px)').matches;
 
   if(isMobile){
     sidebar.classList.remove('personnel-sidebar-portal-v1215');
-    if(mobileHome && sidebar.parentElement!==mobileHome){
-      mobileHome.appendChild(sidebar);
+    if(mobileDrawer && sidebar.parentElement!==mobileDrawer){
+      mobileDrawer.appendChild(sidebar);
     }
   }else{
+    setMobileOperationalPanelV11234(false);
     if(sidebar.parentElement!==document.body){
       document.body.appendChild(sidebar);
     }
@@ -8515,6 +9020,8 @@ function openServiceData(service){
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('appScreen').classList.remove('hidden');
   mountPersonnelSidebarPortal();
+  setMobileOperationalPanelV11234(false);
+  syncMobileOperationalToggleV11234();
   updateSidebarToggleButton();
 
   document.getElementById('serviceCodeBadge').textContent=service.code;
@@ -8556,6 +9063,7 @@ function closeService(){
 }
 
 function finalizeCloseServiceView(){
+  setMobileOperationalPanelV11234(false);
   restorePersonnelSidebarHome();
   document.body.classList.remove('control-sidebar-open');
   stopFirebaseRealtime();
@@ -8566,7 +9074,7 @@ function finalizeCloseServiceView(){
   document.getElementById('serviceCodeInput').value='';
   document.getElementById('appScreen').classList.add('hidden');
   document.getElementById('startScreen').classList.remove('hidden');
-
+  syncMobileOperationalToggleV11234();
 }
 
 function copyServiceCode(){
@@ -9997,6 +10505,172 @@ function workDrop(event,target){
   reorderWorkTypes(source,target);
 }
 
+
+/* v11.2.35: mobile touch reorder, without up/down controls or native HTML5 DnD.
+   Long press a service's black header (not an action button), drag to another
+   header, then release. Only one render at the end of a successful reorder. */
+const touchWorkOrderV11235={
+  timer:null,
+  active:false,
+  source:'',
+  target:'',
+  startX:0,startY:0,
+  x:0,y:0,
+  ghost:null,
+  highlighted:null,
+  lastScrollFrame:0,
+  preventClickUntil:0
+};
+
+function cancelTouchWorkLongPressV11235(){
+  if(touchWorkOrderV11235.timer!==null){
+    clearTimeout(touchWorkOrderV11235.timer);
+    touchWorkOrderV11235.timer=null;
+  }
+}
+
+function touchWorkTargetV11235(x,y){
+  let closest=null;
+  let distance=Infinity;
+  document.querySelectorAll('#personnelGroups .work-group > summary.work-group-head').forEach(head=>{
+    const rect=head.getBoundingClientRect();
+    if(rect.bottom < 0 || rect.top > window.innerHeight)return;
+    const d=y<rect.top ? rect.top-y : y>rect.bottom ? y-rect.bottom : 0;
+    if(d<distance){distance=d;closest=head.closest('.work-group');}
+  });
+  return distance<=85?closest:null;
+}
+
+function highlightTouchWorkTargetV11235(group){
+  const drag=touchWorkOrderV11235;
+  if(drag.highlighted===group)return;
+  drag.highlighted?.classList.remove('touch-work-target-v11235');
+  drag.highlighted=group;
+  group?.classList.add('touch-work-target-v11235');
+  drag.target=group?.getAttribute('data-work-group')||'';
+}
+
+function moveTouchWorkGhostV11235(x,y){
+  const drag=touchWorkOrderV11235;
+  drag.x=x;drag.y=y;
+  if(drag.ghost){
+    drag.ghost.style.left=`${Math.max(8,Math.min(window.innerWidth-220,x+12))}px`;
+    drag.ghost.style.top=`${Math.max(72,Math.min(window.innerHeight-50,y-23))}px`;
+  }
+  highlightTouchWorkTargetV11235(touchWorkTargetV11235(x,y));
+}
+
+function touchWorkAutoScrollV11235(){
+  const drag=touchWorkOrderV11235;
+  if(!drag.active)return;
+  const margin=75;
+  const y=drag.y;
+  const speed=y<margin ? -Math.min(11,Math.ceil((margin-y)/7)) :
+    y>window.innerHeight-margin ? Math.min(11,Math.ceil((y-(window.innerHeight-margin))/7)) : 0;
+  if(speed){
+    window.scrollBy(0,speed);
+    highlightTouchWorkTargetV11235(touchWorkTargetV11235(drag.x,drag.y));
+  }
+  drag.lastScrollFrame=requestAnimationFrame(touchWorkAutoScrollV11235);
+}
+
+function startTouchWorkDragV11235(){
+  const drag=touchWorkOrderV11235;
+  if(!drag.source||drag.active)return;
+  drag.timer=null;
+  drag.active=true;
+  document.body.classList.add('touch-work-reordering-v11235');
+  const ghost=document.createElement('div');
+  ghost.className='touch-work-ghost-v11235';
+  ghost.textContent='⋮⋮  '+drag.source;
+  ghost.setAttribute('aria-hidden','true');
+  document.body.appendChild(ghost);
+  drag.ghost=ghost;
+  moveTouchWorkGhostV11235(drag.x,drag.y);
+  if(navigator.vibrate)navigator.vibrate(12);
+  drag.lastScrollFrame=requestAnimationFrame(touchWorkAutoScrollV11235);
+}
+
+function resetTouchWorkDragV11235(){
+  const drag=touchWorkOrderV11235;
+  cancelTouchWorkLongPressV11235();
+  if(drag.lastScrollFrame)cancelAnimationFrame(drag.lastScrollFrame);
+  drag.lastScrollFrame=0;
+  drag.ghost?.remove();
+  drag.ghost=null;
+  drag.highlighted?.classList.remove('touch-work-target-v11235');
+  drag.highlighted=null;
+  document.body.classList.remove('touch-work-reordering-v11235');
+  drag.active=false;
+  drag.source='';drag.target='';
+}
+
+function touchWorkStartV11235(event){
+  if(!state.service || state.service.closed ||
+      !window.matchMedia('(max-width: 900px)').matches ||
+      event.touches.length!==1)return;
+  const element=event.target;
+  if(!(element instanceof Element))return;
+  const head=element.closest('#personnelGroups .work-group > summary.work-group-head');
+  if(!head || element.closest('button,a,input,select,textarea,[role="button"]'))return;
+  resetTouchWorkDragV11235();
+  const touch=event.touches[0];
+  const drag=touchWorkOrderV11235;
+  drag.startX=drag.x=touch.clientX;
+  drag.startY=drag.y=touch.clientY;
+  drag.source=head.closest('.work-group')?.getAttribute('data-work-group')||'';
+  if(!drag.source)return;
+  drag.timer=setTimeout(startTouchWorkDragV11235,280);
+}
+
+function touchWorkMoveV11235(event){
+  const drag=touchWorkOrderV11235;
+  if(!drag.source)return;
+  if(event.touches.length!==1){resetTouchWorkDragV11235();return;}
+  const touch=event.touches[0];
+  const x=touch.clientX, y=touch.clientY;
+  if(!drag.active){
+    if(Math.hypot(x-drag.startX,y-drag.startY)>10){resetTouchWorkDragV11235();}
+    return;
+  }
+  // Non-passive listener: prevent scroll only AFTER holding, preserving ordinary swipes.
+  if(event.cancelable)event.preventDefault();
+  moveTouchWorkGhostV11235(x,y);
+}
+
+function touchWorkEndV11235(event){
+  const drag=touchWorkOrderV11235;
+  if(!drag.source)return;
+  if(!drag.active){resetTouchWorkDragV11235();return;}
+  if(event.cancelable)event.preventDefault();
+  const finger=event.changedTouches?.[0];
+  if(finger)moveTouchWorkGhostV11235(finger.clientX,finger.clientY);
+  const source=drag.source;
+  const target=drag.target;
+  drag.preventClickUntil=Date.now()+450;
+  resetTouchWorkDragV11235();
+  if(source&&target&&normalize(source)!==normalize(target)){
+    const currentY=window.scrollY;
+    reorderWorkTypes(source,target);
+    // Keep the page position instead of jumping to the top on rerender.
+    if(Math.abs(window.scrollY-currentY)>3)window.scrollTo(0,currentY);
+  }
+}
+
+document.addEventListener('touchstart',touchWorkStartV11235,{passive:true});
+document.addEventListener('touchmove',touchWorkMoveV11235,{passive:false});
+document.addEventListener('touchend',touchWorkEndV11235,{passive:false});
+document.addEventListener('touchcancel',resetTouchWorkDragV11235,{passive:true});
+document.addEventListener('contextmenu',event=>{
+  if(touchWorkOrderV11235.active && event.target.closest?.('.work-group-head'))event.preventDefault();
+},true);
+document.addEventListener('click',event=>{
+  if(Date.now()<touchWorkOrderV11235.preventClickUntil &&
+      event.target.closest?.('#personnelGroups .work-group-head')){
+    event.preventDefault();event.stopImmediatePropagation();
+  }
+},true);
+
 function renderPersonnel(light=false){
   if(!state.service)return;
 
@@ -10061,7 +10735,7 @@ function renderPersonnel(light=false){
       <summary class="work-group-head">
         <div class="work-group-title">
           <span class="work-drag-handle-v11227"
-            draggable="true"
+            draggable="${window.matchMedia('(max-width: 900px)').matches?'false':'true'}"
             onclick="event.preventDefault();event.stopPropagation()"
             ondragstart="workDragStart(event,'${escapeJsString(trabajo)}')"
             ondragend="workDragEnd()"
@@ -11023,7 +11697,7 @@ function workerRowHtml(w){
     </td>
 
     <td class="worker-name mobile-name">
-      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}
+      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}${w.isSubCoordinator?'<span class="coordinator-badge" style="background:#ff7a14;color:#111">COORDINADOR '+escapeHtml(w.subCoordinatorScope||'EQUIPO')+'</span>':''}
     </td>
 
     <td class="mobile-role"><span class="role">${escapeHtml(w.especialidad)}</span></td>
@@ -12354,7 +13028,10 @@ function setOperationalTimeFilter(time){
   renderOperationalTimeFilters();
   renderOperationalDashboard();
   renderOperationalAlerts(false);
-  focusOperationalWorkBlock(state.operationalWorkFilter,state.operationalTimeFilter);
+  // Do not scroll the page behind an open mobile menu.
+  if(!mobileOperationalPanelIsOpenV11235()){
+    focusOperationalWorkBlock(state.operationalWorkFilter,state.operationalTimeFilter);
+  }
 }
 
 function operationalTimeMatches(worker){
@@ -12512,7 +13189,10 @@ function setOperationalWorkFilter(work){
   renderOperationalWorkFilters();
   renderOperationalDashboard();
   renderOperationalAlerts(false);
-  focusOperationalWorkBlock(state.operationalWorkFilter,'ALL');
+  // Keep the mobile control panel open while selecting work/time.
+  if(!mobileOperationalPanelIsOpenV11235()){
+    focusOperationalWorkBlock(state.operationalWorkFilter,'ALL');
+  }
 }
 
 function operationalWorkersForSummary(){
