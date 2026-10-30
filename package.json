@@ -1,0 +1,10 @@
+{
+  "name": "nova-crew-v13-netlify-demo",
+  "version": "13.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NOVA Crew demo: retained portal UI with camera QR check-in and Netlify Blobs",
+  "scripts": {"test":"node --test test/*.test.mjs"},
+  "dependencies": {"@netlify/blobs":"latest"},
+  "engines": {"node": ">=20"}
+}
