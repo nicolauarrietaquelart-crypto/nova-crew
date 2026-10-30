@@ -683,3 +683,8 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 #crewFullscreenWorkspace > #novaQrOverlay.nova-crew-qr-over-workspace .nova-qr-modal{
   position:relative;z-index:1;
 }
+
+/* Consistent sharp SVG navigation icons (desktop and mobile). */
+#mainNav .nav-btn .nova-nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;line-height:1}
+#mainNav .nav-btn .nova-nav-icon svg{display:block;width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;vector-effect:non-scaling-stroke}
+#mainNav .nav-btn.active .nova-nav-icon svg{stroke:#fff}
