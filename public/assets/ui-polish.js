@@ -23,3 +23,21 @@
  window.addEventListener('resize',()=>{if(window.innerWidth>900&&panel.classList.contains('open')){panel.classList.remove('open');sync();}});
  sync();
 })();
+/* Tactile feedback on mobile without interfering with native scrolling. */
+(()=>{
+ 'use strict';
+ const small=()=>window.matchMedia('(max-width:900px)').matches;
+ let down=null;
+ document.addEventListener('pointerdown',event=>{
+   if(!small()||event.pointerType==='mouse')return;
+   const button=event.target.closest('button,.nav-btn,.nova-qr-choice');
+   if(!button||button.disabled)return;
+   down=button;
+   button.classList.add('nova-touch-down');
+ },{passive:true});
+ const release=()=>{if(down)down.classList.remove('nova-touch-down');down=null;};
+ document.addEventListener('pointerup',release,{passive:true});
+ document.addEventListener('pointercancel',release,{passive:true});
+ document.addEventListener('scroll',release,{passive:true,capture:true});
+ window.addEventListener('blur',release);
+})();
