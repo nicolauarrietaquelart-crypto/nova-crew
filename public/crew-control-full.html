@@ -6827,6 +6827,7 @@ body.control-sidebar-open main.wrap{margin-top:0!important}
 #novaCrewServiceReference[hidden],.service-code[hidden]{display:none!important}
 .cc-portal-qr.nova-qr-quick{display:inline-flex!important;gap:7px!important;align-items:center!important;justify-content:center!important;background:#f58220!important;color:#111!important;border:0!important}
 .cc-portal-qr.nova-qr-quick svg{width:20px;height:20px;flex:none}
+.cc-portal-qr.nova-qr-quick{width:44px!important;min-width:44px!important;padding:8px!important}
 body > header,body > header.crew-header-floating-v11233{position:fixed!important;top:9px!important;left:12px!important;right:12px!important;width:calc(100% - 24px)!important;min-height:66px!important;height:68px!important;border:1px solid rgba(255,255,255,.2)!important;border-bottom:3px solid #f58220!important;border-radius:19px!important;background:#101014!important;box-shadow:0 8px 25px rgba(10,10,12,.2)!important;transform:none!important;z-index:1600!important}
 body > header > .wrap{max-width:none!important}
 body{padding-top:88px!important}
@@ -6842,7 +6843,7 @@ body{padding-top:88px!important}
   <div class="wrap cc-demo-header">
     <div class="cc-portal-actions">
       <button type="button" class="cc-portal-back" id="ccReturnEmployee">← Volver al Área de Empleado</button>
-      <button type="button" class="cc-portal-qr nova-qr-quick" id="ccScanWorker" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg><span>QR</span></button>
+      <button type="button" class="cc-portal-qr nova-qr-quick icon-btn" id="ccScanWorker" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg></button>
     </div>
     <div class="brand">
       <div class="demo-mark" aria-hidden="true" style="font:900 25px Arial,sans-serif;color:white;display:grid;place-items:center">N</div>
@@ -7865,6 +7866,7 @@ async function readServiceFromFirebase(code){
 
   return {
     code:String(code),
+    serviceReference:String(root.serviceReference||root.reference||''),
     serviceName:String(root.serviceName||''),
     serviceDate:String(root.serviceDate||''),
     venue:String(root.venue||''),
