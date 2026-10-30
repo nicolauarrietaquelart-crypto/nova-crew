@@ -469,6 +469,7 @@ function renderClockService(){
   $('#clockRole').textContent=roleLabel(s);
   $('#venueLocationName').textContent=`${s.venue} · ${s.address}`;
   $('#venueCoords').textContent=`${s.coords.lat.toFixed(5)}, ${s.coords.lng.toFixed(5)}`;
+  window.lastClockLocation=null;window.lastDistance=null;
   $('#distanceValue').textContent='—';
   $('#workerLocationStatus').textContent='Sin comprobar';
   $('#workerCoords').textContent='Pulsa “Comprobar ubicación”';
@@ -485,29 +486,64 @@ function haversine(a,b){
 }
 function checkLocation(){
   const s=window.clockService||findClockService();
-  if(!navigator.geolocation){toast('Ubicación no disponible','Este navegador no ofrece geolocalización.');return}
-  $('#geoStatus').className='geo-status neutral';
-  $('#geoStatus').textContent='Solicitando ubicación…';
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const worker={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    const dist=haversine(worker,s.coords);
-    window.lastDistance=dist;window.lastClockLocation={lat:worker.lat,lng:worker.lng,accuracy:pos.coords.accuracy};
-    $('#workerLocationStatus').textContent=dist<=RADIUS_METERS?'Dentro del radio':'Fuera del radio';
-    $('#workerCoords').textContent=`${worker.lat.toFixed(5)}, ${worker.lng.toFixed(5)} · precisión ±${Math.round(pos.coords.accuracy)} m`;
-    $('#distanceValue').textContent=dist<1000?`${Math.round(dist)} m`:`${(dist/1000).toFixed(1)} km`;
-    const ok=dist<=RADIUS_METERS;
-    $('#geoStatus').className=`geo-status ${ok?'ok':'bad'}`;
-    $('#geoStatus').textContent=ok?`Ubicación validada. Estás a ${Math.round(dist)} m del recinto.`:`No puedes fichar: estás a ${dist<1000?Math.round(dist)+' m':(dist/1000).toFixed(1)+' km'} del recinto.`;
-    $('#checkInBtn').disabled=!ok;
-    $('#checkOutBtn').disabled=!ok;
-  },err=>{
+  // Geolocation is required regardless of the employee's role or coordinator assignment.
+  window.lastClockLocation=null;window.lastDistance=null;
+  $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+  if(!s?.coords||!navigator.geolocation){
     $('#geoStatus').className='geo-status bad';
-    $('#geoStatus').textContent='No se ha podido obtener tu ubicación. Revisa los permisos del navegador.';
-    toast('Geolocalización',err.message||'Permiso denegado');
-  },{enableHighAccuracy:true,timeout:12000,maximumAge:0});
+    $('#geoStatus').textContent='No se puede validar el fichaje: servicio sin coordenadas o navegador sin geolocalización.';
+    return Promise.resolve(false);
+  }
+  $('#geoStatus').className='geo-status neutral';
+  $('#geoStatus').textContent='Solicitando ubicación actual…';
+  return new Promise(resolve=>navigator.geolocation.getCurrentPosition(pos=>{
+    const worker={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    const dist=haversine(worker,s.coords),accuracy=pos.coords.accuracy;
+    const ok=Number.isFinite(dist)&&Number.isFinite(accuracy)&&dist<=RADIUS_METERS&&accuracy<=200;
+    window.lastDistance=dist;
+    if(ok)window.lastClockLocation={lat:worker.lat,lng:worker.lng,accuracy,serviceId:s.id,checkedAt:Date.now()};
+    $('#workerLocationStatus').textContent=ok?'Dentro del radio':dist>RADIUS_METERS?'Fuera del radio':'Precisión insuficiente';
+    $('#workerCoords').textContent=`${worker.lat.toFixed(5)}, ${worker.lng.toFixed(5)} · precisión ±${Math.round(accuracy)} m`;
+    $('#distanceValue').textContent=dist<1000?`${Math.round(dist)} m`:`${(dist/1000).toFixed(1)} km`;
+    $('#geoStatus').className=`geo-status ${ok?'ok':'bad'}`;
+    $('#geoStatus').textContent=ok?`Ubicación validada. Estás a ${Math.round(dist)} m del recinto.`:
+      dist>RADIUS_METERS?`No puedes fichar: estás a ${Math.round(dist)} m del recinto (máximo ${RADIUS_METERS} m).`:
+      'No puedes fichar: la ubicación es demasiado imprecisa. Activa la ubicación precisa y vuelve a intentarlo.';
+    $('#checkInBtn').disabled=!ok;$('#checkOutBtn').disabled=!ok;
+    resolve(ok);
+  },err=>{
+    window.lastClockLocation=null;
+    $('#geoStatus').className='geo-status bad';
+    $('#geoStatus').textContent='No puedes fichar sin conceder permiso de ubicación. Revisa los ajustes del navegador.';
+    $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+    toast('Geolocalización',err.message||'Permiso denegado');resolve(false);
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:0}));
 }
-function addClockLog(type){
-  const now=new Date(),s=window.clockService||findClockService(),loc=window.lastClockLocation||{};const div=document.createElement('div');div.innerHTML=`<b>${type}</b> · ${now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} · ubicación validada`;$('#clockLog').prepend(div);if(window.google&&google.script&&google.script.run){google.script.run.withSuccessHandler(()=>toast('Control horario',`${type} registrada y guardada.`)).withFailureHandler(err=>toast('Control horario',err.message||'Error al guardar')).saveClockEvent({serviceId:s.id,type,lat:loc.lat,lng:loc.lng,accuracy:loc.accuracy,distance:window.lastDistance,venue:s.venue})}else toast('Control horario',`${type} registrada localmente.`);
+let clockSubmissionPending=false;
+async function addClockLog(type){
+  if(clockSubmissionPending)return;
+  clockSubmissionPending=true;
+  $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+  try{
+    // Obtain a fresh GPS fix on every entry/exit, even after manual verification.
+    const valid=await checkLocation();
+    if(!valid)return;
+    const now=new Date(),s=window.clockService||findClockService(),loc=window.lastClockLocation;
+    if(!loc||loc.serviceId!==s.id||Date.now()-loc.checkedAt>30000||window.lastDistance>RADIUS_METERS)return;
+    const div=document.createElement('div');
+    div.innerHTML=`<b>${type}</b> · ${now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} · ubicación validada`;
+    $('#clockLog').prepend(div);
+    if(window.google&&google.script&&google.script.run){
+      google.script.run.withSuccessHandler(()=>toast('Control horario',`${type} registrada y guardada.`))
+        .withFailureHandler(err=>{div.remove();toast('Control horario',err.message||'Error al guardar')})
+        .saveClockEvent({serviceId:s.id,type,lat:loc.lat,lng:loc.lng,accuracy:loc.accuracy,distance:window.lastDistance,venue:s.venue});
+    }else toast('Control horario',`${type} registrada en la demo localmente; no se ha guardado en un servidor.`);
+  }finally{
+    clockSubmissionPending=false;
+    // A new location fix is required for the next action.
+    window.lastClockLocation=null;
+    $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+  }
 }
 
 /* ---------------- Documentación / Contratos ---------------- */
