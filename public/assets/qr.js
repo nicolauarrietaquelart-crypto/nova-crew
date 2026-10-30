@@ -136,7 +136,7 @@
     el('qrServiceSelect').onchange=e=>{activeService=e.target.value;setWorkerMode()};
     el('qrGenerateBtn').onclick=issue;
     el('qrDirectBtn').onclick=directCheckin;
-    const own=document.createElement('button');own.type='button';own.className='btn primary';own.id='qrSelfClockBtn';own.textContent='Fichar mi turno (coordinador)';own.onclick=()=>{const s=chosenService();callBackend('novaSelfClock',[userid(),s.id],data=>{el('qrDynamic').innerHTML=info(data.record);refreshAttendance(s.id);toast('Turno registrado',data.record.workerName+' · '+s.name)},err=>toast('Fichaje',err))};
+    const own=document.createElement('button');own.type='button';own.className='btn primary';own.id='qrSelfClockBtn';own.textContent='Fichar mi turno (coordinador)';own.onclick=()=>performOwnClock('novaSelfClock',own);
     el('qrDirectBtn').parentElement.append(own);
     setWorkerMode();
   }
@@ -145,7 +145,7 @@
     const s=chosenService(),need=serviceHasCoordinator(s);
     const own=isCrewManager(s);
     el('qrGenerateBtn').style.display=need&&!own?'':'none';el('qrDirectBtn').style.display=!need?'':'none';el('qrSelfClockBtn').style.display=own?'':'none';
-    el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Este servicio no tiene coordinador asignado. Puedes fichar directamente sin QR en esta demo.';
+    el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Este servicio no tiene coordinador asignado. Para fichar sin QR debes validar tu ubicación dentro del radio de 500 m.';
     const prior=lsRead(KEY_ATT,[]).filter(x=>x.workerId===userid()&&x.serviceId===s.id).at(-1);
     el('qrLatestStatus').textContent=prior?`Último fichaje: ${new Date(prior.time).toLocaleString('es-ES')}`:'';
   }
@@ -164,12 +164,39 @@
       },1000);
     },err=>{el('qrDynamic').textContent=err;toast('Código QR',err)});
   }
-  function directCheckin(){
-    const s=chosenService();
-    callBackend('novaDirectClock',[userid(),s.id],resp=>{
-      el('qrDynamic').innerHTML=info(resp.record);refreshAttendance(s.id);toast('Fichaje','Entrada registrada sin QR.');
-    },err=>toast('Fichaje',err));
+  // Same GPS requirement for QR self-check-in and direct check-in.
+  async function verifiedSelfLocation(service){
+    if(!service?.coords||!navigator.geolocation)throw Error('No puedes fichar sin geolocalización disponible.');
+    const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,maximumAge:0,timeout:15000}));
+    const coords=position.coords;
+    const rad=x=>x*Math.PI/180,R=6371000;
+    const dlat=rad(service.coords.lat-coords.latitude),dlon=rad(service.coords.lng-coords.longitude);
+    const a=Math.sin(dlat/2)**2+Math.cos(rad(coords.latitude))*Math.cos(rad(service.coords.lat))*Math.sin(dlon/2)**2;
+    const distance=2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+    if(!Number.isFinite(distance)||distance>500)throw Error('Estás a '+Math.round(distance)+' m del recinto. El límite para fichar es 500 m.');
+    if(!Number.isFinite(coords.accuracy)||coords.accuracy>200)throw Error('La precisión de ubicación es insuficiente (±'+Math.round(coords.accuracy)+' m). Activa la ubicación precisa.');
+    return {lat:coords.latitude,lng:coords.longitude,accuracy:coords.accuracy,distance,checkedAt:new Date().toISOString()};
   }
+  async function performOwnClock(method,button){
+    if(button?.disabled)return;
+    const s=chosenService();
+    if(button){button.disabled=true;button.dataset.originalLabel=button.textContent;button.textContent='Validando ubicación…';}
+    try{
+      const gps=await verifiedSelfLocation(s);
+      if(!overlay.classList.contains('hidden')&&chosenService().id===s.id){
+        callBackend(method,[userid(),s.id,gps],data=>{
+          if(el('qrDynamic'))el('qrDynamic').innerHTML=info(data.record);
+          refreshAttendance(s.id);toast('Fichaje','Ubicación validada · '+s.name);
+          if(button){button.disabled=false;button.textContent=button.dataset.originalLabel;}
+        },err=>{toast('Fichaje',err);if(button){button.disabled=false;button.textContent=button.dataset.originalLabel;}});
+      }
+    }catch(error){
+      toast('Geolocalización',error.message||'No ha sido posible validar tu ubicación.');
+      if(el('qrDynamic'))el('qrDynamic').innerHTML='<p class="nova-qr-camera-error">'+qescape(error.message||'Permite acceder a tu ubicación para fichar.')+'</p>';
+      if(button){button.disabled=false;button.textContent=button.dataset.originalLabel;}
+    }
+  }
+  function directCheckin(){performOwnClock('novaDirectClock',el('qrDirectBtn'));}
   function renderScanner(){
     title.textContent='Escanear QR de trabajador';
     const eligible=scannableServices();
