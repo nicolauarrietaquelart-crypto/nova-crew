@@ -67,13 +67,13 @@
           <div><small id="breadcrumb">Área de empleado / Inicio</small><h2 id="pageTitle">Buenos días, Pau</h2></div>
         </div>
         <div class="topbar-actions">
-          <button id="novaQrQuick" class="icon-btn nova-qr-quick" type="button" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR">▦</button><button id="notificationsBtn" class="icon-btn">◌<i></i></button>
+          <button id="novaQrQuick" class="icon-btn nova-qr-quick" type="button" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR">▦</button><button id="notificationsBtn" class="icon-btn v15-bell" type="button" aria-label="Notificaciones y servicios disponibles" title="Notificaciones y servicios disponibles">🔔<span id="v15BellDot"></span></button>
           <button id="messagesBtn" class="icon-btn">✉</button>
-          <button id="assignmentAlertBtn" class="icon-btn v15-bell" type="button" aria-label="Servicios pendientes y vacantes" title="Avisos de servicios">🔔<span id="v15BellDot"></span></button><div class="v15-profile-wrap"><button type="button" id="v15ProfileToggle" class="profile-chip" aria-haspopup="menu" aria-expanded="false"><span class="avatar">PF</span><span><strong>Pau Ferrer</strong></span><em>⌄</em></button><div id="v15ProfileMenu" class="v15-profile-menu glass hidden" role="menu"><button type="button" data-v15-profile="open">Ver mi perfil</button><button type="button" data-v15-profile="logout">Cerrar sesión</button></div></div>
+          <div class="v15-profile-wrap"><button type="button" id="v15ProfileToggle" class="profile-chip" aria-haspopup="menu" aria-expanded="false"><span class="avatar">PF</span><span><strong>Pau Ferrer</strong></span><em>⌄</em></button><div id="v15ProfileMenu" class="v15-profile-menu glass hidden" role="menu"><button type="button" data-v15-profile="open">Ver mi perfil</button><button type="button" data-v15-profile="logout">Cerrar sesión</button></div></div>
         </div>
       </header>
       <div id="v15AlertPanel" class="v15-alert-panel glass hidden" aria-label="Servicios pendientes y libres"></div>
-      <div id="notificationsDropdown" class="notifications-dropdown glass hidden">
+      <div id="notificationsDropdown" class="notifications-dropdown glass hidden" style="display:none">
         <div class="notifications-head"><b>Notificaciones</b><button id="closeNotifications" class="icon-only">×</button></div>
         <div id="notificationsList" class="notifications-list"></div>
       </div>
@@ -93,7 +93,7 @@
           </div>
           <div class="section-title-row"><div><span class="kicker">AGENDA</span><h3>Próximos servicios</h3></div><button class="link-btn" data-page="services">Ver todos →</button></div>
           <div id="homeServices" class="service-grid"></div>
-          <section class="v15-shifts-section"><div class="section-title-row"><div><span class="kicker">OPORTUNIDADES</span><h3>Servicios libres</h3></div><span class="muted">Solicita disponibilidad; la oficina decide</span></div><div id="v15OpenShifts" class="v15-shifts-list"><p class="muted">Cargando servicios libres…</p></div></section>
+
         </section>
 
         <section id="page-clock" class="page">

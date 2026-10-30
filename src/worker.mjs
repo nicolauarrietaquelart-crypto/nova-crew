@@ -34,9 +34,12 @@ const assignment=(who,serviceId)=>who==='coord'&&serviceId==='svc4'?{category:'C
 const assigned=(who,id)=>Boolean(DEMO_ACCOUNTS[who]?.assigned.includes(id)&&DEMO_SERVICES[id]);
 const manager=(who,id)=>Boolean(DEMO_SERVICES[id]&&(DEMO_SERVICES[id].coordinator===who || (DEMO_SERVICES[id].crewHeads||[]).includes(who)));
 const OPEN_SHIFTS=[
+{id:'free0',name:'FLASH LOAD · ESTADI BARCELONA',date:'2026-11-03',time:'06:00–14:00',role:'HAND B',venue:'Estadi Barcelona',places:4,urgent:true},
 {id:'free1',name:'ATLAS PRODUCTION · PALAU METROPOLITÀ',date:'2026-11-06',time:'09:00–18:00',role:'HAND B',venue:'Palau Metropolità',places:3},
 {id:'free2',name:'NIGHT SIGNAL · FÒRUM HALL',date:'2026-11-09',time:'17:00–01:00',role:'HAND A',venue:'Fòrum Hall',places:2},
-{id:'free3',name:'CITY LIGHTS · ARENA MONTJUÏC',date:'2026-11-15',time:'08:00–17:00',role:'FORKLIFTER',venue:'Arena Montjuïc',places:1}
+{id:'free3',name:'CITY LIGHTS · ARENA MONTJUÏC',date:'2026-11-15',time:'08:00–17:00',role:'FORKLIFTER',venue:'Arena Montjuïc',places:1},
+{id:'free4',name:'BLUE STAGE · RECINTO CENTRAL',date:'2026-11-18',time:'10:00–19:00',role:'HAND A',venue:'Recinto Central',places:5},
+{id:'free5',name:'SOLAR RIGGING · DOCK HALL',date:'2026-11-21',time:'07:00–16:00',role:'HAND B',venue:'Dock Hall',places:2}
 ];
 
 /**
@@ -100,7 +103,7 @@ export function createDemoApi(storage) {
         if(request.method!=='POST')return bad('Método no permitido.',405);
         const id=st(body.shiftId,40),shift=OPEN_SHIFTS.find(s=>s.id===id);if(!shift)return bad('Servicio libre desconocido.',404);
         const key=`interest/${actor}/${id}`;
-        if(body.withdraw===true){await storage.delete(key);return json({ok:true,status:'RETIRADO',shiftId:id});}
+        if(body.withdraw===true)return bad('Una disponibilidad ya enviada no puede retirarse desde la app. Contacta con oficina.',409);
         const existing=await get(key);if(existing)return json({ok:true,status:'ENVIADO',shiftId:id});
         await put(key,{requestedAt:new Date().toISOString()});
         return json({ok:true,status:'ENVIADO',shiftId:id,message:'Interés registrado. La oficina decidirá si asigna el servicio. No se ha asignado.'});

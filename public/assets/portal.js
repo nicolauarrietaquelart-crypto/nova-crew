@@ -212,7 +212,7 @@ function updateHomeNextService(){
   const s=getUpcomingService();
   window.homeNextService=s;
   $('#homeNextName').textContent=s?s.name:'Sin próximos servicios';
-  $('#homeNextMeta').textContent=s?`${s.date} · ${s.time} · ${roleLabel(s)}`:'Consulta el tablón de servicios libres.';
+  $('#homeNextMeta').textContent=s?`${s.date} · ${s.time} · ${roleLabel(s)}`:'Consulta tus avisos en la campana.';
 }
 
 function updateCountdown(){

@@ -127,10 +127,11 @@ test('two Crew Heads can manage ORBIT without adding a second coordinator',async
   assert.equal(redeemed.record.category,'CREW HEAD');
 });
 
-test('free-shift interest never assigns a shift and can be withdrawn',async()=>{
+test('free-shift interest never assigns a shift and cannot be withdrawn',async()=>{
   const api=createDemoApi(mockStorage());const a=await login(api,'demo','crew2026');
   const before=await call(api,'roster',{session:a.session});
   const available=await call(api,'openShifts',{session:a.session});
+  assert.equal(available.shifts[0].urgent,true,'The most urgent available service should be first.');
   assert.equal(available.status,200);assert.ok(available.shifts.length>=2);
   const id=available.shifts[0].id;
   const requested=await call(api,'interest',{session:a.session,body:{shiftId:id}});
@@ -139,8 +140,9 @@ test('free-shift interest never assigns a shift and can be withdrawn',async()=>{
   assert.equal(updated.shifts[0].interest.status,'ENVIADO');
   const after=await call(api,'roster',{session:a.session});
   assert.deepEqual(after.roster.demo.assigned,before.roster.demo.assigned);
-  await call(api,'interest',{session:a.session,body:{shiftId:id,withdraw:true}});
-  const cleared=await call(api,'openShifts',{session:a.session});assert.equal(cleared.shifts[0].interest,null);
+  const refusal=await call(api,'interest',{session:a.session,body:{shiftId:id,withdraw:true}});
+  assert.equal(refusal.status,409);
+  const retained=await call(api,'openShifts',{session:a.session});assert.equal(retained.shifts[0].interest.status,'ENVIADO');
 });
 
 test('workers can adjust their own shift, but not another worker shift',async()=>{

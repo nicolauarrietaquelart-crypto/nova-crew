@@ -28,16 +28,17 @@
   }
   function confirmAssignment(id,status){
     const s=findService(id);if(!s)return;
+    if(statusOf(id)==='CONFIRMADO'&&status!=='CONFIRMADO')return toast('Servicio confirmado','No puedes rechazar ni restablecer un servicio ya confirmado. Contacta con oficina.');
     if(status==='NO DISPONIBLE'){
       openDemoModal('No puedo asistir · '+s.name,`<p class="v10-info-note">Esta acción registra una decisión en la demo. No avisa a ningún coordinador real.</p><div class="v10-modal-form"><label class="full">Motivo (obligatorio)<textarea id="v10Reason" rows="3" placeholder="Por ejemplo, conflicto de horario…"></textarea></label></div><div class="crew-modal-actions"><button type="button" class="btn light" id="v10Close">Cancelar</button><button type="button" class="btn primary" id="v10Decline">Registrar no disponibilidad</button></div>`);
       document.getElementById('v10Close').onclick=closeDemoModal;
       document.getElementById('v10Decline').onclick=()=>{const reason=document.getElementById('v10Reason').value.trim();if(!reason){toast('Motivo requerido','Indica brevemente por qué no puedes acudir.');return}setConfirmed(id,status,reason);closeDemoModal();};
     }else setConfirmed(id,status,'');
   }
-  function setConfirmed(id,status,reason){data.confirmations[id]={status,reason,updatedAt:new Date().toISOString()};save();refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();window.NOVA_V15?.updateAlerts?.();toast('Asignación',status==='CONFIRMADO'?'Asistencia confirmada en la demo.':status==='PENDIENTE'?'Confirmación restablecida.':'No disponibilidad registrada en la demo.');}
+  function setConfirmed(id,status,reason){if(statusOf(id)==='CONFIRMADO'&&status!=='CONFIRMADO')return;data.confirmations[id]={status,reason,updatedAt:new Date().toISOString()};save();refreshServiceDecorations();renderCalendar();if(typeof renderNotifications==='function')renderNotifications();window.NOVA_V15?.updateAlerts?.();toast('Asignación',status==='CONFIRMADO'?'Asistencia confirmada en la demo.':status==='PENDIENTE'?'Confirmación restablecida.':'No disponibilidad registrada en la demo.');}
   function serviceControls(s,detail=false){
     const status=statusOf(s.id);
-    const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${badge(s.id)}<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}" ${status==='CONFIRMADO'?'disabled':''}>✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
+    const buttons=`<div class="v10-inline-tools" data-v10-service-actions="${fmt(s.id)}">${badge(s.id)}${status==='CONFIRMADO'?'<span class="v10-locked">Asignación confirmada · contacta con oficina para cambios</span>':`<button class="btn light" type="button" data-v10-confirm="${fmt(s.id)}">✓ Confirmar</button><button class="btn light" type="button" data-v10-decline="${fmt(s.id)}">No puedo asistir</button>${status!=='PENDIENTE'?`<button class="btn light" type="button" data-v10-pending="${fmt(s.id)}">Restablecer</button>`:''}`}<button class="btn light" type="button" data-v10-ics="${fmt(s.id)}">Añadir a calendario</button></div>`;
     return buttons;
   }
   function decorateServiceCards(){
