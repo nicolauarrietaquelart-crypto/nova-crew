@@ -1279,3 +1279,21 @@ html[data-nova-theme="dark"] .v15-modal-stack .btn.primary{
   background:#ff8a2c!important;color:#17191d!important;
 }
 /* Keep surface overrides within dark theme only; never change light mode. */
+
+
+/* Dark-mode final pass: remove remaining light-only employee and coordination surfaces. */
+html[data-nova-theme="dark"] #page-worker-coordination :is(.basic-control-shell,.basic-control-main,.basic-control-layout),
+html[data-nova-theme="dark"] #page-coordination :is(.basic-control-shell,.basic-control-main,.basic-control-layout){color:#f5f7fb!important}
+html[data-nova-theme="dark"] .basic-team-table{background:#252d39!important;color:#f5f7fb!important}
+html[data-nova-theme="dark"] .basic-team-table button:not(.primary){
+ background:#414c5b!important;border-color:#647183!important;color:#f5f7fb!important
+}
+html[data-nova-theme="dark"] .basic-team-table tr.has-incident td{background:#47382f!important}
+html[data-nova-theme="dark"] :is(.basic-modal-grid,.basic-control-shell,.v15-modal-stack) :is(input,textarea,select){
+ background:#354253!important;color:#f5f7fb!important;border-color:#657082!important
+}
+html[data-nova-theme="dark"] :is(.v15-modal-stack,.demo-modal,.modal-content) :is(.kv,.detail-section,.warning-box,.notice-box){
+ background:#323d4c!important;border-color:rgba(255,255,255,.18)!important;color:#e9eef5!important
+}
+html[data-nova-theme="dark"] :is(.v15-modal-stack,.demo-modal,.modal-content) .kv span{color:#bdc8d6!important}
+html[data-nova-theme="dark"] :is(.v15-modal-stack,.demo-modal,.modal-content) .kv b{color:#fff!important}
