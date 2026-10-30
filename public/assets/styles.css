@@ -1491,3 +1491,20 @@ html[data-nova-theme="dark"] #workerCoordDetail .nova-coord-filters .nova-filter
  #workerCoordDetail .nova-coord-sidebar{grid-column:1!important;grid-row:1!important;position:relative!important;top:0!important}
  #workerCoordDetail .nova-unified-main{grid-column:1!important;grid-row:2!important}
 }
+
+
+/* Service cards: readable hour values and avoid unwanted drag selection. */
+html[data-nova-theme="dark"] #servicesList .service-time-pill,
+html[data-nova-theme="dark"] #homeServices .service-time-pill{
+ background:#2a3442!important;border-color:#53647a!important;color:#e7edf6!important
+}
+html[data-nova-theme="dark"] #servicesList .service-time-pill b,
+html[data-nova-theme="dark"] #homeServices .service-time-pill b{
+ color:#fff!important;opacity:1!important
+}
+#servicesList .service-card, #homeServices .card, #servicesList .service-actions,
+#servicesList .v10-inline-tools{-webkit-user-select:none;user-select:none}
+#servicesList .service-card :is(input,textarea), #homeServices .card :is(input,textarea){-webkit-user-select:text;user-select:text}
+#servicesList .service-card::selection,#servicesList .service-card *::selection{background:transparent;color:inherit}
+html[data-nova-theme="dark"] #servicesList .v10-status.confirmado{background:#16643b!important;color:#dcffe9!important;border-color:#3ac477!important}
+html[data-nova-theme="dark"] #servicesList .v10-status.rechazado{background:#733138!important;color:#ffdadc!important;border-color:#d86c74!important}
