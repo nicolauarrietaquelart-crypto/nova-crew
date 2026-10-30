@@ -133,6 +133,13 @@ function open(service){
   try{
    const doc=target.contentDocument;
    if(!doc)return;
+   // NOVA integration-only overrides: do not edit the upstream Crew Control HTML.
+   const integrationCSS=doc.createElement('style');
+   integrationCSS.textContent='button[onclick*="requestDuplicateService"],button[onclick*="closeService()"],button[onclick*="exitService()"]{display:none!important}';
+   doc.head.appendChild(integrationCSS);
+   const hide=()=>{for(const b of doc.querySelectorAll('button')){const name=(b.textContent||'').trim().toLowerCase();if((name==='duplicar'||name==='salir')&&!b.classList.contains('cc-portal-back'))b.style.setProperty('display','none','important');}};
+   hide();
+   new MutationObserver(hide).observe(doc.body,{childList:true,subtree:true});
    // The original Crew Control owns its layout and Cloudflare adapter.
    // Do not inject competing CSS or load services a second time.
    doc.querySelector('.cc-portal-back')?.addEventListener('click',ev=>{
