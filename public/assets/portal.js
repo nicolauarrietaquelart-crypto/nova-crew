@@ -456,16 +456,17 @@ function reloadExactCrewControl(){if(currentCrewService)openExactCrewControl(cur
 
 /* ---------------- Control horario ---------------- */
 
+function gpsEligible(s){const actor=window.novaActiveAccount||window.NOVA_API?.account||'demo';return !!s&&(!s.coordinatorUserId||s.coordinatorUserId===actor||s.assignedCoordinator&&s.coordinatorUserId===actor);}
 function clockAllowed(s){const now=Date.now(),start=new Date(s.startISO).getTime(),end=new Date(s.endISO).getTime();return Number.isFinite(start)&&now>=start-3600000&&now<=end+7200000;}
 function findClockService(){
   const now=Date.now();
-  const candidates=services.map(s=>({...s,startMs:new Date(s.startISO).getTime(),endMs:new Date(s.endISO).getTime()})).sort((a,b)=>a.startMs-b.startMs);
+  const candidates=services.filter(gpsEligible).map(s=>({...s,startMs:new Date(s.startISO).getTime(),endMs:new Date(s.endISO).getTime()})).sort((a,b)=>a.startMs-b.startMs);
   return candidates.find(s=>now>=s.startMs-4*3600000 && now<=s.endMs+2*3600000) || candidates.find(s=>s.startMs>now) || candidates[candidates.length-1];
 }
 function renderClockService(){
   const dropdown=$('#clockServicePicker');
-  if(dropdown){const keep=dropdown.value;dropdown.innerHTML=services.map(x=>'<option value="'+x.id+'">'+x.name+' · '+x.date+' · '+x.time+'</option>').join('');if(services.some(x=>x.id===keep))dropdown.value=keep;else dropdown.value=findClockService().id;}
-  const s=services.find(x=>x.id===dropdown?.value)||findClockService();
+  if(dropdown){const eligible=services.filter(gpsEligible);const keep=dropdown.value;dropdown.innerHTML=eligible.map(x=>'<option value="'+x.id+'">'+x.name+' · '+x.date+' · '+x.time+'</option>').join('');if(eligible.some(x=>x.id===keep))dropdown.value=keep;else if(eligible.length)dropdown.value=findClockService().id;}
+  const s=services.filter(gpsEligible).find(x=>x.id===dropdown?.value)||findClockService();
   window.clockService=s;
   $('#clockServiceName').textContent=s.name;
   $('#clockServiceMeta').textContent=`${s.date} · ${s.time} · llamada ${s.call}`;
@@ -492,6 +493,7 @@ function checkLocation(){
   // Geolocation is required regardless of the employee's role or coordinator assignment.
   window.lastClockLocation=null;window.lastDistance=null;
   $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
+  if(!gpsEligible(s)){$('#geoStatus').className='geo-status bad';$('#geoStatus').textContent='Este servicio requiere fichaje mediante QR con su coordinador.';return Promise.resolve(false);}
   if(!clockAllowed(s)){$('#geoStatus').className='geo-status bad';$('#geoStatus').textContent='Todavía no puedes fichar. Se habilita una hora antes del servicio.';return Promise.resolve(false);}
   if(!s?.coords||!navigator.geolocation){
     $('#geoStatus').className='geo-status bad';
@@ -530,7 +532,7 @@ async function addClockLog(type){
   $('#checkInBtn').disabled=true;$('#checkOutBtn').disabled=true;
   try{
     // Obtain a fresh GPS fix on every entry/exit, even after manual verification.
-    const valid=clockAllowed(window.clockService||findClockService())&&await checkLocation();
+    const valid=gpsEligible(window.clockService||findClockService())&&clockAllowed(window.clockService||findClockService())&&await checkLocation();
     if(!valid)return;
     const now=new Date(),s=window.clockService||findClockService(),loc=window.lastClockLocation;
     if(!loc||loc.serviceId!==s.id||Date.now()-loc.checkedAt>30000||window.lastDistance>RADIUS_METERS)return;
