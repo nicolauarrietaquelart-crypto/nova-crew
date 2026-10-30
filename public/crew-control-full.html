@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Crew Control v11.2.36 | Gestión de personal</title>
+  <title>Crew Control v11.2.35 | Gestión de personal</title>
   
   <style>
     :root{
@@ -5998,39 +5998,16 @@
     .metric-present-v11232 strong{color:#14864c!important}
     .metric-contacted-v11232 strong{color:#d96b0d!important}
     .metric-absent-v11232 strong{color:#c42d38!important}
-    .metric-unassigned-v11236 strong{color:#111111!important}
-
     .sidebar-operational-v122 .dashboard-metric.metric-present-v11232 strong{color:#14864c!important}
     .sidebar-operational-v122 .dashboard-metric.metric-contacted-v11232 strong{color:#d96b0d!important}
     .sidebar-operational-v122 .dashboard-metric.metric-absent-v11232 strong{color:#c42d38!important}
-    .sidebar-operational-v122 .dashboard-metric.metric-unassigned-v11236 strong{color:#111111!important}
-
     .metric-present-v11232,
     .metric-contacted-v11232,
-    .metric-absent-v11232,
-    .metric-unassigned-v11236{
-      border-color:rgba(220,224,230,.92)!important;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 2px 10px rgba(18,24,32,.035)!important;
+    .metric-absent-v11232{
+      background:linear-gradient(155deg,rgba(255,255,255,.92),rgba(246,249,252,.80))!important;
+      border-color:rgba(255,255,255,.95)!important;
+      box-shadow:inset 0 1px 0 #fff,0 3px 12px rgba(18,24,32,.04)!important;
     }
-    .metric-present-v11232{background:linear-gradient(180deg,rgba(223,242,234,.92),rgba(214,235,226,.88))!important;}
-    .metric-contacted-v11232{background:linear-gradient(180deg,rgba(252,237,223,.94),rgba(247,229,213,.9))!important;}
-    .metric-absent-v11232{background:linear-gradient(180deg,rgba(248,232,235,.94),rgba(243,224,228,.9))!important;}
-    .metric-unassigned-v11236{background:linear-gradient(180deg,rgba(244,244,244,.96),rgba(238,238,238,.92))!important;}
-
-    .sidebar-operational-v122 .dashboard-metric.simple-v127.metric-present-v11232,
-    .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127.metric-present-v11232{background:linear-gradient(180deg,rgba(223,242,234,.94),rgba(214,235,226,.9))!important;}
-    .sidebar-operational-v122 .dashboard-metric.simple-v127.metric-contacted-v11232,
-    .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127.metric-contacted-v11232{background:linear-gradient(180deg,rgba(252,237,223,.96),rgba(247,229,213,.92))!important;}
-    .sidebar-operational-v122 .dashboard-metric.simple-v127.metric-absent-v11232,
-    .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127.metric-absent-v11232{background:linear-gradient(180deg,rgba(248,232,235,.96),rgba(243,224,228,.92))!important;}
-    .sidebar-operational-v122 .dashboard-metric.simple-v127.metric-unassigned-v11236,
-    .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127.metric-unassigned-v11236{background:linear-gradient(180deg,rgba(244,244,244,.98),rgba(238,238,238,.94))!important;}
-
-    .metric-present-v11232 span,
-    .metric-contacted-v11232 span,
-    .metric-absent-v11232 span,
-    .metric-unassigned-v11236 span{color:#7a7f87!important;font-size:10px!important;font-weight:600!important;margin-top:8px!important;}
-
 
     /* A compact arrow outside the scrollable service chips; does not cover a label. */
     .operational-work-nav-v11232{
@@ -6365,6 +6342,36 @@
       body > header{transition:none!important;}
     }
 
+
+/* NOVA Crew Cloudflare: normal flow scrolling and original 11.2.33 layout without nested scrollbars */
+html{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:thin!important;scrollbar-color:#aeb1b6 transparent!important}
+body{height:auto!important;min-height:100vh!important;padding-top:0!important;overflow-x:hidden!important;overflow-y:visible!important;touch-action:pan-y pinch-zoom!important}
+body > header{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;min-height:0!important;height:78px!important;z-index:1300!important;margin:0!important;overflow:visible!important;background:#101014!important}
+body > header.crew-header-floating-v11233{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:72px!important;border-radius:0!important;border:0!important;border-bottom:4px solid #ff7a14!important;box-shadow:0 8px 25px rgba(0,0,0,.14)!important;overflow:visible!important}
+body > header > .wrap{width:min(1480px,calc(100% - 24px))!important;max-width:1480px!important;margin:auto!important;padding:0 14px!important}
+.cc-demo-header{display:flex!important;flex-direction:row-reverse!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;height:100%!important}
+.cc-portal-actions{display:flex;align-items:center;flex-shrink:0;gap:8px;position:relative;z-index:1400}
+.cc-portal-actions button{font-size:12px;font-weight:800;min-height:38px;padding:8px 12px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.cc-portal-back{background:#252525!important;color:#fff!important;border:1px solid #555!important}
+.cc-portal-qr{background:#f58220!important;color:#111!important;border:0!important}
+#initialPdfUploadPanel,#sidebarPdfManager{display:none!important}
+body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215,
+body.control-sidebar-open .personnel-sidebar-v121{top:92px!important;max-height:calc(100dvh - 105px)!important;overflow-y:auto!important;overscroll-behavior-y:contain!important}
+body.control-sidebar-open .personnel-sidebar-v121::-webkit-scrollbar{width:5px}
+body.control-sidebar-open .personnel-sidebar-v121::-webkit-scrollbar-thumb{background:#c8cbd0;border-radius:999px}
+/* Preserve header and usable content, no overlap with staffing sidebar */
+body.control-sidebar-open main.wrap{margin-top:0!important}
+@media(max-width:900px){
+ :root{--crew-header-h:65px!important}
+ body > header,body > header.crew-header-floating-v11233{height:64px!important;min-height:64px!important}
+ .cc-demo-header{flex-direction:row-reverse!important;gap:8px!important}
+ .cc-portal-actions{gap:6px!important}
+ .cc-portal-actions button{font-size:10px!important;padding:6px 8px!important;min-height:34px!important;white-space:normal!important}
+ .cc-demo-header .brand h1{font-size:15px!important}
+ body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215,
+ body.control-sidebar-open .personnel-sidebar-v121{position:static!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important}
+}
+@media(max-width:430px){.cc-demo-header .subtitle{display:none!important}.cc-portal-back{max-width:144px}}
 
     /* ===========================================================
        v11.2.34 — mobile header dropdown, compact crew operations.
@@ -6795,14 +6802,29 @@
       }
     }
 
-  </style>
+  
+/* NOVA Crew shared rating layout; three independent dimensions. */
+.rating-row{grid-template-columns:minmax(120px,160px) 1fr!important;align-items:center!important;gap:14px!important;padding:11px 0!important}
+.rating-row strong{font-weight:800!important;font-size:14px!important;color:#202024!important}
+.rating-row .stars{gap:7px!important;flex-wrap:wrap!important}
+.rating-row .star-btn{font-size:30px!important;line-height:1!important;min-width:32px!important;min-height:35px!important;padding:0 2px!important;background:transparent!important;color:#c6c7ca!important;transition:color .12s ease!important}
+.rating-row .star-btn.on{color:#f58220!important}
+.rating-row .star-btn:hover{transform:scale(1.07)}
+@media(max-width:570px){.rating-row{grid-template-columns:110px 1fr!important;gap:7px!important}.rating-row strong{font-size:13px!important}.rating-row .stars{gap:1px!important}.rating-row .star-btn{min-width:27px!important;font-size:25px!important}}
+@media(prefers-reduced-motion:reduce){.rating-row .star-btn{transition:none!important}}
+
+</style>
 </head>
 <body>
   <button type="button" id="sidebarEdgeToggleBtn" class="sidebar-edge-toggle-v11225" onclick="toggleOperationalSidebar()" title="Mostrar panel" aria-label="Mostrar panel">
     <span id="sidebarEdgeToggleGlyph">›</span>
   </button>
 <header>
-  <div class="wrap">
+  <div class="wrap cc-demo-header">
+    <div class="cc-portal-actions">
+      <button type="button" class="cc-portal-back" id="ccReturnEmployee">← Volver al Área de Empleado</button>
+      <button type="button" class="cc-portal-qr" id="ccScanWorker">Escanear QR</button>
+    </div>
     <div class="brand">
       <div class="demo-mark" aria-hidden="true">
         <svg viewBox="0 0 48 48" role="img">
@@ -7579,6 +7601,7 @@
   <div id="teamColorPaletteGrid" class="team-palette-grid"></div>
 </div>
 
+<script src="/assets/crew-cloud-adapter.js"></script>
 <script>
 const NO_TEAMS_REQUIREMENT_TEAM_ID='__NO_TEAMS__';
 
@@ -7622,14 +7645,7 @@ const state = {
    Google Sheets: legacy import/PDF/history mirror
    ========================================================= */
 
-const FIREBASE_CONFIG={
-  apiKey:"AIzaSyAx_UmtJ_ep1Rb06YZy6Qh4TqfHs-xwFOw",
-  authDomain:"app-bolos-c1cd4.firebaseapp.com",
-  projectId:"app-bolos-c1cd4",
-  storageBucket:"app-bolos-c1cd4.firebasestorage.app",
-  messagingSenderId:"756101668757",
-  appId:"1:756101668757:web:01d7b9e45ccfce70aa209c"
-};
+const FIREBASE_CONFIG=null; // Demo: no Firebase access
 
 let firebaseCtx=null;
 let firebaseReadyPromise=null;
@@ -7637,55 +7653,12 @@ let firebaseRealtimeUnsubs=[];
 let firebaseRenderTimer=null;
 let firebaseRealtimeCode='';
 
-function callAppsScript(method,args){
-  args=Array.isArray(args)?args:[];
-  return new Promise((resolve,reject)=>{
-    try{
-      const runner=google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject);
-
-      if(typeof runner[method]!=='function'){
-        reject(new Error('Método de Apps Script no disponible: '+method));
-        return;
-      }
-
-      runner[method](...args);
-    }catch(err){
-      reject(err);
-    }
-  });
-}
-
-function shadowAppsScript(method,args){
-  setTimeout(()=>{
-    callAppsScript(method,args).catch(err=>{
-      console.warn('[Sheets mirror]',method,errorMessage(err));
-    });
-  },0);
-}
+function callAppsScript(method,args){return Promise.reject(new Error('La función '+method+' requiere un módulo de Cloudflare no habilitado en esta demo.'));}
+function shadowAppsScript(){ /* Demo: no real Sheets or Apps Script mirroring. */ }
 
 async function ensureFirebase(){
-  if(firebaseCtx)return firebaseCtx;
-  if(firebaseReadyPromise)return firebaseReadyPromise;
-
-  firebaseReadyPromise=(async()=>{
-    const appSdk=await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js');
-    const fs=await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js');
-
-    const app=appSdk.initializeApp(FIREBASE_CONFIG);
-    const db=fs.getFirestore(app);
-
-    firebaseCtx={app,db,fs};
-    return firebaseCtx;
-  })();
-
-  try{
-    return await firebaseReadyPromise;
-  }catch(err){
-    firebaseReadyPromise=null;
-    throw err;
-  }
+  if(!window.CREW_CLOUDFLARE_FS)throw new Error('Conexión Cloudflare no disponible. Vuelve a iniciar sesión en NOVA Crew.');
+  return {db:{},fs:window.CREW_CLOUDFLARE_FS};
 }
 
 function firebaseErrorMessage(err){
@@ -7752,7 +7725,7 @@ function firebaseServiceRoot(service){
     requirements:Array.from(service.requirements||[],r=>sanitizeFirestore(r)),
     audit:Array.from(service.audit||[],a=>sanitizeFirestore(a)),
     backend:'FIRESTORE',
-    schemaVersion:'11.2.36'
+    schemaVersion:'11.2.34'
   });
 }
 
@@ -8172,35 +8145,28 @@ async function startFirebaseRealtime(code){
 }
 
 async function firebaseLoadService(code){
-  try{
-    let service=await readServiceFromFirebase(code);
-
-    if(!service){
-      // First opening only: copy the existing 10.1.5 service from Sheets.
-      service=await callAppsScript('loadService',[code]);
-      await migrateServiceToFirebase(service);
-      service=await readServiceFromFirebase(code);
-    }
-
-    return service;
-  }catch(err){
-    throw new Error(firebaseErrorMessage(err));
-  }
+  const service=await readServiceFromFirebase(String(code));
+  if(!service)throw new Error('No existe ese servicio en la demo.');
+  return service;
 }
 
 async function firebaseGenerateNewService(){
-  const service=await callAppsScript('generateNewService',[]);
-  await migrateServiceToFirebase(service);
-  return readServiceFromFirebase(service.code);
+  const r=await window.CREW_CLOUDFLARE_REQUEST({kind:'create'});
+  if(!r?.ok)throw new Error(r?.error||'No se ha creado el servicio');
+  return readServiceFromFirebase(r.code);
 }
-
 async function firebaseDuplicateServiceSetup(code){
-  if(state.service&&String(state.service.code)===String(code)){
-    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-  }
-  const service=await callAppsScript('duplicateServiceSetup',[code]);
-  await migrateServiceToFirebase(service);
-  return readServiceFromFirebase(service.code);
+  const prior=await readServiceFromFirebase(String(code));
+  if(!prior)throw new Error('No se encuentra el servicio de origen.');
+  const next=await firebaseGenerateNewService();
+  const {db,fs}=await ensureFirebase();
+  await fs.setDoc(fs.doc(db,'services',next.code),{
+    serviceName:prior.serviceName,serviceDate:prior.serviceDate,venue:prior.venue,pdfName:'',
+    workOrder:prior.workOrder,hiddenWorkTypes:prior.hiddenWorkTypes,
+    scenarios:prior.scenarios,teams:prior.teams,requirements:prior.requirements,
+    updatedAt:new Date().toISOString()
+  },{merge:true});
+  return readServiceFromFirebase(next.code);
 }
 
 async function firebaseSaveServiceMeta(code,meta){
@@ -8533,45 +8499,14 @@ async function firebaseAddManualWorker(code,data){
   return worker;
 }
 
-async function firebaseReplaceWorkersFromPdf(code,parsed){
-  // Ensure the legacy parser sees the current Firebase state before matching.
-  if(state.service&&String(state.service.code)===String(code)){
-    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-  }
-
-  const result=await callAppsScript('replaceWorkersFromPdf',[code,parsed]);
-  await migrateServiceToFirebase(result.service);
-
-  return {
-    ...result,
-    service:await readServiceFromFirebase(code)
-  };
+async function firebaseReplaceWorkersFromPdf(){
+  throw new Error('La importación PDF está deshabilitada: el personal de esta demo ya está integrado.');
 }
-
 async function firebaseGenerateClosedPdf(code){
-  // One legacy mirror only at close; normal operation never waits for Sheets.
-  if(state.service&&String(state.service.code)===String(code)){
-    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-  }
-
-  const pdf=await callAppsScript('generateClosedServicePdf',[code]);
-
-  if(pdf?.pdfUrl){
-    const {db,fs}=await ensureFirebase();
-    await fs.setDoc(
-      fs.doc(db,'services',code),
-      {
-        finalPdfId:String(pdf.pdfId||''),
-        finalPdfUrl:String(pdf.pdfUrl||''),
-        updatedAt:new Date().toISOString()
-      },
-      {merge:true}
-    );
-  }
-
-  return pdf;
+  // Avoid claiming an uploaded/generated PDF where none exists.
+  window.print();
+  return {pdfId:'',pdfUrl:'',notice:'Utiliza la impresión del navegador para guardar una copia en PDF.'};
 }
-
 async function dispatchBackend(method,args){
   switch(String(method)){
     case 'loadService':
@@ -8619,11 +8554,13 @@ async function dispatchBackend(method,args){
     case 'generateClosedServicePdf':
       return firebaseGenerateClosedPdf(...args);
 
-    case 'getWorkerHistory':
-      if(state.service){
-        await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-      }
-      return callAppsScript(method,args);
+    case 'getWorkerHistory': {
+      const worker=state.service?.workers?.find(w=>String(w.id)===String(args[1]));
+      const relevant=state.service?.incidents?.filter(i=>i.workerId===worker?.id)||[];
+      return {movil:worker?.movil||'',services:worker?1:0,present:worker?.status==='PRESENTE'?1:0,
+        noShow:worker?.status==='NO PRESENTADO'?1:0,incidents:relevant.length,
+        averageRating:'',totalActualMinutes:0,items:[],history:[],workTypes:[]};
+    }
 
     default:
       return callAppsScript(method,args);
@@ -11771,7 +11708,7 @@ function workerRowHtml(w){
     </td>
 
     <td class="worker-name mobile-name">
-      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}
+      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}${w.isSubCoordinator?'<span class="coordinator-badge" style="background:#ff7a14;color:#111">COORDINADOR '+escapeHtml(w.subCoordinatorScope||'EQUIPO')+'</span>':''}
     </td>
 
     <td class="mobile-role"><span class="role">${escapeHtml(w.especialidad)}</span></td>
@@ -13394,9 +13331,9 @@ function renderOperationalDashboard(){
       <strong>${metrics.absent}</strong>
       <span>No presentados</span>
     </article>
-    <article class="dashboard-metric simple-v127 metric-unassigned-v11236">
+    <article class="dashboard-metric simple-v127">
       <strong>${metrics.unassigned}</strong>
-      <span>Sin equipos</span>
+      <span>Sin equipo</span>
     </article>
   `;
 
@@ -14331,13 +14268,30 @@ window.addEventListener('resize',closeTeamColorPalette);
 window.addEventListener('scroll',closeTeamColorPalette,true);
 
 </script>
-<style>
-.cc-nova-return{position:fixed;z-index:99999;right:16px;bottom:16px;display:flex;gap:8px}
-.cc-nova-return button{background:#111;color:white;border:1px solid #f58220;padding:12px 16px;border-radius:12px;font:700 12px Arial,sans-serif;cursor:pointer;box-shadow:0 4px 18px #0003}
-</style>
-<div class="cc-nova-return"><button id="ccBackToNova" type="button">← Área de empleado</button></div>
+
 <script>
-(()=>{const back=document.getElementById('ccBackToNova');back?.addEventListener('click',()=>{window.parent?.postMessage({type:'NOVA_CC_BACK'},location.origin)});const code=new URLSearchParams(location.search).get('service');if(code){window.addEventListener('load',()=>{const input=document.getElementById('serviceCodeInput');if(input)input.value=code;Promise.resolve().then(()=>firebaseLoadService(code)).then(data=>{if(data)openServiceData(data)}).catch(err=>{console.error('Crew Control',err);const status=document.getElementById('startStatus');if(status){status.classList.add('show','error');status.textContent=String(err.message||err)}})})}})();
+(function(){
+  const back=document.getElementById('ccReturnEmployee');
+  const qr=document.getElementById('ccScanWorker');
+  const leave=()=>{
+    try{if(window.parent!==window&&typeof window.parent.closeCrewFullscreen==='function'){window.parent.closeCrewFullscreen();return}}catch(e){}
+    if(window.parent!==window)window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin);
+    else location.replace('/');
+  };
+  back?.addEventListener('click',leave);
+  qr?.addEventListener('click',()=>{if(window.parent!==window)window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)});
+  function init(){
+    const code=new URLSearchParams(location.search).get('service');
+    if(!code)return;
+    const allowed=/^(svc[1-4]|9[0-9]{5})$/.test(code);
+    if(!allowed)return;
+    const el=document.getElementById('serviceCodeInput');if(el)el.value=code;
+    Promise.resolve().then(()=>firebaseLoadService(code)).then(service=>{
+      if(service)openServiceData(service);
+    }).catch(err=>{const t=document.getElementById('startStatus');if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
 </script>
 </body>
 </html>
