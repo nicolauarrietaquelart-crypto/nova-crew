@@ -1,0 +1,36 @@
+name: Instalar NOVA Crew v14 Cloudflare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  instalar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar los archivos actuales del repositorio
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Actualizar NOVA Crew conservando el historial de GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f NOVA_Crew_v14_Cloudflare.zip || { echo 'Falta NOVA_Crew_v14_Cloudflare.zip en la raíz'; exit 1; }
+          mkdir -p /tmp/nova-cloudflare
+          unzip -q NOVA_Crew_v14_Cloudflare.zip -d /tmp/nova-cloudflare
+          test -f /tmp/nova-cloudflare/wrangler.jsonc || { echo 'El ZIP no es el correcto'; exit 1; }
+          test -f /tmp/nova-cloudflare/src/worker.mjs || { echo 'Falta el backend Cloudflare'; exit 1; }
+          rm -rf netlify public src test
+          rm -f netlify.toml COMO_PUBLICAR.txt package.json package-lock.json
+          cp -a /tmp/nova-cloudflare/. .
+          rm -f NOVA_Crew_v14_Cloudflare.zip
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && { echo 'No hay cambios'; exit 0; }
+          git commit -m 'Actualizar NOVA Crew a Cloudflare v14'
+          git push
