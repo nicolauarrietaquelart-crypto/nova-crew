@@ -28,6 +28,7 @@ function openCrewQr(){
    overlay.appendChild(qr);
  }
  qr.classList.add('nova-crew-qr-over-workspace');
+ window.NOVA_QR_CONTEXT?.chooseService?.(current);
  button.click(); // reuse the exact NOVA CREW QR application, camera, and API session
 }
 function allowed(s){
