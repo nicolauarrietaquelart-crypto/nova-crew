@@ -589,10 +589,14 @@ function openTrainingQuiz(){
 }
 function saveTrainingState(){localStorage.setItem('novaTrainingV7',JSON.stringify(trainingState));renderTraining();renderNotifications()}
 
+function novaDocumentIcon(id){
+  const paths={"doc-rules":"<path d=\"M8 3h8l4 4v14H4V3h4Z\"/><path d=\"M16 3v5h4M8 12h8M8 16h6M8 8h3\"/>","doc-bank":"<rect x=\"2\" y=\"6\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"M2 10h20M6 15h4M15 15h3\"/>","doc-conf":"<path d=\"M12 2 4 6v6c0 5 3.4 8.2 8 10 4.6-1.8 8-5 8-10V6Z\"/><path d=\"m9 12 2 2 4-4\"/>","doc-id":"<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><circle cx=\"8\" cy=\"10\" r=\"2\"/><path d=\"M4.5 16c.6-2 6.4-2 7 0M14 9h5M14 13h5M14 17h4\"/>","doc-med":"<path d=\"M12 21s-9-5.5-9-12a5 5 0 0 1 9-2.9A5 5 0 0 1 21 9c0 6.5-9 12-9 12Z\"/><path d=\"M7 12h3l2-3 2 6 2-3h2\"/>","doc-prl":"<path d=\"M12 2 4 5v7c0 5 3 8 8 10 5-2 8-5 8-10V5Z\"/><path d=\"m8 12 3 3 5-6\"/>"};
+  return '<svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[id]||paths['doc-rules'])+'</svg>';
+}
 function renderDocs(){
   $('#documentsList').innerHTML=docs.map(d=>`
     <article class="glass">
-      <div class="doc-icon">${d.icon}</div>
+      <div class="doc-icon">${novaDocumentIcon(d.id)}</div>
       <div><h4>${d.title}</h4><p style="${d.pending?'color:#b76c00':''}">${d.status}</p></div>
       <button class="btn light" data-open-doc="${d.id}">Abrir</button>
     </article>`).join('');
