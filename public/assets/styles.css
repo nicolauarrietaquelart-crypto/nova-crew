@@ -1297,3 +1297,18 @@ html[data-nova-theme="dark"] :is(.v15-modal-stack,.demo-modal,.modal-content) :i
 }
 html[data-nova-theme="dark"] :is(.v15-modal-stack,.demo-modal,.modal-content) .kv span{color:#bdc8d6!important}
 html[data-nova-theme="dark"] :is(.v15-modal-stack,.demo-modal,.modal-content) .kv b{color:#fff!important}
+
+
+/* Unified dark surfaces for every employee modal, availability and coordination overlay. */
+html[data-nova-theme="dark"] :is(.crew-modal-card,.crew-modal-head,#demoModalBody,.availability-layout .card,.availability-layout .glass,.basic-control-header,.basic-control-sidebar,.basic-control-toolbar,.basic-team-wrap,.basic-control-main .glass,.v15-modal-service-box,.profile-panel,.form-card,.profile-summary,.nova-inbox-article,.demo-modal,.modal-content){background:#28323f!important;border-color:#465365!important;color:#f3f6fa!important}
+html[data-nova-theme="dark"] :is(.crew-modal-card,.availability-layout,.basic-control-main,.basic-modal-grid,.v10-modal-form,.profile-panel) :is(h1,h2,h3,h4,label,strong,b,p){color:#f3f6fa!important}
+html[data-nova-theme="dark"] :is(.crew-modal-card,.availability-layout,.basic-modal-grid,.v10-modal-form,.basic-control-main,.profile-panel) :is(input,select,textarea,option){background:#374555!important;color:#f6f8fc!important;border:1px solid #657185!important}
+html[data-nova-theme="dark"] :is(.crew-modal-card,.availability-layout,.basic-control-main) :is(small,.muted,.hint){color:#bfcad9!important}
+html[data-nova-theme="dark"] .crew-modal-head{border-bottom:1px solid #465365!important}
+html[data-nova-theme="dark"] .crew-modal-card .btn.primary{background:#ff8a2c!important;color:#191b20!important}
+html[data-nova-theme="dark"] .crew-modal-card .btn.light{background:#465569!important;color:#fff!important}
+html[data-nova-theme="dark"] :is(.v10-status.confirmado,.basic-status.PRESENTE,.v10-day .v10-event.confirmado){background:#185d3a!important;color:#bdfbd6!important;border-color:#2d925d!important}
+html[data-nova-theme="dark"] :is(.v10-status.rechazado,.basic-status.NO-PRESENTADO,.v10-day .v10-event.rechazado){background:#742e35!important;color:#ffd1d4!important;border-color:#bc555d!important}
+html[data-nova-theme="dark"] .basic-status.CONTACTADO{background:#223e63!important;color:#bedcff!important}
+.nova-demo-reset-label{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:800;background:#ffe0bd;color:#753b0d}
+html[data-nova-theme="dark"] .nova-demo-reset-label{background:#73451e;color:#ffdda8}
