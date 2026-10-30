@@ -29,7 +29,7 @@ document.addEventListener('click',e=>{
  if(!nav)return;
  e.preventDefault();e.stopImmediatePropagation();
  document.getElementById('sidebar')?.classList.remove('open');
- window.NOVA_OPEN_ATTENDANCE_MENU?.();
+ document.getElementById('novaQrQuick')?.click();
 },true);
 const style=document.createElement('style');style.textContent=`
 .nova-gps-modal-backdrop{position:fixed;inset:0;z-index:16000;padding:20px;display:grid;place-items:center;background:rgba(14,16,22,.52);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
