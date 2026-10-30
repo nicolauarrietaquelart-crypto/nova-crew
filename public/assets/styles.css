@@ -753,3 +753,29 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 @keyframes novaOverlayFade{from{opacity:0}to{opacity:1}}
 @keyframes novaSheetUp{from{opacity:.55;transform:translate3d(0,22px,0) scale(.985)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.page.active,.nova-qr-overlay:not(.hidden),.nova-qr-overlay:not(.hidden) .nova-qr-modal,.notifications-dropdown:not(.hidden),.v15-alert-panel:not(.hidden){animation:none!important}.sidebar,.btn,.nav-btn,.icon-btn,.profile-chip{transition:none!important}}
+
+/* NOVA Desktop 2026: restrained liquid-glass workspace. */
+@media(min-width:901px){
+ :root{--nova-glass-ease:cubic-bezier(.22,1,.36,1);--shadow:0 18px 48px rgba(33,40,52,.09)}
+ body{background:radial-gradient(ellipse 65% 50% at 85% 4%,rgba(202,214,227,.37),transparent 75%),radial-gradient(ellipse 52% 55% at 15% 92%,rgba(222,227,234,.42),transparent 75%),linear-gradient(145deg,#f2f4f7,#e8ebf0 60%,#f4f5f7);background-attachment:fixed}
+ .glass{background:linear-gradient(145deg,rgba(255,255,255,.73),rgba(241,244,249,.59))!important;border:1px solid rgba(255,255,255,.79)!important;box-shadow:0 13px 35px rgba(35,42,55,.075),inset 0 1px rgba(255,255,255,.96),inset 0 -1px rgba(255,255,255,.28)!important;backdrop-filter:blur(24px) saturate(145%)!important;-webkit-backdrop-filter:blur(24px) saturate(145%)!important}
+ .sidebar.glass{background:linear-gradient(155deg,rgba(253,254,255,.88),rgba(236,240,245,.77))!important;border-right:1px solid rgba(255,255,255,.85)!important}
+ .portal-topbar.glass{background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(243,246,250,.7))!important}
+ .glass.card,.service-card,.v10-calendar-panel,.home-hero,.v15-alert-panel,.notifications-dropdown{transition:box-shadow .3s var(--nova-glass-ease),border-color .3s ease,transform .3s var(--nova-glass-ease),background-color .3s ease}
+ .glass.card:hover,.service-card:hover,.v10-calendar-panel:hover{box-shadow:0 20px 42px rgba(34,42,56,.105),inset 0 1px rgba(255,255,255,.97)!important;border-color:rgba(255,255,255,.95)!important}
+ .nav-btn{border-radius:14px;transition:background-color .24s ease,color .24s ease,transform .24s var(--nova-glass-ease)!important}
+ .nav-btn:not(.active):hover{background:rgba(255,255,255,.74)!important;transform:translateX(3px)}
+ .nav-btn.active{box-shadow:0 10px 25px rgba(13,16,24,.16)}
+ .btn,.icon-btn,.profile-chip,.back-btn{transition:transform .22s var(--nova-glass-ease),box-shadow .22s ease,background-color .22s ease,border-color .22s ease!important}
+ .btn:hover:not(:disabled),.icon-btn:hover:not(:disabled),.profile-chip:hover{transform:translateY(-2px);box-shadow:0 9px 23px rgba(35,42,55,.14)}
+ .btn:active:not(:disabled),.icon-btn:active:not(:disabled),.nav-btn:active{transform:scale(.975)}
+ .page.active{animation:novaDesktopAppear .3s var(--nova-glass-ease) both}
+ input:not([type=checkbox]):not([type=radio]),select,textarea{transition:border-color .22s ease,box-shadow .22s ease,background-color .22s ease}
+ input:not([type=checkbox]):not([type=radio]):focus,select:focus,textarea:focus{border-color:rgba(255,127,31,.65)!important;box-shadow:0 0 0 4px rgba(255,127,31,.11)!important;outline:0}
+ .nova-qr-overlay:not(.hidden){animation:novaDesktopScrim .22s ease both}
+ .nova-qr-overlay:not(.hidden) .nova-qr-modal{animation:novaDesktopDialog .3s var(--nova-glass-ease) both}
+}
+@keyframes novaDesktopAppear{from{opacity:.55;transform:translate3d(0,9px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes novaDesktopScrim{from{opacity:0}to{opacity:1}}
+@keyframes novaDesktopDialog{from{opacity:.5;transform:translateY(15px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.page.active,.nova-qr-overlay:not(.hidden),.nova-qr-overlay:not(.hidden) .nova-qr-modal{animation:none!important}}
