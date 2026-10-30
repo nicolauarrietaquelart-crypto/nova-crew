@@ -149,7 +149,7 @@ function edit(ids){
  openDemoModal(multi?'Editar '+ids.length+' trabajadores':'Ficha de '+first.name,
  '<div class="basic-modal-grid">'+'<label>Puesto<select id="novaEditRole"><option value="">'+(multi?'Mantener':'Elegir puesto')+'</option>'+optionsRoles.map(v=>'<option value="'+escape(v)+'" '+(!multi&&v===first.role?'selected':'')+'>'+escape(v)+'</option>').join('')+'</select></label>'+row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
  '<label>Estado<select id="novaEditStatus"><option value="">Mantener</option>'+statuses.map(v=>'<option value="'+v+'" '+(!multi&&v===first.status?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
- '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','00:15','00:30','00:45','01:00','01:30','02:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
+ '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','01:00','02:00','03:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Dietas<select id="novaEditDiet"><option value="">Mantener</option>'+['0','1','2','3'].map(n=>'<option value="'+n+'" '+(!multi&&String(first.diet)===(n==='0'?'No':n==='1'?'Sí':n)?'selected':'')+'>'+n+'</option>').join('')+'</select></label>'+
  ratingModalRows(first,multi)+
  '<label class="nova-incident-field">Incidencia / observaciones<input type="text" maxlength="200" id="novaEditIncident" value="'+(multi?'':escape(first.incident||''))+'"></label>'+
