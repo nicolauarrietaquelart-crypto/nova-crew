@@ -31,11 +31,61 @@ function openCrewQr(){
  window.NOVA_QR_CONTEXT?.chooseService?.(current);
  button.click(); // reuse the exact NOVA CREW QR application, camera, and API session
 }
+let gpsDialog=null,gpsOriginalParent=null,gpsOriginalNext=null;
+function closeCrewGps(){
+ if(!gpsDialog)return;
+ const panel=gpsDialog.querySelector('.clock-layout');
+ if(panel&&gpsOriginalParent){
+  if(gpsOriginalNext?.parentNode===gpsOriginalParent)gpsOriginalParent.insertBefore(panel,gpsOriginalNext);
+  else gpsOriginalParent.appendChild(panel);
+ }
+ gpsDialog.remove();gpsDialog=null;gpsOriginalParent=null;gpsOriginalNext=null;
+}
+function openCrewGps(){
+ if(!overlay||!current)return;
+ const service=typeof serviceById==='function'?serviceById(current):null;
+ const actor=window.novaActiveAccount||window.NOVA_API?.account;
+ if(!service||service.coordinatorUserId!==actor){
+  window.toast?.('Geolocalización','Solo puedes fichar aquí cuando eres el coordinador de este servicio.');
+  return;
+ }
+ closeCrewGps();
+ const panel=document.querySelector('#page-clock .clock-layout');
+ if(!panel){window.toast?.('Geolocalización','No se ha encontrado el formulario de control horario.');return;}
+ gpsOriginalParent=panel.parentNode;gpsOriginalNext=panel.nextSibling;
+ gpsDialog=document.createElement('div');gpsDialog.className='nova-crew-gps-backdrop';
+ gpsDialog.innerHTML='<section class="nova-crew-gps-dialog" role="dialog" aria-modal="true" aria-labelledby="novaCrewGpsTitle"><header><div><small>CONTROL HORARIO</small><h2 id="novaCrewGpsTitle">Fichar con geolocalización</h2></div><button type="button" class="nova-crew-gps-close" aria-label="Cerrar fichaje">×</button></header><div class="nova-crew-gps-content"></div></section>';
+ overlay.appendChild(gpsDialog);
+ gpsDialog.querySelector('.nova-crew-gps-content').appendChild(panel);
+ gpsDialog.addEventListener('click',e=>{if(e.target===gpsDialog||e.target.closest('.nova-crew-gps-close'))closeCrewGps();});
+ const selector=panel.querySelector('#clockServicePicker');
+ if(selector){selector.value=current;selector.dispatchEvent(new Event('change',{bubbles:true}));selector.disabled=true;}
+ gpsDialog.querySelector('.nova-crew-gps-close').focus();
+}
+window.NOVA_CREW_GPS_OPEN=openCrewGps;
+const gpsStyle=document.createElement('style');
+gpsStyle.textContent=`
+.nova-crew-gps-backdrop{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(10,13,20,.68);backdrop-filter:blur(11px);-webkit-backdrop-filter:blur(11px)}
+.nova-crew-gps-dialog{width:min(790px,100%);max-height:min(850px,92dvh);display:flex;flex-direction:column;overflow:hidden;background:#f6f7f9;border:1px solid #ffffffc9;border-radius:22px;box-shadow:0 30px 85px #0005}
+.nova-crew-gps-dialog>header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;background:#17181c;color:white}
+.nova-crew-gps-dialog>header small{font-size:10px;font-weight:800;letter-spacing:.11em;color:#ff943f}.nova-crew-gps-dialog h2{margin:4px 0 0;font-size:21px}
+.nova-crew-gps-close{width:42px;height:42px;flex:0 0 42px;border:1px solid #ffffff46;border-radius:12px;color:white;background:#ffffff20;font-size:26px;cursor:pointer}
+.nova-crew-gps-content{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px}
+.nova-crew-gps-content .clock-layout{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;margin:0!important}
+.nova-crew-gps-content .clock-side{display:none!important}
+.nova-crew-gps-content .clock-main{min-width:0!important;width:100%!important}
+.nova-crew-gps-content #clockServicePicker{opacity:.8}
+@media(max-width:900px){.nova-crew-gps-backdrop{padding:8px;align-items:end}.nova-crew-gps-dialog{max-height:93dvh;border-radius:22px 22px 12px 12px;animation:novaCrewGpsUp .3s cubic-bezier(.22,1,.36,1)}.nova-crew-gps-content{padding:12px}.nova-crew-gps-content .location-compare{grid-template-columns:minmax(0,1fr)!important}.nova-crew-gps-content .clock-main{padding:14px!important}.nova-crew-gps-content .inline-actions{display:grid!important;grid-template-columns:1fr!important}.nova-crew-gps-content .inline-actions button{min-height:52px!important}}
+@keyframes novaCrewGpsUp{from{opacity:.5;transform:translateY(25px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.nova-crew-gps-dialog{animation:none!important}}
+`;
+document.head.appendChild(gpsStyle);
 function allowed(s){
  const actor=window.novaActiveAccount||window.NOVA_API?.account;
  return !!s && (s.coordinatorUserId===actor||s.privilege==='crew'||s.assignedCoordinator);
 }
 function destroy(){
+ closeCrewGps();
  restoreQr();
  if(iframe){iframe.remove();iframe=null}
  if(overlay){overlay.remove();overlay=null}
