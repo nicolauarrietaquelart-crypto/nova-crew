@@ -673,3 +673,13 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 .nova-coord-fold span{display:inline-block;transition:transform .15s ease;color:#f58220;font-size:22px}
 .nova-coord-fold[aria-expanded=true] span{transform:rotate(180deg)}
 .nova-coord-fold:focus-visible{outline:2px solid #f58220;outline-offset:2px}
+
+/* NOVA QR is portaled into the fullscreen Crew Control host when invoked there.
+   Keep it above its own iframe, rather than behind the application on return. */
+#crewFullscreenWorkspace > #novaQrOverlay.nova-crew-qr-over-workspace{
+  position:fixed!important;inset:0!important;z-index:2147483000!important;
+  isolation:isolate;pointer-events:auto!important;
+}
+#crewFullscreenWorkspace > #novaQrOverlay.nova-crew-qr-over-workspace .nova-qr-modal{
+  position:relative;z-index:1;
+}
