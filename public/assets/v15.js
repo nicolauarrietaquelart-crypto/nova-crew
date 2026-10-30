@@ -131,18 +131,21 @@ function updateAlerts(){
   const pendingItems=currentServices()
     .filter(s=>window.NOVA_V15_CONFIRM?.statusOf?.(s.id)==='PENDIENTE' && !state.noticeDismissed.includes(`pending-${s.id}`))
     .map(renderPendingService).join('');
-  const openItems=visibleShifts().map(renderOpenServiceAlert).join('');
+  const available=visibleShifts();
+  const urgentItems=available.filter(s=>s.urgent).map(renderOpenServiceAlert).join('');
+  const openItems=available.filter(s=>!s.urgent).map(renderOpenServiceAlert).join('');
   const genericItems=buildGenericNotices().filter(n=>!state.noticeDismissed.includes(n.id)).map(renderNoticeItem).join('');
+  const noticeItems=pendingItems+genericItems;
 
   panel.innerHTML=`
     <div class="v15-alert-head">
-      <h3>Servicios y avisos</h3>
+      <h3>Notificaciones</h3>
       <button type="button" class="icon-only" data-v15-close="true" aria-label="Cerrar">×</button>
     </div>
+    ${urgentItems?`<div class="v15-alert-section v15-alert-section-urgent"><div class="v15-alert-section-title">Urgente</div>${urgentItems}</div>`:''}
+    ${noticeItems?`<div class="v15-alert-section"><div class="v15-alert-section-title">Avisos</div>${noticeItems}</div>`:''}
     ${openItems?`<div class="v15-alert-section"><div class="v15-alert-section-title">Servicios disponibles</div>${openItems}</div>`:''}
-    ${pendingItems?`<div class="v15-alert-section"><div class="v15-alert-section-title">Servicios por confirmar</div>${pendingItems}</div>`:''}
-    ${genericItems?`<div class="v15-alert-section"><div class="v15-alert-section-title">Avisos</div>${genericItems}</div>`:''}
-    ${!openItems && !pendingItems && !genericItems?'<p class="v15-empty">No hay avisos pendientes.</p>':''}`;
+    ${!urgentItems&&!openItems&&!noticeItems?'<p class="v15-empty">No hay notificaciones pendientes.</p>':''}`;
 }
 
 function openInterestConfirmShift(s){
