@@ -5943,13 +5943,30 @@
       }
     }
 
+
+    /* Original Crew Control v11.2.30: Cloudflare demo with preloaded personnel. */
+    #initialPdfUploadPanel,#sidebarPdfManager{display:none!important}
+    /* One full-viewport scroll area, without the oversized browser scroll bar. */
+    html,body{max-width:100%;overflow-x:hidden!important;overscroll-behavior-y:contain}
+    html,body{scrollbar-width:none!important}
+    html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+    .cc-portal-actions{float:right;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:4px 0;position:relative;z-index:5}
+    .cc-portal-actions button{font-weight:750;font-size:12px;min-height:37px;padding:8px 12px;border-radius:9px;white-space:nowrap}
+    .cc-portal-back{background:#252525!important;color:#fff!important;border:1px solid #484848!important}
+    .cc-portal-back:hover{background:#393939!important}
+    .cc-portal-qr{background:#f58220!important;color:#111!important;border:0!important}
+    .cc-portal-qr:hover{background:#ff983f!important}
+    @media(max-width:710px){.cc-portal-actions{float:none;justify-content:space-between;margin:0 0 9px;padding:0}.cc-portal-actions button{font-size:10.5px;min-height:35px;padding:7px 9px;white-space:normal}.cc-portal-back{flex:1 1 auto}.cc-portal-qr{flex:0 0 auto}}
   </style>
 </head>
 <body>
   <button type="button" id="sidebarEdgeToggleBtn" class="sidebar-edge-toggle-v11225" onclick="toggleOperationalSidebar()" title="Mostrar panel" aria-label="Mostrar panel">
     <span id="sidebarEdgeToggleGlyph">›</span>
   </button>
-<header><button type="button" onclick="window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)" style="float:right;background:#f58220;color:#111;border:0;padding:10px 12px;border-radius:9px;font-weight:800;cursor:pointer">Escanear QR</button>
+<header><div class="cc-portal-actions">
+    <button type="button" class="cc-portal-back" onclick="window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin)" aria-label="Volver al Área de Empleado">← Volver al Área de Empleado</button>
+    <button type="button" class="cc-portal-qr" onclick="window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)">Escanear QR</button>
+  </div>
   <div class="wrap">
     <div class="brand">
       <div class="demo-mark" aria-hidden="true">
