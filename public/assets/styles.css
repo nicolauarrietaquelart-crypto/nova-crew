@@ -1682,3 +1682,19 @@ html[data-nova-theme="dark"] #novaQrOverlay .nova-qr-modal{
  }
  #availabilityDays .availability-blank{min-width:0!important;min-height:58px!important}
 }
+
+
+/* Typography unity: same Plus Jakarta Sans used by sidebar navigation throughout NOVA. */
+:root{--nova-ui-font:"Plus Jakarta Sans","Segoe UI Variable","Segoe UI",Arial,sans-serif}
+html,body,#appView,#loginView,
+.sidebar,.main,.page,.glass,.card,
+.crew-modal-card,.nova-qr-modal,.notifications-dropdown,
+#page-availability,#availabilityDays,
+.availability-month-head,.availability-weekdays,.availability-calendar,
+.availability-day-card,.availability-editor,.availability-range-builder,
+.nova-unified-control,.nova-unified-main,.nova-coord-sidebar,
+.payroll-table,.documents-list,.profile-panel,
+button,input,select,textarea,option,label{
+ font-family:var(--nova-ui-font)!important;
+}
+button,input,select,textarea{font-family:inherit!important}
