@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Crew Control v11.2.30 | Gestión de personal</title>
+  <title>Crew Control v11.2.33 | Gestión de personal</title>
   
   <style>
     :root{
@@ -5943,38 +5943,447 @@
       }
     }
 
+  
+    /* =========================================================
+       v11.2.31 · dismissible PDF notification in sidebar
+       ========================================================= */
+    #pdfStatus{
+      position:relative!important;
+    }
 
-    /* Original Crew Control v11.2.30: Cloudflare demo with preloaded personnel. */
-    #initialPdfUploadPanel,#sidebarPdfManager{display:none!important}
-    /* One full-viewport scroll area, without the oversized browser scroll bar. */
-    html,body{max-width:100%;overflow-x:hidden!important;overscroll-behavior-y:contain}
-    html,body{scrollbar-width:none!important}
-    html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
-    .cc-portal-actions{float:right;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:4px 0;position:relative;z-index:5}
-    .cc-portal-actions button{font-weight:750;font-size:12px;min-height:37px;padding:8px 12px;border-radius:9px;white-space:nowrap}
-    .cc-portal-back{background:#252525!important;color:#fff!important;border:1px solid #484848!important}
-    .cc-portal-back:hover{background:#393939!important}
-    .cc-portal-qr{background:#f58220!important;color:#111!important;border:0!important}
-    .cc-portal-qr:hover{background:#ff983f!important}
-    @media(max-width:710px){.cc-portal-actions{float:none;justify-content:space-between;margin:0 0 9px;padding:0}.cc-portal-actions button{font-size:10.5px;min-height:35px;padding:7px 9px;white-space:normal}.cc-portal-back{flex:1 1 auto}.cc-portal-qr{flex:0 0 auto}}
+    .pdf-status-close-v11231{
+      position:absolute!important;
+      top:7px!important;
+      right:7px!important;
+      width:27px!important;
+      min-width:27px!important;
+      height:27px!important;
+      min-height:27px!important;
+      padding:0!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      border:1px solid rgba(0,0,0,.09)!important;
+      border-radius:9px!important;
+      background:rgba(255,255,255,.82)!important;
+      color:#111!important;
+      font-size:18px!important;
+      font-weight:700!important;
+      line-height:1!important;
+      cursor:pointer!important;
+      box-shadow:0 4px 12px rgba(20,24,32,.06)!important;
+    }
 
-    /* v2: keep scrolling active inside the fullscreen document. */
-    html{height:auto!important;min-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important;scrollbar-width:none!important}
-    body{height:auto!important;min-height:100vh!important;overflow-x:hidden!important;overflow-y:visible!important;touch-action:pan-y pinch-zoom}
-    header{position:sticky!important;top:0!important;z-index:90!important}
-    .cc-portal-back{cursor:pointer;pointer-events:auto!important}
-    .cc-portal-actions{z-index:95!important}
+    .pdf-status-close-v11231:hover{
+      background:#fff!important;
+    }
+
+    .pdf-status-content-v11231{
+      padding-right:32px!important;
+    }
+
+    @media(max-width:700px){
+      .pdf-status-close-v11231{
+        width:30px!important;
+        min-width:30px!important;
+        height:30px!important;
+        min-height:30px!important;
+      }
+    }
+
+  
+    /* =========================================================
+       Crew Control v11.2.33 | visual clarity + efficient first paint
+       ========================================================= */
+    .metric-present-v11232 strong{color:#14864c!important}
+    .metric-contacted-v11232 strong{color:#d96b0d!important}
+    .metric-absent-v11232 strong{color:#c42d38!important}
+    .sidebar-operational-v122 .dashboard-metric.metric-present-v11232 strong{color:#14864c!important}
+    .sidebar-operational-v122 .dashboard-metric.metric-contacted-v11232 strong{color:#d96b0d!important}
+    .sidebar-operational-v122 .dashboard-metric.metric-absent-v11232 strong{color:#c42d38!important}
+    .metric-present-v11232,
+    .metric-contacted-v11232,
+    .metric-absent-v11232{
+      background:linear-gradient(155deg,rgba(255,255,255,.92),rgba(246,249,252,.80))!important;
+      border-color:rgba(255,255,255,.95)!important;
+      box-shadow:inset 0 1px 0 #fff,0 3px 12px rgba(18,24,32,.04)!important;
+    }
+
+    /* A compact arrow outside the scrollable service chips; does not cover a label. */
+    .operational-work-nav-v11232{
+      display:grid!important;
+      grid-template-columns:minmax(0,1fr) 31px!important;
+      gap:5px!important;
+      align-items:center!important;
+      min-width:0!important;
+      width:100%!important;
+    }
+    .operational-work-nav-v11232 .operational-work-filters-v122{
+      width:100%!important;
+      min-width:0!important;
+      display:flex!important;
+      flex-wrap:nowrap!important;
+      overflow-x:auto!important;
+      overflow-y:hidden!important;
+      gap:5px!important;
+      padding:2px!important;
+      scrollbar-width:none!important;
+      mask-image:none!important;
+      -webkit-mask-image:none!important;
+      scroll-behavior:auto!important;
+      overscroll-behavior-x:contain!important;
+    }
+    .operational-work-nav-v11232 .operational-work-filters-v122::-webkit-scrollbar{
+      display:none!important;
+    }
+    .operational-work-nav-v11232 .operational-work-chip-v122{
+      flex:none!important;
+      white-space:nowrap!important;
+      min-width:max-content!important;
+      margin:0!important;
+    }
+    .operational-work-next-v11232{
+      width:31px!important;
+      min-width:31px!important;
+      height:34px!important;
+      min-height:34px!important;
+      padding:0!important;
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      border:1px solid rgba(255,255,255,.86)!important;
+      border-radius:11px!important;
+      color:#111!important;
+      font-size:24px!important;
+      font-weight:750!important;
+      line-height:1!important;
+      background:linear-gradient(140deg,rgba(255,255,255,.86),rgba(237,240,245,.72))!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.98),0 3px 9px rgba(25,30,40,.07)!important;
+      cursor:pointer!important;
+    }
+    .operational-work-next-v11232:disabled{
+      opacity:.37!important;
+      cursor:default!important;
+    }
+    .operational-work-next-v11232.at-end-v11232{
+      color:#e46b08!important;
+    }
+
+    /* Status labels in row/team selections, without changing backend values. */
+    select.status{
+      text-transform:uppercase!important;
+      letter-spacing:.005em!important;
+      font-weight:850!important;
+    }
+
+    /* During reorder, the complete orange edge remains visible, including corners. */
+    .work-group.work-drop-target-v11227{
+      position:relative!important;
+      z-index:8!important;
+      border:2px solid #ff7a14!important;
+      outline:none!important;
+      box-shadow:
+        0 0 0 3px rgba(255,122,20,.32),
+        0 10px 24px rgba(24,28,36,.12)!important;
+      isolation:isolate!important;
+    }
+    .work-group.work-drop-target-v11227 > .work-group-head{
+      box-shadow:inset 0 4px 0 #ff7a14!important;
+      border-radius:inherit!important;
+    }
+    .work-dragging-v11227 .work-group{
+      scroll-margin-top:12px!important;
+    }
+
+    /* Full-width black modal headings follow the card's curves. */
+    .modal-card.integrated-modal-card-v129,
+    .modal-card.bulk-changes-modal-v125{
+      border-radius:23px!important;
+      border:1px solid rgba(255,255,255,.90)!important;
+      scrollbar-gutter:auto!important;
+      background:rgba(250,251,253,.97)!important;
+      overflow-x:hidden!important;
+    }
+    .integrated-modal-head-v129,
+    .bulk-changes-head-v125{
+      border-radius:22px 22px 0 0!important;
+      background:#151515!important;
+      padding:18px 21px!important;
+      margin:0!important;
+      width:100%!important;
+      flex-shrink:0!important;
+      box-sizing:border-box!important;
+    }
+    .integrated-modal-head-v129::before,
+    .integrated-modal-head-v129::after,
+    .bulk-changes-head-v125::before,
+    .bulk-changes-head-v125::after{
+      box-shadow:none!important;
+    }
+    .integrated-modal-head-v129 .modal-close,
+    .bulk-changes-head-v125 .modal-close{
+      flex:0 0 auto!important;
+    }
+
+    /* Static glass accents. No per-worker blur or motion. */
+    .personnel-sidebar-v121,
+    .service-top,
+    .card,
+    .work-group{
+      border-color:rgba(255,255,255,.91)!important;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.96),
+        0 9px 24px rgba(25,30,39,.055)!important;
+    }
+    .personnel-sidebar-v121{
+      background:linear-gradient(155deg,rgba(255,255,255,.87),rgba(242,246,251,.76))!important;
+      backdrop-filter:blur(9px) saturate(115%)!important;
+      -webkit-backdrop-filter:blur(9px) saturate(115%)!important;
+    }
+    .operational-work-next-v11232,
+    .metric-present-v11232,
+    .metric-contacted-v11232,
+    .metric-absent-v11232{
+      transition:none!important;
+      animation:none!important;
+    }
+    @media(max-width:900px){
+      .operational-work-nav-v11232{
+        grid-template-columns:minmax(0,1fr) 37px!important;
+      }
+      .operational-work-next-v11232{
+        width:37px!important;
+        min-width:37px!important;
+        height:38px!important;
+        min-height:38px!important;
+      }
+    }
+    @media(max-width:700px){
+      .modal-card.integrated-modal-card-v129,
+      .modal-card.bulk-changes-modal-v125{
+        background:#f8f9fb!important;
+        border-radius:18px!important;
+        backdrop-filter:none!important;
+      }
+      .integrated-modal-head-v129,
+      .bulk-changes-head-v125{
+        border-radius:17px 17px 0 0!important;
+      }
+      .personnel-sidebar-v121{
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+      }
+    }
+
+
+    /* =============================================================
+       v11.2.33 · functioning work-type pager + solid floating header
+       ============================================================= */
+    .operational-work-pager-v11233{
+      display:grid!important;
+      grid-template-columns:31px minmax(0,1fr) 31px!important;
+      gap:5px!important;
+      align-items:center!important;
+      min-width:0!important;
+    }
+    .operational-work-pager-v11233 #operationalWorkFilters{
+      display:flex!important;
+      flex-wrap:nowrap!important;
+      overflow:hidden!important;
+      min-width:0!important;
+      padding:1px 0!important;
+      gap:5px!important;
+      scroll-behavior:auto!important;
+      mask:none!important;
+      -webkit-mask:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-chip-v122{
+      flex:none!important;
+      max-width:100%!important;
+      min-width:0!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      cursor:pointer!important;
+      transition:none!important;
+      transform:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-chip-v122[hidden]{
+      display:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-next-v11232{
+      width:31px!important;
+      height:34px!important;
+      min-width:31px!important;
+      min-height:34px!important;
+      border-radius:12px!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 3px 10px rgba(22,28,34,.065)!important;
+      transition:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-next-v11232:disabled{
+      opacity:.28!important;
+      cursor:default!important;
+    }
+
+    /* Completely opaque at rest and while scrolling. Only the shape changes. */
+    body > header{
+      position:fixed!important;
+      top:0!important;
+      left:0!important;
+      right:0!important;
+      width:100%!important;
+      height:var(--crew-header-h)!important;
+      min-height:0!important;
+      padding:8px 0!important;
+      margin:0!important;
+      display:flex!important;
+      align-items:center!important;
+      box-sizing:border-box!important;
+      background:#101014!important;
+      background-image:none!important;
+      opacity:1!important;
+      border:0!important;
+      border-bottom:4px solid #ff7a14!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      z-index:1300!important;
+      transform:none!important;
+      transition:left .18s ease,right .18s ease,top .18s ease,width .18s ease,
+                 height .18s ease,border-radius .18s ease,box-shadow .18s ease!important;
+    }
+    body > header > .wrap{
+      width:100%!important;
+      max-width:1400px!important;
+      padding:0 22px!important;
+      background:transparent!important;
+      border:0!important;
+      box-shadow:none!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+    }
+    body > header .brand{align-items:center!important;}
+    body > header.crew-header-floating-v11233{
+      top:9px!important;
+      left:14px!important;
+      right:14px!important;
+      width:calc(100% - 28px)!important;
+      height:67px!important;
+      border-radius:20px!important;
+      border:1px solid rgba(255,255,255,.18)!important;
+      border-bottom:3px solid #ff7a14!important;
+      box-shadow:0 14px 30px rgba(15,17,22,.20)!important;
+      background:#101014!important;
+      overflow:hidden!important;
+    }
+    body > header.crew-header-floating-v11233 .demo-mark{
+      width:46px!important;
+      height:46px!important;
+      border-radius:13px!important;
+    }
+    body > header.crew-header-floating-v11233 h1{font-size:18px!important;}
+    body > header.crew-header-floating-v11233 .subtitle{font-size:10px!important;}
+
+    /* Static liquid-glass accents only on larger panels, not 150 individual rows. */
+    .card,.work-group,.service-top,.personnel-sidebar-v121{
+      border-color:rgba(255,255,255,.90)!important;
+      background:linear-gradient(155deg,rgba(255,255,255,.89),rgba(243,247,252,.79))!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.97),0 9px 24px rgba(22,26,34,.055)!important;
+    }
+    .work-group > summary,.work-group-head{
+      transform:none!important;
+      transition:none!important;
+    }
+    .work-group .work-group-title button{
+      touch-action:manipulation!important;
+    }
+    .work-group.work-drop-target-v11227{outline-offset:0!important;}
+    .personnel-sidebar-v121{
+      backdrop-filter:blur(7px) saturate(112%)!important;
+      -webkit-backdrop-filter:blur(7px) saturate(112%)!important;
+    }
+    @media(max-width:900px){
+      .operational-work-pager-v11233{
+        grid-template-columns:36px minmax(0,1fr) 36px!important;
+      }
+      .operational-work-pager-v11233 .operational-work-next-v11232{
+        width:36px!important;
+        height:38px!important;
+        min-width:36px!important;
+        min-height:38px!important;
+      }
+    }
+    @media(max-width:700px){
+      body > header{
+        padding:5px 0!important;
+        height:var(--crew-header-h)!important;
+      }
+      body > header.crew-header-floating-v11233{
+        left:8px!important;
+        right:8px!important;
+        top:7px!important;
+        width:calc(100% - 16px)!important;
+        height:50px!important;
+        border-radius:16px!important;
+      }
+      body > header > .wrap{padding:0 12px!important;}
+      body > header.crew-header-floating-v11233 .demo-mark{
+        width:36px!important;height:36px!important;border-radius:10px!important;
+      }
+      body > header.crew-header-floating-v11233 h1{font-size:14px!important;}
+      body > header.crew-header-floating-v11233 .subtitle{font-size:9px!important;}
+      .personnel-sidebar-v121{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+      /* No accidental horizontal scrolling for mobile worker cards. */
+      tbody[data-work-team-body] tr[data-worker-row]{max-width:100%!important;}
+      .worker-open{overflow-wrap:anywhere!important;}
+    }
+    @media(prefers-reduced-motion:reduce){
+      body > header{transition:none!important;}
+    }
+
+
+/* NOVA Crew Cloudflare: normal flow scrolling and original 11.2.33 layout without nested scrollbars */
+html{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:thin!important;scrollbar-color:#aeb1b6 transparent!important}
+body{height:auto!important;min-height:100vh!important;padding-top:0!important;overflow-x:hidden!important;overflow-y:visible!important;touch-action:pan-y pinch-zoom!important}
+body > header{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;min-height:0!important;height:78px!important;z-index:1300!important;margin:0!important;overflow:visible!important;background:#101014!important}
+body > header.crew-header-floating-v11233{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:72px!important;border-radius:0!important;border:0!important;border-bottom:4px solid #ff7a14!important;box-shadow:0 8px 25px rgba(0,0,0,.14)!important;overflow:visible!important}
+body > header > .wrap{width:min(1480px,calc(100% - 24px))!important;max-width:1480px!important;margin:auto!important;padding:0 14px!important}
+.cc-demo-header{display:flex!important;flex-direction:row-reverse!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;height:100%!important}
+.cc-portal-actions{display:flex;align-items:center;flex-shrink:0;gap:8px;position:relative;z-index:1400}
+.cc-portal-actions button{font-size:12px;font-weight:800;min-height:38px;padding:8px 12px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.cc-portal-back{background:#252525!important;color:#fff!important;border:1px solid #555!important}
+.cc-portal-qr{background:#f58220!important;color:#111!important;border:0!important}
+#initialPdfUploadPanel,#sidebarPdfManager{display:none!important}
+body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215,
+body.control-sidebar-open .personnel-sidebar-v121{top:92px!important;max-height:calc(100dvh - 105px)!important;overflow-y:auto!important;overscroll-behavior-y:contain!important}
+body.control-sidebar-open .personnel-sidebar-v121::-webkit-scrollbar{width:5px}
+body.control-sidebar-open .personnel-sidebar-v121::-webkit-scrollbar-thumb{background:#c8cbd0;border-radius:999px}
+/* Preserve header and usable content, no overlap with staffing sidebar */
+body.control-sidebar-open main.wrap{margin-top:0!important}
+@media(max-width:900px){
+ :root{--crew-header-h:65px!important}
+ body > header,body > header.crew-header-floating-v11233{height:64px!important;min-height:64px!important}
+ .cc-demo-header{flex-direction:row-reverse!important;gap:8px!important}
+ .cc-portal-actions{gap:6px!important}
+ .cc-portal-actions button{font-size:10px!important;padding:6px 8px!important;min-height:34px!important;white-space:normal!important}
+ .cc-demo-header .brand h1{font-size:15px!important}
+ body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215,
+ body.control-sidebar-open .personnel-sidebar-v121{position:static!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important}
+}
+@media(max-width:430px){.cc-demo-header .subtitle{display:none!important}.cc-portal-back{max-width:144px}}
   </style>
 </head>
 <body>
   <button type="button" id="sidebarEdgeToggleBtn" class="sidebar-edge-toggle-v11225" onclick="toggleOperationalSidebar()" title="Mostrar panel" aria-label="Mostrar panel">
     <span id="sidebarEdgeToggleGlyph">›</span>
   </button>
-<header><div class="cc-portal-actions">
-    <button type="button" class="cc-portal-back" onclick="if(window.parent!==window && typeof window.parent.closeCrewFullscreen==='function'){window.parent.closeCrewFullscreen()}else{window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin)}" aria-label="Volver al Área de Empleado">← Volver al Área de Empleado</button>
-    <button type="button" class="cc-portal-qr" onclick="window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)">Escanear QR</button>
-  </div>
-  <div class="wrap">
+<header>
+  <div class="wrap cc-demo-header">
+    <div class="cc-portal-actions">
+      <button type="button" class="cc-portal-back" id="ccReturnEmployee">← Volver al Área de Empleado</button>
+      <button type="button" class="cc-portal-qr" id="ccScanWorker">Escanear QR</button>
+    </div>
     <div class="brand">
       <div class="demo-mark" aria-hidden="true">
         <svg viewBox="0 0 48 48" role="img">
@@ -6122,7 +6531,19 @@
               <span id="dayReadinessLabel" class="day-readiness">—</span>
             </div>
 
-            <div id="operationalWorkFilters" class="operational-work-filters-v122"></div>
+            <div class="operational-work-nav-v11232 operational-work-pager-v11233">
+              <button id="operationalWorkPrevious" type="button"
+                class="operational-work-next-v11232 operational-work-prev-v11233"
+                onclick="previousOperationalWorkType()"
+                title="Ver tipos de servicio anteriores"
+                aria-label="Ver tipos de servicio anteriores" disabled>‹</button>
+              <div id="operationalWorkFilters" class="operational-work-filters-v122" aria-label="Tipos de servicio"></div>
+              <button id="operationalWorkNext" type="button"
+                class="operational-work-next-v11232"
+                onclick="nextOperationalWorkType()"
+                title="Ver los siguientes tipos de servicio"
+                aria-label="Ver siguientes tipos de servicio">›</button>
+            </div>
             <div id="operationalTimeFilters" class="operational-time-filters-v1210"></div>
             <div id="operationalDashboard" class="operational-dashboard"></div>
           </div>
@@ -6426,10 +6847,10 @@
             <label class="field">Estado</label>
             <select id="bulkStatus">
               <option value="">Sin cambio</option>
-              <option value="PENDIENTE">No contactado</option>
-              <option value="CONTACTADO">Contactado</option>
-              <option value="PRESENTE">Presente</option>
-              <option value="NO PRESENTADO">No presentado</option>
+              <option value="PENDIENTE">NO CONTACTADO</option>
+              <option value="CONTACTADO">CONTACTADO</option>
+              <option value="PRESENTE">PRESENTE</option>
+              <option value="NO PRESENTADO">NO PRESENTADO</option>
             </select>
           </div>
 
@@ -6769,7 +7190,7 @@ const state = {
    Google Sheets: legacy import/PDF/history mirror
    ========================================================= */
 
-const FIREBASE_CONFIG=Object.freeze({}); // Firebase removed; Cloudflare stores the demo data.
+const FIREBASE_CONFIG=null; // Demo: no Firebase access
 
 let firebaseCtx=null;
 let firebaseReadyPromise=null;
@@ -6777,66 +7198,16 @@ let firebaseRealtimeUnsubs=[];
 let firebaseRenderTimer=null;
 let firebaseRealtimeCode='';
 
-async function callAppsScript(method,args){
-  args=Array.isArray(args)?args:[];
-  if(method==='syncServiceSnapshotToSheets')return {ok:true};
-  if(method==='loadService'){
-    await window.CREW_CLOUDFLARE_REQUEST({kind:'init',code:String(args[0])});
-    return readServiceFromFirebase(String(args[0]));
-  }
-  if(method==='generateNewService'){
-    const result=await window.CREW_CLOUDFLARE_REQUEST({kind:'create'});
-    return readServiceFromFirebase(result.code);
-  }
-  if(method==='duplicateServiceSetup'){
-    const result=await window.CREW_CLOUDFLARE_REQUEST({kind:'create'});
-    const service=await readServiceFromFirebase(result.code);
-    const original=state.service;
-    if(original){service.scenarios=JSON.parse(JSON.stringify(original.scenarios||[]));service.teams=JSON.parse(JSON.stringify(original.teams||[]));service.venue=original.venue||'';}
-    return service;
-  }
-  if(method==='replaceWorkersFromPdf'){
-    const parsed=args[1]||{};
-    const previous=state.service||{};
-    const old=previous.workers||[];
-    const incoming=(parsed.workers||[]).map((w,i)=>{
-      const name=String(w.personal||w.name||'').trim();
-      const matched=old.find(x=>String(x.personal||'').trim().toLowerCase()===name.toLowerCase());
-      return {...matched,...w,id:matched?.id||firebaseId('W'),status:matched?.status||'PENDIENTE',teamId:matched?.teamId||'',scenarioId:matched?.scenarioId||'',sortOrder:i+1};
-    });
-    const service={...previous,workers:incoming,incidents:previous.incidents||[],pdfName:parsed.meta?.pdfName||previous.pdfName||'',serviceDate:parsed.meta?.serviceDate||previous.serviceDate||'',venue:parsed.meta?.venue||previous.venue||''};
-    return {ok:true,service,summary:{matched:incoming.filter(w=>old.some(p=>p.id===w.id)).length,added:incoming.filter(w=>!old.some(p=>p.id===w.id)).length,removed:old.length-incoming.filter(w=>old.some(p=>p.id===w.id)).length}};
-  }
-  if(method==='generateClosedServicePdf'){
-    // Browser print-to-PDF remains available; legacy Drive PDF generation is not connected.
-    return {ok:true,pdfId:'',pdfUrl:'',message:'El PDF automático de Google Drive no está configurado. Utiliza Imprimir → Guardar como PDF.'};
-  }
-  if(method==='getWorkerHistory'){
-    const workerId=String(args[1]);
-    const w=(state.service?.workers||[]).find(x=>String(x.id)===workerId)||{};
-    const incidents=(state.service?.incidents||[]).filter(i=>String(i.workerId)===workerId);
-    const ratings=['ratingUniformidad','ratingActitud','ratingPuntualidad'].map(k=>Number(w[k]||0)).filter(Boolean);
-    return {movil:w.movil||'',services:1,present:w.status==='PRESENTE'?1:0,noShow:w.status==='NO PRESENTADO'?1:0,incidents:incidents.length,averageRating:ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):'',totalActualMinutes:0,recent:[{date:w.serviceDate,trabajo:w.trabajo,status:w.status,actualStart:w.actualStart,actualEnd:w.actualEnd,actualPause:w.actualPause,inicio:w.inicio,fin:w.fin,pausa:w.pausa}]};
-  }
-  throw new Error('Acción heredada no disponible en Cloudflare: '+method);
-}
-
-function shadowAppsScript(method,args){
-  setTimeout(()=>{
-    callAppsScript(method,args).catch(err=>{
-      console.warn('[Sheets mirror]',method,errorMessage(err));
-    });
-  },0);
-}
+function callAppsScript(method,args){return Promise.reject(new Error('La función '+method+' requiere un módulo de Cloudflare no habilitado en esta demo.'));}
+function shadowAppsScript(){ /* Demo: no real Sheets or Apps Script mirroring. */ }
 
 async function ensureFirebase(){
-  if(firebaseCtx)return firebaseCtx;
-  firebaseCtx={db:{},fs:window.CREW_CLOUDFLARE_FS};
-  return firebaseCtx;
+  if(!window.CREW_CLOUDFLARE_FS)throw new Error('Conexión Cloudflare no disponible. Vuelve a iniciar sesión en NOVA Crew.');
+  return {db:{},fs:window.CREW_CLOUDFLARE_FS};
 }
 
 function firebaseErrorMessage(err){
-  const raw=String(err?.message||err||'Error de Cloudflare');
+  const raw=String(err?.message||err||'Error de Firebase');
   if(/missing or insufficient permissions/i.test(raw)){
     return 'Firebase está bloqueando el acceso. Revisa Firestore → Rules y permite lectura/escritura durante la prueba.';
   }
@@ -6899,7 +7270,7 @@ function firebaseServiceRoot(service){
     requirements:Array.from(service.requirements||[],r=>sanitizeFirestore(r)),
     audit:Array.from(service.audit||[],a=>sanitizeFirestore(a)),
     backend:'FIRESTORE',
-    schemaVersion:'11.2.30'
+    schemaVersion:'11.2.33'
   });
 }
 
@@ -7319,35 +7690,28 @@ async function startFirebaseRealtime(code){
 }
 
 async function firebaseLoadService(code){
-  try{
-    let service=await readServiceFromFirebase(code);
-
-    if(!service){
-      // First opening only: copy the existing 10.1.5 service from Sheets.
-      service=await callAppsScript('loadService',[code]);
-      await migrateServiceToFirebase(service);
-      service=await readServiceFromFirebase(code);
-    }
-
-    return service;
-  }catch(err){
-    throw new Error(firebaseErrorMessage(err));
-  }
+  const service=await readServiceFromFirebase(String(code));
+  if(!service)throw new Error('No existe ese servicio en la demo.');
+  return service;
 }
 
 async function firebaseGenerateNewService(){
-  const service=await callAppsScript('generateNewService',[]);
-  await migrateServiceToFirebase(service);
-  return readServiceFromFirebase(service.code);
+  const r=await window.CREW_CLOUDFLARE_REQUEST({kind:'create'});
+  if(!r?.ok)throw new Error(r?.error||'No se ha creado el servicio');
+  return readServiceFromFirebase(r.code);
 }
-
 async function firebaseDuplicateServiceSetup(code){
-  if(state.service&&String(state.service.code)===String(code)){
-    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-  }
-  const service=await callAppsScript('duplicateServiceSetup',[code]);
-  await migrateServiceToFirebase(service);
-  return readServiceFromFirebase(service.code);
+  const prior=await readServiceFromFirebase(String(code));
+  if(!prior)throw new Error('No se encuentra el servicio de origen.');
+  const next=await firebaseGenerateNewService();
+  const {db,fs}=await ensureFirebase();
+  await fs.setDoc(fs.doc(db,'services',next.code),{
+    serviceName:prior.serviceName,serviceDate:prior.serviceDate,venue:prior.venue,pdfName:'',
+    workOrder:prior.workOrder,hiddenWorkTypes:prior.hiddenWorkTypes,
+    scenarios:prior.scenarios,teams:prior.teams,requirements:prior.requirements,
+    updatedAt:new Date().toISOString()
+  },{merge:true});
+  return readServiceFromFirebase(next.code);
 }
 
 async function firebaseSaveServiceMeta(code,meta){
@@ -7680,45 +8044,14 @@ async function firebaseAddManualWorker(code,data){
   return worker;
 }
 
-async function firebaseReplaceWorkersFromPdf(code,parsed){
-  // Ensure the legacy parser sees the current Firebase state before matching.
-  if(state.service&&String(state.service.code)===String(code)){
-    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-  }
-
-  const result=await callAppsScript('replaceWorkersFromPdf',[code,parsed]);
-  await migrateServiceToFirebase(result.service);
-
-  return {
-    ...result,
-    service:await readServiceFromFirebase(code)
-  };
+async function firebaseReplaceWorkersFromPdf(){
+  throw new Error('La importación PDF está deshabilitada: el personal de esta demo ya está integrado.');
 }
-
 async function firebaseGenerateClosedPdf(code){
-  // One legacy mirror only at close; normal operation never waits for Sheets.
-  if(state.service&&String(state.service.code)===String(code)){
-    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-  }
-
-  const pdf=await callAppsScript('generateClosedServicePdf',[code]);
-
-  if(pdf?.pdfUrl){
-    const {db,fs}=await ensureFirebase();
-    await fs.setDoc(
-      fs.doc(db,'services',code),
-      {
-        finalPdfId:String(pdf.pdfId||''),
-        finalPdfUrl:String(pdf.pdfUrl||''),
-        updatedAt:new Date().toISOString()
-      },
-      {merge:true}
-    );
-  }
-
-  return pdf;
+  // Avoid claiming an uploaded/generated PDF where none exists.
+  window.print();
+  return {pdfId:'',pdfUrl:'',notice:'Utiliza la impresión del navegador para guardar una copia en PDF.'};
 }
-
 async function dispatchBackend(method,args){
   switch(String(method)){
     case 'loadService':
@@ -7766,11 +8099,13 @@ async function dispatchBackend(method,args){
     case 'generateClosedServicePdf':
       return firebaseGenerateClosedPdf(...args);
 
-    case 'getWorkerHistory':
-      if(state.service){
-        await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
-      }
-      return callAppsScript(method,args);
+    case 'getWorkerHistory': {
+      const worker=state.service?.workers?.find(w=>String(w.id)===String(args[1]));
+      const relevant=state.service?.incidents?.filter(i=>i.workerId===worker?.id)||[];
+      return {movil:worker?.movil||'',services:worker?1:0,present:worker?.status==='PRESENTE'?1:0,
+        noShow:worker?.status==='NO PRESENTADO'?1:0,incidents:relevant.length,
+        averageRating:'',totalActualMinutes:0,items:[],history:[],workTypes:[]};
+    }
 
     default:
       return callAppsScript(method,args);
@@ -8031,6 +8366,24 @@ function updateControlSidebarTop(){
   // v11.2.15: sidebar is portaled to body and fixed by CSS.
 }
 
+function updateFloatingCrewHeaderV11233(){
+  const banner=document.querySelector('body > header');
+  if(!banner)return;
+  banner.classList.toggle('crew-header-floating-v11233',window.scrollY>36);
+}
+
+let crewHeaderScrollPendingV11233=false;
+window.addEventListener('scroll',()=>{
+  if(crewHeaderScrollPendingV11233)return;
+  crewHeaderScrollPendingV11233=true;
+  requestAnimationFrame(()=>{
+    crewHeaderScrollPendingV11233=false;
+    updateFloatingCrewHeaderV11233();
+  });
+},{passive:true});
+window.addEventListener('load',updateFloatingCrewHeaderV11233);
+updateFloatingCrewHeaderV11233();
+
 window.addEventListener('scroll',()=>{
   if(document.body.classList.contains('control-sidebar-open')){
     updateControlSidebarTop();
@@ -8047,7 +8400,7 @@ window.addEventListener('resize',()=>{
 
 function openExistingService(){
   const code=document.getElementById('serviceCodeInput').value.trim();
-  if(!/^(?:svc[1-4]|9\d{5})$/.test(code)){
+  if(!/^\d{6}$/.test(code)){
     showBox('startStatus','Introduce un código de 6 cifras.','error');return;
   }
   showBox('startStatus','Abriendo servicio…','info');
@@ -8100,13 +8453,39 @@ function updatePdfPlacementUI(){
   if(sidebar)sidebar.classList.toggle('hidden',!hasPdf);
 }
 
+function clearPdfSidebarStatus(){
+  const el=document.getElementById('pdfStatus');
+  if(!el)return;
+  el.className='status-box sidebar-pdf-status-v11227';
+  el.innerHTML='';
+}
+
+function sidebarPdfStatusHtml(content){
+  return `
+    <button type="button"
+      class="pdf-status-close-v11231"
+      onclick="clearPdfSidebarStatus()"
+      title="Ocultar notificación"
+      aria-label="Ocultar notificación">×</button>
+    <div class="pdf-status-content-v11231">${content}</div>
+  `;
+}
+
 function showPdfStatus(message,type='info'){
-  showBox('pdfStatus',message,type);
+  showBoxHtml(
+    'pdfStatus',
+    sidebarPdfStatusHtml(escapeHtml(message)),
+    type
+  );
   showBox('initialPdfStatus',message,type);
 }
 
 function showPdfStatusHtml(message,type='ok'){
-  showBoxHtml('pdfStatus',message,type);
+  showBoxHtml(
+    'pdfStatus',
+    sidebarPdfStatusHtml(message),
+    type
+  );
   showBoxHtml('initialPdfStatus',message,type);
 }
 
@@ -8152,10 +8531,14 @@ function openServiceData(service){
   renderScenarios();
   parkIntegratedSections();
   updateTeamSelects();
-  renderAudit();
   renderPersonnel();
   applyClosedState();
   setSaveState('Guardado','saved');
+  // Audit isn't needed for first paint. Schedule after core personnel render.
+  const openedServiceCode=String(service.code);
+  requestAnimationFrame(()=>{
+    if(String(state.service?.code||'')===openedServiceCode)renderAudit();
+  });
 
   startFirebaseRealtime(service.code).catch(err=>{
     console.error('[Firebase realtime]',firebaseErrorMessage(err));
@@ -9621,14 +10004,14 @@ function renderPersonnel(light=false){
     renderDays();
     renderStats();
     renderIncidents();
-    renderOperationalAlerts();
+    // One operational refresh at the bottom after worker DOM is committed.
   }
 
   const host=document.getElementById('personnelGroups');
   const workers=workersForActiveDay();
 
   if(!workers.length){
-    host.innerHTML='<div class="empty">No hay personal para este día.</div>';return;
+    host.innerHTML='<div class="empty">No hay personal para este día.</div>';renderOperationalAlerts();return;
   }
 
   // Agrupamos por TIPO DE SERVICIO, no por cada bloque horario.
@@ -10253,10 +10636,10 @@ function teamMemberCardHtml(w){
   return `<div class="team-member-card">
     <select class="status ${statusClassName(w.status)}"
       onchange="teamPanelChangeStatus('${escapeAttr(w.id)}',this.value)">
-      <option value="PENDIENTE" ${w.status==='PENDIENTE'?'selected':''}>No contactado</option>
-      <option value="CONTACTADO" ${w.status==='CONTACTADO'?'selected':''}>Contactado</option>
-      <option value="PRESENTE" ${w.status==='PRESENTE'?'selected':''}>Presente</option>
-      <option value="NO PRESENTADO" ${w.status==='NO PRESENTADO'?'selected':''}>No presentado</option>
+      <option value="PENDIENTE" ${w.status==='PENDIENTE'?'selected':''}>NO CONTACTADO</option>
+      <option value="CONTACTADO" ${w.status==='CONTACTADO'?'selected':''}>CONTACTADO</option>
+      <option value="PRESENTE" ${w.status==='PRESENTE'?'selected':''}>PRESENTE</option>
+      <option value="NO PRESENTADO" ${w.status==='NO PRESENTADO'?'selected':''}>NO PRESENTADO</option>
     </select>
     <button class="team-member-name" onclick="closeTeamMembersModal();openWorkerModal('${escapeAttr(w.id)}')">
       <strong>${escapeHtml(w.personal)}</strong>
@@ -10632,10 +11015,10 @@ function workerRowHtml(w){
     <td class="mobile-status">
       <select data-status-worker="${escapeAttr(w.id)}" class="status ${statusClass}"
         onchange="changeWorkerStatus('${escapeAttr(w.id)}',this.value)">
-        <option value="PENDIENTE">No contactado</option>
-        <option value="CONTACTADO">Contactado</option>
-        <option value="PRESENTE">Presente</option>
-        <option value="NO PRESENTADO">No presentado</option>
+        <option value="PENDIENTE">NO CONTACTADO</option>
+        <option value="CONTACTADO">CONTACTADO</option>
+        <option value="PRESENTE">PRESENTE</option>
+        <option value="NO PRESENTADO">NO PRESENTADO</option>
       </select>
     </td>
 
@@ -11984,34 +12367,108 @@ function operationalWorkMatches(work){
     normalize(work)===normalize(state.operationalWorkFilter);
 }
 
+/* v11.2.33: real pager, not a scrollLeft guess. Keeps all work types reachable
+   even when an iframe/browser refuses horizontal scrolling. */
+let operationalWorkPageStartV11233=0;
+let operationalWorkPageLastV11233=0;
+
+function updateOperationalWorkNextButton(){
+  const host=document.getElementById('operationalWorkFilters');
+  const prev=document.getElementById('operationalWorkPrevious');
+  const next=document.getElementById('operationalWorkNext');
+  if(!host||!prev||!next)return;
+
+  const items=[...host.querySelectorAll('.operational-work-chip-v122')];
+  if(!items.length){prev.disabled=true;next.disabled=true;return;}
+
+  const maxIndex=items.length-1;
+  const start=Math.max(0,Math.min(maxIndex,operationalWorkPageStartV11233));
+  operationalWorkPageStartV11233=start;
+
+  // Measure while temporarily visible; all items fit into a 1-row clipped rail.
+  items.forEach(button=>button.hidden=false);
+  const widths=items.map(button=>Math.ceil(button.getBoundingClientRect().width));
+  const available=Math.max(85,host.clientWidth-4);
+  let used=0;
+  let last=start;
+
+  for(let index=start;index<items.length;index++){
+    const width=Math.min(available,Math.max(36,widths[index]));
+    const required=width+(index>start?5:0);
+    if(index>start && used+required>available)break;
+    used+=required;
+    last=index;
+  }
+
+  operationalWorkPageLastV11233=last;
+  items.forEach((button,index)=>{
+    button.hidden=index<start||index>last;
+  });
+
+  prev.disabled=start===0;
+  next.disabled=last>=maxIndex;
+  next.classList.toggle('at-end-v11232',next.disabled);
+  host.scrollLeft=0;
+}
+
+function nextOperationalWorkType(){
+  const host=document.getElementById('operationalWorkFilters');
+  if(!host)return;
+  const count=host.querySelectorAll('.operational-work-chip-v122').length;
+  if(!count || operationalWorkPageLastV11233>=count-1)return;
+  operationalWorkPageStartV11233=operationalWorkPageLastV11233+1;
+  updateOperationalWorkNextButton();
+}
+
+function previousOperationalWorkType(){
+  const host=document.getElementById('operationalWorkFilters');
+  if(!host || operationalWorkPageStartV11233<=0)return;
+  const items=[...host.querySelectorAll('.operational-work-chip-v122')];
+  items.forEach(item=>item.hidden=false);
+  const available=Math.max(85,host.clientWidth-4);
+  let used=0;
+  let newStart=operationalWorkPageStartV11233-1;
+  for(let index=operationalWorkPageStartV11233-1;index>=0;index--){
+    const width=Math.min(available,Math.max(36,Math.ceil(items[index].getBoundingClientRect().width)));
+    if(used && used+width+5>available)break;
+    used+=width+(used?5:0);
+    newStart=index;
+  }
+  operationalWorkPageStartV11233=newStart;
+  updateOperationalWorkNextButton();
+}
+
 function renderOperationalWorkFilters(){
   const host=document.getElementById('operationalWorkFilters');
   if(!host||!state.service)return;
 
   const works=operationalWorkTypesForDay();
-
-  if(
-    state.operationalWorkFilter!=='ALL' &&
-    !works.some(w=>normalize(w)===normalize(state.operationalWorkFilter))
-  ){
+  if(state.operationalWorkFilter!=='ALL' &&
+     !works.some(w=>normalize(w)===normalize(state.operationalWorkFilter))){
     state.operationalWorkFilter='ALL';
   }
 
   const buttons=['ALL',...works];
-
-  host.innerHTML=buttons.map(work=>{
-    const active=
-      work==='ALL'
-        ? state.operationalWorkFilter==='ALL'
-        : normalize(work)===normalize(state.operationalWorkFilter);
-
-    return `<button type="button"
-      class="operational-work-chip-v122 ${active?'active':''}"
+  const signature=JSON.stringify(buttons);
+  if(host.dataset.workSignature!==signature){
+    host.dataset.workSignature=signature;
+    operationalWorkPageStartV11233=0;
+    host.innerHTML=buttons.map(work=>`<button type="button"
+      data-work-type="${escapeAttr(work)}"
+      class="operational-work-chip-v122"
       onclick="setOperationalWorkFilter('${escapeJsString(work)}')">
       ${escapeHtml(work==='ALL'?'TODO':work)}
-    </button>`;
-  }).join('');
+    </button>`).join('');
+  }
 
+  // Reuse the buttons instead of rebuilding them on every attendance update.
+  [...host.children].forEach((button,index)=>{
+    const work=buttons[index];
+    button.classList.toggle('active',
+      work==='ALL'?state.operationalWorkFilter==='ALL':
+      normalize(work)===normalize(state.operationalWorkFilter));
+  });
+  updateOperationalWorkNextButton();
   renderOperationalTimeFilters();
   updateSidebarUtilityBadges();
 }
@@ -12171,15 +12628,15 @@ function renderOperationalDashboard(){
   }
 
   host.innerHTML=`
-    <article class="dashboard-metric simple-v127">
+    <article class="dashboard-metric simple-v127 metric-present-v11232">
       <strong>${metrics.present}/${metrics.total}</strong>
       <span>Presentes</span>
     </article>
-    <article class="dashboard-metric simple-v127">
+    <article class="dashboard-metric simple-v127 metric-contacted-v11232">
       <strong>${metrics.contacted}</strong>
       <span>Contactados</span>
     </article>
-    <article class="dashboard-metric simple-v127">
+    <article class="dashboard-metric simple-v127 metric-absent-v11232">
       <strong>${metrics.absent}</strong>
       <span>No presentados</span>
     </article>
@@ -13113,28 +13570,37 @@ function refreshModalCustomScrollbars(){
 
 setTimeout(setupModalCustomScrollbars,0);
 window.addEventListener('resize',refreshModalCustomScrollbars);
+window.addEventListener('resize',updateOperationalWorkNextButton);
 
 document.addEventListener('click',closeTeamColorPalette);
 window.addEventListener('resize',closeTeamColorPalette);
 window.addEventListener('scroll',closeTeamColorPalette,true);
 
+</script>
 
-// Cloudflare demo entrypoint. The only credential remains in the parent session.
-(async function launchCloudflareCrew(){
-  const code=new URLSearchParams(location.search).get('service')||'';
-  if(!/^(svc[1-4]|9\d{5})$/.test(code))return;
-  try{
-    await window.CREW_CLOUDFLARE_REQUEST({kind:'init',code});
-    const service=await readServiceFromFirebase(code);
-    if(!service)throw new Error('No se ha podido cargar el servicio.');
-    openServiceData(service);
-  }catch(err){
-    const box=document.getElementById('startStatus');
-    if(box){box.textContent='No se pudo abrir el servicio: '+(err?.message||err);box.classList.remove('hidden');}
-    console.error('[Crew Control Cloudflare]',err);
+<script>
+(function(){
+  const back=document.getElementById('ccReturnEmployee');
+  const qr=document.getElementById('ccScanWorker');
+  const leave=()=>{
+    try{if(window.parent!==window&&typeof window.parent.closeCrewFullscreen==='function'){window.parent.closeCrewFullscreen();return}}catch(e){}
+    if(window.parent!==window)window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin);
+    else location.replace('/');
+  };
+  back?.addEventListener('click',leave);
+  qr?.addEventListener('click',()=>{if(window.parent!==window)window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)});
+  function init(){
+    const code=new URLSearchParams(location.search).get('service');
+    if(!code)return;
+    const allowed=/^(svc[1-4]|9[0-9]{5})$/.test(code);
+    if(!allowed)return;
+    const el=document.getElementById('serviceCodeInput');if(el)el.value=code;
+    Promise.resolve().then(()=>firebaseLoadService(code)).then(service=>{
+      if(service)openServiceData(service);
+    }).catch(err=>{const t=document.getElementById('startStatus');if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}});
   }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
-
 </script>
 </body>
 </html>
