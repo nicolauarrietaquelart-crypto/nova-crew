@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=20261030-clock-panel-visible">
+  <link rel="stylesheet" href="/assets/styles.css?v=20261030-touch-clock">
 </head>
 <body data-webapp-url="" data-incoming-qr="" data-external-scanner="">
   <section id="loginView" class="login-view">
@@ -105,10 +105,10 @@
               <div class="location-compare">
                 <div><small>Ubicación del servicio</small><strong id="venueLocationName">—</strong><span id="venueCoords">—</span></div>
                 <div class="distance-circle"><b id="distanceValue">—</b><span>distancia</span></div>
-                <div><small>Tu ubicación</small><strong id="workerLocationStatus">Sin comprobar</strong><span id="workerCoords">Pulsa “Comprobar ubicación”</span></div>
+                <div><small>Tu ubicación</small><strong id="workerLocationStatus">Sin comprobar</strong><span id="workerCoords">La ubicación se comprobará automáticamente al fichar</span></div>
               </div>
               <div id="geoStatus" class="geo-status neutral">Todavía no hemos comprobado tu posición.</div>
-              <div class="inline-actions"><button id="checkLocationBtn" class="btn dark">Comprobar ubicación</button><button id="checkInBtn" class="btn primary" disabled>Registrar entrada</button><button id="checkOutBtn" class="btn light" disabled>Registrar salida</button></div>
+              <div class="inline-actions nova-clock-actions"><button id="checkInBtn" class="btn primary" type="button">Registrar entrada</button><button id="checkOutBtn" class="btn light" type="button">Registrar salida</button></div><p class="nova-clock-helper">Al pulsar, verificaremos tu ubicación y el horario del servicio automáticamente.</p>
               <div id="clockLog" class="clock-log"></div>
             </article>
             <aside class="glass card clock-side"><h4>Cómo funciona</h4><ol><li>Detectamos automáticamente el servicio más próximo a tu horario.</li><li>El navegador solicita tu geolocalización.</li><li>Comparamos tu distancia con las coordenadas del recinto.</li><li>El fichaje se habilita si estás dentro del radio permitido.</li></ol><div class="demo-note">Demo: al estar fuera del recinto el sistema mostrará la distancia real y bloqueará el fichaje.</div></aside>
@@ -263,7 +263,7 @@
 
   <div id="toast" class="toast"><b id="toastTitle">Listo</b><span id="toastText">Acción completada.</span></div>
   <script src="/assets/api-client.js"></script>
-  <script src="/assets/portal.js?v=20261030-gps-role-scope"></script>
+  <script src="/assets/portal.js?v=20261030-one-tap-gps"></script>
   <script src="/assets/extras.js"></script>
   <script src="/assets/qr-encoder.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
