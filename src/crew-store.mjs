@@ -135,7 +135,7 @@ export async function handleSmallCoord(storage,actor,body){
     return Object.values(doc.workers).filter(w=>allowed.has(w.id)&&w.trabajo==='SFX').map(w=>({
       id:w.id,name:w.personal,role:w.especialidad,phone:w.movil||'',start:w.actualStart||w.inicio,
       end:w.actualEnd||w.fin,status:w.status||'PENDIENTE',pause:w.pausa||'00:30',
-      diet:w.nDieta?'Sí':'No',rating:w.ratingActitud||0,ratingUniformidad:Number(w.ratingUniformidad||0),ratingActitud:Number(w.ratingActitud||0),ratingPuntualidad:Number(w.ratingPuntualidad||0),incident:w.notes||'',
+      diet:String(w.nDieta??0),rating:w.ratingActitud||0,ratingUniformidad:Number(w.ratingUniformidad||0),ratingActitud:Number(w.ratingActitud||0),ratingPuntualidad:Number(w.ratingPuntualidad||0),incident:w.notes||'',
       isCoordinator:!!w.isSubCoordinator
     }));
   };
@@ -146,11 +146,14 @@ export async function handleSmallCoord(storage,actor,body){
   const change=body?.changes;
   if(!change||typeof change!=='object'||Array.isArray(change))return fail('Modificación inválida.');
   const ratingFields=['ratingUniformidad','ratingActitud','ratingPuntualidad'];
-  const permitted=['start','end','status','pause','diet','rating','incident',...ratingFields];
+  const permitted=['start','end','status','pause','diet','role','rating','incident',...ratingFields];
   if(Object.keys(change).some(k=>!permitted.includes(k)))return fail('Solo puedes editar horarios, estado y valoración de tu equipo.',403);
   if(['start','end'].some(k=>change[k]!==undefined&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(change[k]))))return fail('Horario no válido.');
   const accepted=['PENDIENTE','PRESENTE','CONTACTADO','NO CONTACTADO','NO PRESENTADO'];
   if(change.status!==undefined&&!accepted.includes(change.status))return fail('Estado no permitido.');
+  if(change.role!==undefined&&(typeof change.role!=='string'||change.role.length>60||!change.role.trim()))return fail('Puesto no válido.',400);
+  if(change.diet!==undefined&&!/^[0-3]$/.test(String(change.diet))&&!['Sí','No'].includes(change.diet))return fail('Dietas no válidas.',400);
+  if(change.pause!==undefined&&!['00:00','00:15','00:30','00:45','01:00','01:30','02:00'].includes(change.pause))return fail('Pausa no válida.',400);
   // Validate individually. A legacy single rating changes only Actitud.
   for(const field of [...ratingFields,'rating']){
     if(change[field]===undefined)continue;
@@ -168,6 +171,7 @@ export async function handleSmallCoord(storage,actor,body){
         if(change[field]===undefined)continue;
         if(field==='rating'){w.rating=change.rating;w.ratingActitud=change.rating;}
         else if(ratingFields.includes(field)){w[field]=change[field];if(field==='ratingActitud')w.rating=change[field];}
+        else if(field==='diet')w.diet=change.diet==='Sí'?'1':change.diet==='No'?'0':String(change.diet);
         else w[field]=String(change[field]).slice(0,200);
       }
       updated={...w};
@@ -179,9 +183,10 @@ export async function handleSmallCoord(storage,actor,body){
       if(change.end!==undefined)w.actualEnd=change.end;
       if(change.status!==undefined)w.status=change.status;
       if(change.pause!==undefined)w.pausa=String(change.pause).slice(0,12);
-      if(change.diet!==undefined)w.nDieta=change.diet==='Sí'?1:0;
+      if(change.diet!==undefined)w.nDieta=change.diet==='Sí'?1:change.diet==='No'?0:Number(change.diet);
       for(const field of ratingFields){if(change[field]!==undefined)w[field]=change[field];}
       if(change.rating!==undefined)w.ratingActitud=change.rating;
+      if(change.role!==undefined)w.especialidad=String(change.role).slice(0,60);
       if(change.incident!==undefined)w.notes=String(change.incident).slice(0,200);
       updated={...w};
       rec.root.updatedAt=time();
