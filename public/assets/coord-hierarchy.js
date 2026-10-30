@@ -109,7 +109,7 @@ function render(){
  '<select aria-label="Estado de '+escape(w.name)+'" data-nova-status="'+escape(w.id)+'">'+statuses.map(v=>'<option value="'+v+'" '+(w.status===v?'selected':'')+'>'+v+'</option>').join('')+'</select>'+
  ratingSummary(w)+
  '<div class="nova-unified-last">'+(w.phone?'<a href="tel:'+escape(w.phone.replace(/[^\d+]/g,''))+'">Llamar</a>':'')+
- '<button class="btn light" type="button" data-nova-edit="'+escape(w.id)+'">Ficha</button></div>'+
+ '</div>'+
  '</article>').join('')+
  (list.length?'':'<div class="nova-unified-empty">No hay trabajadores que coincidan con estos filtros.</div>')+
  '</div><p class="nova-unified-hint">Pulsa un nombre o una fila para seleccionarla en naranja. Las estrellas se guardan como valoraciones, separadas de las incidencias.</p>'+
