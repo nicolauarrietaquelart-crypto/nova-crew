@@ -1,0 +1,1000 @@
+    .sidebar-operational-v122 .dashboard-metric.metric-present-v11232 strong{color:#14864c!important}
+    .sidebar-operational-v122 .dashboard-metric.metric-contacted-v11232 strong{color:#d96b0d!important}
+    .sidebar-operational-v122 .dashboard-metric.metric-absent-v11232 strong{color:#c42d38!important}
+    .metric-present-v11232,
+    .metric-contacted-v11232,
+    .metric-absent-v11232{
+      background:linear-gradient(155deg,rgba(255,255,255,.92),rgba(246,249,252,.80))!important;
+      border-color:rgba(255,255,255,.95)!important;
+      box-shadow:inset 0 1px 0 #fff,0 3px 12px rgba(18,24,32,.04)!important;
+    }
+
+    /* A compact arrow outside the scrollable service chips; does not cover a label. */
+    .operational-work-nav-v11232{
+      display:grid!important;
+      grid-template-columns:minmax(0,1fr) 31px!important;
+      gap:5px!important;
+      align-items:center!important;
+      min-width:0!important;
+      width:100%!important;
+    }
+    .operational-work-nav-v11232 .operational-work-filters-v122{
+      width:100%!important;
+      min-width:0!important;
+      display:flex!important;
+      flex-wrap:nowrap!important;
+      overflow-x:auto!important;
+      overflow-y:hidden!important;
+      gap:5px!important;
+      padding:2px!important;
+      scrollbar-width:none!important;
+      mask-image:none!important;
+      -webkit-mask-image:none!important;
+      scroll-behavior:auto!important;
+      overscroll-behavior-x:contain!important;
+    }
+    .operational-work-nav-v11232 .operational-work-filters-v122::-webkit-scrollbar{
+      display:none!important;
+    }
+    .operational-work-nav-v11232 .operational-work-chip-v122{
+      flex:none!important;
+      white-space:nowrap!important;
+      min-width:max-content!important;
+      margin:0!important;
+    }
+    .operational-work-next-v11232{
+      width:31px!important;
+      min-width:31px!important;
+      height:34px!important;
+      min-height:34px!important;
+      padding:0!important;
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      border:1px solid rgba(255,255,255,.86)!important;
+      border-radius:11px!important;
+      color:#111!important;
+      font-size:24px!important;
+      font-weight:750!important;
+      line-height:1!important;
+      background:linear-gradient(140deg,rgba(255,255,255,.86),rgba(237,240,245,.72))!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.98),0 3px 9px rgba(25,30,40,.07)!important;
+      cursor:pointer!important;
+    }
+    .operational-work-next-v11232:disabled{
+      opacity:.37!important;
+      cursor:default!important;
+    }
+    .operational-work-next-v11232.at-end-v11232{
+      color:#e46b08!important;
+    }
+
+    /* Status labels in row/team selections, without changing backend values. */
+    select.status{
+      text-transform:uppercase!important;
+      letter-spacing:.005em!important;
+      font-weight:850!important;
+    }
+
+    /* During reorder, the complete orange edge remains visible, including corners. */
+    .work-group.work-drop-target-v11227{
+      position:relative!important;
+      z-index:8!important;
+      border:2px solid #ff7a14!important;
+      outline:none!important;
+      box-shadow:
+        0 0 0 3px rgba(255,122,20,.32),
+        0 10px 24px rgba(24,28,36,.12)!important;
+      isolation:isolate!important;
+    }
+    .work-group.work-drop-target-v11227 > .work-group-head{
+      box-shadow:inset 0 4px 0 #ff7a14!important;
+      border-radius:inherit!important;
+    }
+    .work-dragging-v11227 .work-group{
+      scroll-margin-top:12px!important;
+    }
+
+    /* Full-width black modal headings follow the card's curves. */
+    .modal-card.integrated-modal-card-v129,
+    .modal-card.bulk-changes-modal-v125{
+      border-radius:23px!important;
+      border:1px solid rgba(255,255,255,.90)!important;
+      scrollbar-gutter:auto!important;
+      background:rgba(250,251,253,.97)!important;
+      overflow-x:hidden!important;
+    }
+    .integrated-modal-head-v129,
+    .bulk-changes-head-v125{
+      border-radius:22px 22px 0 0!important;
+      background:#151515!important;
+      padding:18px 21px!important;
+      margin:0!important;
+      width:100%!important;
+      flex-shrink:0!important;
+      box-sizing:border-box!important;
+    }
+    .integrated-modal-head-v129::before,
+    .integrated-modal-head-v129::after,
+    .bulk-changes-head-v125::before,
+    .bulk-changes-head-v125::after{
+      box-shadow:none!important;
+    }
+    .integrated-modal-head-v129 .modal-close,
+    .bulk-changes-head-v125 .modal-close{
+      flex:0 0 auto!important;
+    }
+
+    /* Static glass accents. No per-worker blur or motion. */
+    .personnel-sidebar-v121,
+    .service-top,
+    .card,
+    .work-group{
+      border-color:rgba(255,255,255,.91)!important;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.96),
+        0 9px 24px rgba(25,30,39,.055)!important;
+    }
+    .personnel-sidebar-v121{
+      background:linear-gradient(155deg,rgba(255,255,255,.87),rgba(242,246,251,.76))!important;
+      backdrop-filter:blur(9px) saturate(115%)!important;
+      -webkit-backdrop-filter:blur(9px) saturate(115%)!important;
+    }
+    .operational-work-next-v11232,
+    .metric-present-v11232,
+    .metric-contacted-v11232,
+    .metric-absent-v11232{
+      transition:none!important;
+      animation:none!important;
+    }
+    @media(max-width:900px){
+      .operational-work-nav-v11232{
+        grid-template-columns:minmax(0,1fr) 37px!important;
+      }
+      .operational-work-next-v11232{
+        width:37px!important;
+        min-width:37px!important;
+        height:38px!important;
+        min-height:38px!important;
+      }
+    }
+    @media(max-width:700px){
+      .modal-card.integrated-modal-card-v129,
+      .modal-card.bulk-changes-modal-v125{
+        background:#f8f9fb!important;
+        border-radius:18px!important;
+        backdrop-filter:none!important;
+      }
+      .integrated-modal-head-v129,
+      .bulk-changes-head-v125{
+        border-radius:17px 17px 0 0!important;
+      }
+      .personnel-sidebar-v121{
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+      }
+    }
+
+
+    /* =============================================================
+       v11.2.33 · functioning work-type pager + solid floating header
+       ============================================================= */
+    .operational-work-pager-v11233{
+      display:grid!important;
+      grid-template-columns:31px minmax(0,1fr) 31px!important;
+      gap:5px!important;
+      align-items:center!important;
+      min-width:0!important;
+    }
+    .operational-work-pager-v11233 #operationalWorkFilters{
+      display:flex!important;
+      flex-wrap:nowrap!important;
+      overflow:hidden!important;
+      min-width:0!important;
+      padding:1px 0!important;
+      gap:5px!important;
+      scroll-behavior:auto!important;
+      mask:none!important;
+      -webkit-mask:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-chip-v122{
+      flex:none!important;
+      max-width:100%!important;
+      min-width:0!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      cursor:pointer!important;
+      transition:none!important;
+      transform:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-chip-v122[hidden]{
+      display:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-next-v11232{
+      width:31px!important;
+      height:34px!important;
+      min-width:31px!important;
+      min-height:34px!important;
+      border-radius:12px!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 3px 10px rgba(22,28,34,.065)!important;
+      transition:none!important;
+    }
+    .operational-work-pager-v11233 .operational-work-next-v11232:disabled{
+      opacity:.28!important;
+      cursor:default!important;
+    }
+
+    /* Completely opaque at rest and while scrolling. Only the shape changes. */
+    body > header{
+      position:fixed!important;
+      top:0!important;
+      left:0!important;
+      right:0!important;
+      width:100%!important;
+      height:var(--crew-header-h)!important;
+      min-height:0!important;
+      padding:8px 0!important;
+      margin:0!important;
+      display:flex!important;
+      align-items:center!important;
+      box-sizing:border-box!important;
+      background:#101014!important;
+      background-image:none!important;
+      opacity:1!important;
+      border:0!important;
+      border-bottom:4px solid #ff7a14!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      z-index:1300!important;
+      transform:none!important;
+      transition:left .18s ease,right .18s ease,top .18s ease,width .18s ease,
+                 height .18s ease,border-radius .18s ease,box-shadow .18s ease!important;
+    }
+    body > header > .wrap{
+      width:100%!important;
+      max-width:1400px!important;
+      padding:0 22px!important;
+      background:transparent!important;
+      border:0!important;
+      box-shadow:none!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+    }
+    body > header .brand{align-items:center!important;}
+    body > header.crew-header-floating-v11233{
+      top:9px!important;
+      left:14px!important;
+      right:14px!important;
+      width:calc(100% - 28px)!important;
+      height:67px!important;
+      border-radius:20px!important;
+      border:1px solid rgba(255,255,255,.18)!important;
+      border-bottom:3px solid #ff7a14!important;
+      box-shadow:0 14px 30px rgba(15,17,22,.20)!important;
+      background:#101014!important;
+      overflow:hidden!important;
+    }
+    body > header.crew-header-floating-v11233 .demo-mark{
+      width:46px!important;
+      height:46px!important;
+      border-radius:13px!important;
+    }
+    body > header.crew-header-floating-v11233 h1{font-size:18px!important;}
+    body > header.crew-header-floating-v11233 .subtitle{font-size:10px!important;}
+
+    /* Static liquid-glass accents only on larger panels, not 150 individual rows. */
+    .card,.work-group,.service-top,.personnel-sidebar-v121{
+      border-color:rgba(255,255,255,.90)!important;
+      background:linear-gradient(155deg,rgba(255,255,255,.89),rgba(243,247,252,.79))!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.97),0 9px 24px rgba(22,26,34,.055)!important;
+    }
+    .work-group > summary,.work-group-head{
+      transform:none!important;
+      transition:none!important;
+    }
+    .work-group .work-group-title button{
+      touch-action:manipulation!important;
+    }
+    .work-group.work-drop-target-v11227{outline-offset:0!important;}
+    .personnel-sidebar-v121{
+      backdrop-filter:blur(7px) saturate(112%)!important;
+      -webkit-backdrop-filter:blur(7px) saturate(112%)!important;
+    }
+    @media(max-width:900px){
+      .operational-work-pager-v11233{
+        grid-template-columns:36px minmax(0,1fr) 36px!important;
+      }
+      .operational-work-pager-v11233 .operational-work-next-v11232{
+        width:36px!important;
+        height:38px!important;
+        min-width:36px!important;
+        min-height:38px!important;
+      }
+    }
+    @media(max-width:700px){
+      body > header{
+        padding:5px 0!important;
+        height:var(--crew-header-h)!important;
+      }
+      body > header.crew-header-floating-v11233{
+        left:8px!important;
+        right:8px!important;
+        top:7px!important;
+        width:calc(100% - 16px)!important;
+        height:50px!important;
+        border-radius:16px!important;
+      }
+      body > header > .wrap{padding:0 12px!important;}
+      body > header.crew-header-floating-v11233 .demo-mark{
+        width:36px!important;height:36px!important;border-radius:10px!important;
+      }
+      body > header.crew-header-floating-v11233 h1{font-size:14px!important;}
+      body > header.crew-header-floating-v11233 .subtitle{font-size:9px!important;}
+      .personnel-sidebar-v121{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+      /* No accidental horizontal scrolling for mobile worker cards. */
+      tbody[data-work-team-body] tr[data-worker-row]{max-width:100%!important;}
+      .worker-open{overflow-wrap:anywhere!important;}
+    }
+    @media(prefers-reduced-motion:reduce){
+      body > header{transition:none!important;}
+    }
+
+
+/* NOVA Crew Cloudflare: normal flow scrolling and original 11.2.33 layout without nested scrollbars */
+html{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:thin!important;scrollbar-color:#aeb1b6 transparent!important}
+body{height:auto!important;min-height:100vh!important;padding-top:0!important;overflow-x:hidden!important;overflow-y:visible!important;touch-action:pan-y pinch-zoom!important}
+body > header{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;min-height:0!important;height:78px!important;z-index:1300!important;margin:0!important;overflow:visible!important;background:#101014!important}
+body > header.crew-header-floating-v11233{position:sticky!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:72px!important;border-radius:0!important;border:0!important;border-bottom:4px solid #ff7a14!important;box-shadow:0 8px 25px rgba(0,0,0,.14)!important;overflow:visible!important}
+body > header > .wrap{width:min(1480px,calc(100% - 24px))!important;max-width:1480px!important;margin:auto!important;padding:0 14px!important}
+.cc-demo-header{display:flex!important;flex-direction:row-reverse!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;height:100%!important}
+.cc-portal-actions{display:flex;align-items:center;flex-shrink:0;gap:8px;position:relative;z-index:1400}
+.cc-portal-actions button{font-size:12px;font-weight:800;min-height:38px;padding:8px 12px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.cc-portal-back{background:#252525!important;color:#fff!important;border:1px solid #555!important}
+.cc-portal-qr{background:#f58220!important;color:#111!important;border:0!important}
+#initialPdfUploadPanel,#sidebarPdfManager{display:none!important}
+body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215,
+body.control-sidebar-open .personnel-sidebar-v121{top:92px!important;max-height:calc(100dvh - 105px)!important;overflow-y:auto!important;overscroll-behavior-y:contain!important}
+body.control-sidebar-open .personnel-sidebar-v121::-webkit-scrollbar{width:5px}
+body.control-sidebar-open .personnel-sidebar-v121::-webkit-scrollbar-thumb{background:#c8cbd0;border-radius:999px}
+/* Preserve header and usable content, no overlap with staffing sidebar */
+body.control-sidebar-open main.wrap{margin-top:0!important}
+@media(max-width:900px){
+ :root{--crew-header-h:65px!important}
+ body > header,body > header.crew-header-floating-v11233{height:64px!important;min-height:64px!important}
+ .cc-demo-header{flex-direction:row-reverse!important;gap:8px!important}
+ .cc-portal-actions{gap:6px!important}
+ .cc-portal-actions button{font-size:10px!important;padding:6px 8px!important;min-height:34px!important;white-space:normal!important}
+ .cc-demo-header .brand h1{font-size:15px!important}
+ body.control-sidebar-open .personnel-sidebar-v121.personnel-sidebar-portal-v1215,
+ body.control-sidebar-open .personnel-sidebar-v121{position:static!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important}
+}
+@media(max-width:430px){.cc-demo-header .subtitle{display:none!important}.cc-portal-back{max-width:144px}}
+
+    /* ===========================================================
+       v11.2.34 — mobile header dropdown, compact crew operations.
+       Reuses the existing sidebar and application state, no extra
+       database calls, no per-row blur or costly animations.
+       =========================================================== */
+    .mobile-ops-toggle-v11234,
+    .mobile-ops-more-v11234,
+    .mobile-operational-drawer-v11234{display:none!important}
+    .arrival-mode-v128{display:none!important}
+
+    @media(max-width:900px){
+      body > header > .wrap{
+        display:flex!important;
+        align-items:center!important;
+        justify-content:space-between!important;
+        gap:8px!important;
+        min-width:0!important;
+      }
+      .mobile-ops-toggle-v11234:not([hidden]){
+        display:inline-flex!important;
+        flex:0 0 38px!important;
+        width:38px!important;
+        height:38px!important;
+        min-height:38px!important;
+        align-items:center!important;
+        justify-content:center!important;
+        padding:0!important;
+        border-radius:13px!important;
+        border:1px solid rgba(255,255,255,.30)!important;
+        background:rgba(255,255,255,.11)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.17)!important;
+        color:#fff!important;
+        cursor:pointer!important;
+        touch-action:manipulation!important;
+      }
+      .mobile-ops-toggle-v11234[hidden]{display:none!important;}
+      .mobile-ops-toggle-v11234 svg{
+        width:19px!important;
+        height:19px!important;
+        stroke:currentColor!important;
+        stroke-width:2.5!important;
+        stroke-linecap:round!important;
+        stroke-linejoin:round!important;
+        fill:none!important;
+        transform:none!important;
+      }
+      .mobile-ops-toggle-v11234[aria-expanded="true"]{
+        background:#ff7a14!important;
+        color:#111!important;
+        border-color:#ff7a14!important;
+      }
+      .mobile-ops-toggle-v11234[aria-expanded="true"] svg{
+        transform:rotate(180deg)!important;
+      }
+      .mobile-operational-drawer-v11234{
+        position:fixed!important;
+        display:none!important;
+        z-index:1295!important;
+        top:calc(var(--crew-header-h, 60px) + 6px)!important;
+        left:8px!important;
+        right:8px!important;
+        width:auto!important;
+        height:auto!important;
+        max-height:calc(100dvh - var(--crew-header-h, 60px) - 22px)!important;
+        overflow-x:hidden!important;
+        overflow-y:auto!important;
+        padding:4px!important;
+        margin:0!important;
+        border:1px solid rgba(255,255,255,.90)!important;
+        border-top:2px solid #ff7a14!important;
+        border-radius:18px!important;
+        background:rgba(249,250,252,.97)!important;
+        box-shadow:0 16px 42px rgba(17,20,26,.22),inset 0 1px 0 rgba(255,255,255,.96)!important;
+        backdrop-filter:blur(7px) saturate(118%)!important;
+        -webkit-backdrop-filter:blur(7px) saturate(118%)!important;
+        overscroll-behavior:contain!important;
+        scrollbar-width:thin!important;
+        scrollbar-color:rgba(100,102,110,.32) transparent!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-expanded-v11234{
+        display:block!important;
+      }
+      body > header.crew-header-floating-v11233 ~ .mobile-operational-drawer-v11234{
+        top:64px!important;
+      }
+      .mobile-operational-drawer-v11234 .personnel-sidebar-v121{
+        display:block!important;
+        position:static!important;
+        inset:auto!important;
+        width:100%!important;
+        max-width:100%!important;
+        height:auto!important;
+        max-height:none!important;
+        overflow:visible!important;
+        padding:10px!important;
+        margin:0!important;
+        border:0!important;
+        border-radius:14px!important;
+        background:rgba(255,255,255,.46)!important;
+        box-shadow:none!important;
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+        contain:none!important;
+        transform:none!important;
+      }
+      .mobile-operational-drawer-v11234 .personnel-sidebar-title-v121{
+        display:flex!important;
+        align-items:center!important;
+        justify-content:space-between!important;
+        padding:0!important;
+        margin:0 0 8px!important;
+        min-height:0!important;
+        background:transparent!important;
+        color:#111!important;
+        border:0!important;
+        border-radius:0!important;
+      }
+      .mobile-operational-drawer-v11234 .personnel-sidebar-title-v121 h2{
+        margin:0!important;
+        padding:0!important;
+        font-size:13px!important;
+        font-weight:850!important;
+        color:#111!important;
+        line-height:1.2!important;
+      }
+      .mobile-operational-drawer-v11234 #sidebarCollapseBtn{display:none!important;}
+      .mobile-operational-drawer-v11234 .sidebar-operational-head-v122,
+      .mobile-operational-drawer-v11234 #operationalAlerts,
+      .mobile-operational-drawer-v11234 #stats{
+        display:none!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-operational-v122{
+        display:flex!important;
+        flex-direction:column!important;
+        gap:6px!important;
+        margin:0 0 7px!important;
+        padding:0!important;
+      }
+      .mobile-operational-drawer-v11234 .operational-work-nav-v11232{
+        width:100%!important;
+        min-height:34px!important;
+      }
+      .mobile-operational-drawer-v11234 .operational-time-filters-v1210{
+        margin:0!important;
+        padding:0!important;
+        max-height:36px!important;
+        min-height:0!important;
+      }
+      .mobile-operational-drawer-v11234 .operational-work-chip-v122,
+      .mobile-operational-drawer-v11234 .operational-time-chip-v1210{
+        font-size:10px!important;
+        font-weight:800!important;
+        padding:6px 9px!important;
+        min-height:32px!important;
+        border-radius:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #operationalDashboard{
+        display:grid!important;
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+        gap:5px!important;
+        margin:0!important;
+        padding:0!important;
+      }
+      .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127{
+        min-width:0!important;
+        min-height:58px!important;
+        height:auto!important;
+        padding:8px 5px!important;
+        border-radius:12px!important;
+        background:#fff!important;
+        border:1px solid rgba(13,17,25,.08)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.95)!important;
+      }
+      .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127 strong{
+        font-size:clamp(12px,3.3vw,18px)!important;
+        line-height:1.15!important;
+        white-space:nowrap!important;
+        overflow:visible!important;
+        font-weight:900!important;
+      }
+      .mobile-operational-drawer-v11234 .dashboard-metric.simple-v127 span{
+        display:block!important;
+        margin-top:3px!important;
+        font-size:9px!important;
+        line-height:1.08!important;
+        white-space:normal!important;
+        overflow-wrap:break-word!important;
+        text-overflow:clip!important;
+        color:#636771!important;
+      }
+      .mobile-operational-drawer-v11234 .metric-present-v11232 strong{color:#13844b!important;}
+      .mobile-operational-drawer-v11234 .metric-contacted-v11232 strong{color:#d66a07!important;}
+      .mobile-operational-drawer-v11234 .metric-absent-v11232 strong{color:#c23131!important;}
+      .mobile-operational-drawer-v11234 .days-nav{
+        display:flex!important;
+        width:100%!important;
+        flex-wrap:nowrap!important;
+        overflow-x:auto!important;
+        gap:4px!important;
+        padding:0!important;
+        margin:3px 0 5px!important;
+        scrollbar-width:none!important;
+      }
+      .mobile-operational-drawer-v11234 .days-nav::-webkit-scrollbar{display:none!important;}
+      .mobile-operational-drawer-v11234 .days-nav .day-tab,
+      .mobile-operational-drawer-v11234 .days-nav .day-btn{
+        font-size:10px!important;
+        min-height:30px!important;
+        padding:5px 8px!important;
+      }
+      .mobile-operational-drawer-v11234 .toolbar.personnel-sidebar-toolbar-v121{
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+        gap:6px!important;
+        padding:0!important;
+        margin:0!important;
+        align-items:stretch!important;
+      }
+      .mobile-operational-drawer-v11234 #searchWorker{
+        grid-column:1/-1!important;
+        grid-row:1!important;
+        width:100%!important;
+        min-width:0!important;
+        min-height:34px!important;
+        margin:0!important;
+        padding:7px 12px!important;
+        font-size:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #quickStatusFilter{
+        grid-column:1!important;
+        grid-row:2!important;
+        width:100%!important;
+        min-width:0!important;
+        min-height:36px!important;
+        font-size:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #scopeSelectBtn{
+        grid-column:2!important;
+        grid-row:2!important;
+        width:100%!important;
+        margin:0!important;
+        min-width:0!important;
+        min-height:36px!important;
+        font-size:11px!important;
+      }
+      .mobile-operational-drawer-v11234 #selectedCounter{
+        grid-column:1/-1!important;
+        grid-row:3!important;
+        min-height:28px!important;
+        height:28px!important;
+        margin:0!important;
+        padding:4px!important;
+        font-size:11px!important;
+        border-radius:9px!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-actions-v124{
+        grid-column:1/-1!important;
+        grid-row:4!important;
+        display:grid!important;
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+        gap:6px!important;
+        padding:0!important;
+        margin:0!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124{
+        width:100%!important;
+        min-width:0!important;
+        height:38px!important;
+        min-height:38px!important;
+        font-size:18px!important;
+        border-radius:12px!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.visible{display:none!important;}
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.rate{display:none!important;}
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.present,
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.absent,
+      .mobile-operational-drawer-v11234 .sidebar-icon-btn-v124.changes-v125{
+        display:flex!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-icon-actions-v124{
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      }
+      .mobile-ops-more-v11234{
+        display:flex!important;
+        grid-column:1/-1!important;
+        grid-row:5!important;
+        align-items:center!important;
+        justify-content:center!important;
+        gap:6px!important;
+        width:100%!important;
+        min-height:30px!important;
+        border:1px solid rgba(0,0,0,.08)!important;
+        background:rgba(255,255,255,.76)!important;
+        color:#353941!important;
+        border-radius:10px!important;
+        font-size:10px!important;
+        font-weight:750!important;
+      }
+      .mobile-operational-drawer-v11234 .sidebar-link-actions-v129,
+      .mobile-operational-drawer-v11234 #sidebarPdfManager{
+        display:none!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 .sidebar-link-actions-v129{
+        display:grid!important;
+        grid-column:1/-1!important;
+        grid-row:6!important;
+        margin:0!important;
+        padding:0!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 #sidebarPdfManager:not(.hidden){
+        display:block!important;
+        grid-column:1/-1!important;
+        grid-row:7!important;
+        margin:0!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 .sidebar-icon-btn-v124.rate{
+        display:flex!important;
+      }
+      .mobile-operational-drawer-v11234.mobile-ops-more-open-v11234 .sidebar-icon-actions-v124{
+        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+      }
+      #mobileOperationalHome{display:none!important;}
+    }
+    @media(max-width:700px){
+      .mobile-operational-drawer-v11234{
+        top:calc(var(--crew-header-h, 58px) + 6px)!important;
+        border-radius:17px!important;
+      }
+      body > header.crew-header-floating-v11233 ~ .mobile-operational-drawer-v11234{
+        top:63px!important;
+      }
+    }
+
+  
+
+    /* v11.2.35 — touch reorder + deep glass. Single lightweight dark gradient,
+       no continuously animated filters or backdrops on worker rows. */
+    .work-group > summary.work-group-head,
+    .integrated-modal-head-v129,
+    .bulk-changes-head-v125,
+    .personnel-sidebar-title-v121,
+    body > header,
+    body > header.crew-header-floating-v11233{
+      background:linear-gradient(140deg,#1b1b20 0%,#111115 58%,#211e20 100%)!important;
+      background-color:#111115!important;
+      color:#fff!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10),
+        inset 0 -1px 0 rgba(255,122,20,.15)!important;
+    }
+    .operational-work-chip-v122.active,
+    .sidebar-ops-counter-v124,
+    .selected-counter{
+      background:linear-gradient(140deg,#202025 0%,#111114 90%)!important;
+      color:#fff!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.10)!important;
+    }
+    .work-group-head .group-bulk-btn{
+      background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.04))!important;
+      border-color:rgba(255,122,20,.40)!important;
+    }
+    .work-group.work-drop-target-v11227,
+    .work-group.touch-work-target-v11235{
+      outline:2px solid #ff7a14!important;
+      outline-offset:0!important;
+      box-shadow:0 0 0 2px rgba(255,122,20,.25),
+        inset 0 1px 0 rgba(255,255,255,.24)!important;
+    }
+    .work-group.touch-work-target-v11235 > summary.work-group-head{
+      background:linear-gradient(140deg,#2c211e 0%,#171518 65%,#322016 100%)!important;
+    }
+    .touch-work-ghost-v11235{
+      position:fixed!important;
+      z-index:4000!important;
+      width:max-content!important;
+      max-width:min(60vw,225px)!important;
+      padding:11px 14px!important;
+      border-radius:13px!important;
+      color:#fff!important;
+      background:linear-gradient(135deg,#29272b,#111115)!important;
+      border:1px solid rgba(255,122,20,.90)!important;
+      box-shadow:0 12px 25px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.13)!important;
+      font-size:12px!important;
+      font-weight:900!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      pointer-events:none!important;
+      user-select:none!important;
+      -webkit-user-select:none!important;
+      touch-action:none!important;
+    }
+    @media(max-width:900px){
+      /* The black service strip replaces arrows as the touch reorder surface. */
+      .work-order-touch-v11227,
+      .work-order-touch-v11227 button{display:none!important;}
+      .work-drag-handle-v11227{
+        display:inline-flex!important;
+        min-width:22px!important;
+        width:22px!important;
+        height:28px!important;
+        margin-right:3px!important;
+        color:rgba(255,255,255,.65)!important;
+        pointer-events:none!important;
+      }
+      .work-group > summary.work-group-head{
+        user-select:none!important;
+        -webkit-user-select:none!important;
+        touch-action:pan-y!important;
+        -webkit-touch-callout:none!important;
+        cursor:grab!important;
+      }
+      body.touch-work-reordering-v11235 .work-group-head{cursor:grabbing!important;}
+      .mobile-ops-toggle-v11234:not([hidden]){
+        background:linear-gradient(150deg,rgba(255,255,255,.20),rgba(255,255,255,.07))!important;
+        border-color:rgba(255,255,255,.40)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.24)!important;
+      }
+      .mobile-ops-toggle-v11234[aria-expanded="true"]{
+        background:linear-gradient(145deg,#ff9d4b,#ff7a14)!important;
+        color:#111!important;
+        border-color:#ff7a14!important;
+      }
+      .mobile-operational-drawer-v11234{
+        background:linear-gradient(165deg,rgba(254,254,255,.98),rgba(240,244,248,.96))!important;
+        box-shadow:0 16px 40px rgba(16,20,29,.18),
+          inset 0 1px 0 rgba(255,255,255,.99)!important;
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <button type="button" id="sidebarEdgeToggleBtn" class="sidebar-edge-toggle-v11225" onclick="toggleOperationalSidebar()" title="Mostrar panel" aria-label="Mostrar panel">
+    <span id="sidebarEdgeToggleGlyph">›</span>
+  </button>
+<header>
+  <div class="wrap cc-demo-header">
+    <div class="cc-portal-actions">
+      <button type="button" class="cc-portal-back" id="ccReturnEmployee">← Volver al Área de Empleado</button>
+      <button type="button" class="cc-portal-qr" id="ccScanWorker">Escanear QR</button>
+    </div>
+    <div class="brand">
+      <div class="demo-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img">
+          <circle cx="17" cy="18" r="6"></circle>
+          <circle cx="32" cy="17" r="5"></circle>
+          <path d="M6 38c1-8 6-12 12-12s11 4 12 12"></path>
+          <path d="M25 37c1-6 5-9 10-9 4 0 7 2 9 6"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>CREW CONTROL</h1>
+        <div class="subtitle">Operaciones de personal</div>
+      </div>
+    </div>
+    <button type="button" id="mobileOperationalToggleV11234"
+      class="mobile-ops-toggle-v11234" onclick="toggleMobileOperationalPanelV11234()"
+      aria-label="Desplegar control operativo" aria-controls="mobileOperationalDrawerV11234"
+      aria-expanded="false" title="Desplegar control operativo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+  </div>
+</header>
+
+<div id="mobileOperationalDrawerV11234" class="mobile-operational-drawer-v11234"
+  aria-hidden="true"></div>
+
+<main class="wrap">
+  <section id="startScreen" class="card login-card">
+    <h2>Acceder a un servicio</h2>
+    <div class="lead">Código de servicio</div>
+
+    <div class="code-input">
+      <input id="serviceCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+        oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+        onkeydown="if(event.key==='Enter') openExistingService()">
+      <button class="primary" onclick="openExistingService()">Entrar</button>
+    </div>
+
+    <div class="or">O</div>
+
+    <button id="newServiceBtn" class="secondary wide" onclick="createNewService()">
+      Nuevo servicio
+    </button>
+    <div id="startStatus" class="status-box"></div>
+  </section>
+
+  <section id="appScreen" class="hidden">
+    <div class="service-top">
+      <div class="service-code">
+        <span>Servicio</span>
+        <span id="serviceCodeBadge" class="code-pill">000000</span>
+        <button class="secondary icon-btn compact-code-btn" onclick="copyServiceCode()" title="Copiar código"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M5 16H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1"></path></svg><span>Copiar</span></button>
+      </div>
+      <div class="service-actions">
+        <span id="saveState" class="save-state saved">Guardado</span>
+        <button id="controlViewBtn" class="secondary control-toggle icon-btn" onclick="toggleControlView()" title="Vista control">
+          <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg><span>Control</span>
+        </button>
+        <button class="secondary icon-btn" onclick="requestDuplicateService()" title="Duplicar estructura">
+          <svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M5 16H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1"></path></svg><span>Duplicar</span>
+        </button>
+        <button id="closeServiceBtn" class="close-service-btn icon-btn" onclick="requestCloseService()" title="Cerrar servicio">
+          <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg><span>Cerrar</span>
+        </button>
+        <button class="secondary icon-btn icon-only-mobile" onclick="closeService()" title="Cambiar servicio">
+          <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"></path></svg><span>Salir</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="closedBanner" class="closed-banner">
+      <div><strong>SERVICIO CERRADO</strong><div id="closedBannerText" class="hint" style="color:#ddd;margin-top:3px"></div></div>
+      <div class="service-actions">
+        <a id="finalPdfLink" class="file-button primary" target="_blank" style="text-decoration:none">Abrir PDF final</a>
+        <button class="secondary" onclick="requestReopenService()">Reabrir servicio</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="section-title"><h2>Datos del servicio</h2></div>
+      <div class="grid-3">
+        <div><label class="field">Servicio / referencia</label>
+          <input id="serviceName" type="text" oninput="scheduleMetaSave()"></div>
+        <div><label class="field">Fecha principal</label>
+          <input id="serviceDate" type="text" placeholder="" oninput="scheduleMetaSave()"></div>
+        <div><label class="field">Recinto</label>
+          <input id="venue" type="text" oninput="scheduleMetaSave()"></div>
+      </div>
+
+      <div id="initialPdfUploadPanel" class="initial-pdf-upload-v11228">
+        <div id="initialPdfDropZone" class="upload initial-pdf-dropzone-v11228">
+          <strong>Cargar PDF de personal</strong>
+          <div class="hint">
+            Sube el PDF inicial del servicio. Después podrás actualizarlo desde Control operativo.
+          </div>
+          <div style="margin-top:10px">
+            <label class="file-button primary" for="pdfInput">Seleccionar PDF</label>
+          </div>
+          <div id="initialPdfStatus" class="status-box"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section id="scenariosTeamsSection" class="card integrated-section-v129">
+      <div class="section-title">
+        <h2>Escenarios y equipos</h2>
+        <button class="primary" onclick="addScenario()">+ Añadir escenario</button>
+      </div>
+      <div class="hint" style="margin:0 0 8px">
+        Por defecto solo existe <strong>ESCENARIO PRINCIPAL</strong>. Cada escenario tiene sus propios equipos y colores.
+      </div>
+      <div id="scenarioList"></div>
+    </section>
+
+    <section id="incidentsBoardSection" class="card integrated-section-v129">
+      <div class="section-title">
+        <h2>Incidencias</h2>
+        <button class="primary compact-main-btn" onclick="openIncidentModal()">+ Incidencia general</button>
+      </div>
+      <div id="incidentSummary" class="hint" style="margin:0 0 10px"></div>
+      <div id="incidentsList"></div>
+    </section>
+
+    <div id="integratedSectionParking" style="display:none"></div>
+
+    <section class="card">
+      <details>
+        <summary style="cursor:pointer;font-weight:800;font-size:16px">Registro de cambios</summary>
+        <div class="hint" style="margin:8px 0">Reimportaciones de PDF, cambios de personal, incidencias y cierre del servicio.</div>
+        <div class="service-actions" style="margin-bottom:10px">
+          <button class="secondary" onclick="refreshAudit()">Actualizar registro</button>
+        </div>
+        <div id="auditList" class="audit-list"></div>
+      </details>
+    </section>
+
+    <div id="mobileOperationalHome"></div>
+
+    <section class="card personnel-card-v121">
+      <div class="personnel-layout-v121">
+        <div id="personnelSidebarHome" style="display:none"></div>
+        <aside class="personnel-sidebar-v121">
+          <div class="section-title personnel-sidebar-title-v121">
+            <h2>Control operativo</h2>
+            <button type="button" id="sidebarCollapseBtn" class="sidebar-collapse-toggle-v11224" onclick="toggleOperationalSidebar()" title="Ocultar panel" aria-label="Ocultar panel">
+              <span id="sidebarCollapseGlyph">‹›</span>
+            </button>
+          </div>
+
+          <div class="sidebar-operational-v122">
+            <div class="sidebar-operational-head-v122">
+              <span>Resumen</span>
+              <span id="dayReadinessLabel" class="day-readiness">—</span>
+            </div>
+
+            <div class="operational-work-nav-v11232 operational-work-pager-v11233">
+              <button id="operationalWorkPrevious" type="button"
+                class="operational-work-next-v11232 operational-work-prev-v11233"
+                onclick="previousOperationalWorkType()"
+                title="Ver tipos de servicio anteriores"
+                aria-label="Ver tipos de servicio anteriores" disabled>‹</button>
+              <div id="operationalWorkFilters" class="operational-work-filters-v122" aria-label="Tipos de servicio"></div>
+              <button id="operationalWorkNext" type="button"
+                class="operational-work-next-v11232"
+                onclick="nextOperationalWorkType()"
+                title="Ver los siguientes tipos de servicio"
+                aria-label="Ver siguientes tipos de servicio">›</button>
+            </div>
+            <div id="operationalTimeFilters" class="operational-time-filters-v1210"></div>
+            <div id="operationalDashboard" class="operational-dashboard"></div>
+          </div>
+
+          <div id="operationalAlerts" class="alert-strip"></div>
+          <div id="daysNav" class="days-nav"></div>
+          <div id="stats" class="stats sidebar-duplicate-stats-v128"></div>
+
+          <div class="toolbar personnel-sidebar-toolbar-v121">
+        <input id="searchWorker" class="search-wide" type="search" placeholder="Buscar persona, especialidad, equipo o coordinador…" oninput="syncArrivalModeState();schedulePersonnelRender()">
+
+        <select id="quickStatusFilter" onchange="syncArrivalModeState();renderPersonnel(true)">
+          <option value="ALL">Todos</option>
+          <option value="PENDIENTE">Pendientes</option>
+          <option value="CONTACTADO">Contactados</option>

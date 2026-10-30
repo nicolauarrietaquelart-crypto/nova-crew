@@ -1,0 +1,1000 @@
+  const scenario=team?state.service.scenarios.find(s=>s.id===team.scenarioId):null;
+
+  switch(key){
+    case 'personal': return normalize(w.personal);
+    case 'especialidad': return normalize(w.especialidad);
+    case 'horario': return clockToMinutes(w.actualStart||w.inicio||'00:00');
+    case 'pausa': return clockToMinutes(effectivePause(w)||'00:00');
+    case 'dieta': return Number(effectiveDiet(w)||0);
+    case 'movil': return normalize(w.movil);
+    case 'equipo':
+      return normalize(workHasNoTeams(w.trabajo)
+        ? 'SIN EQUIPOS'
+        : `${scenario?scenario.name:''} ${team?team.name:''}`);
+    case 'chaleco': return normalize(team?(team.colorName||team.name):'');
+    case 'valoracion': return workerRatingAverage(w);
+    case 'estado':
+      return {
+        'PENDIENTE':1,
+        'CONTACTADO':2,
+        'PRESENTE':3,
+        'NO PRESENTADO':4
+      }[w.status||'PENDIENTE']||0;
+    default: return Number(w.sortOrder||0);
+  }
+}
+
+function sortedRowsForWork(trabajo,rows){
+  const sort=state.workSorts[trabajo];
+
+  if(!sort||!sort.key){
+    return rows.slice().sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  }
+
+  const factor=sort.dir==='desc'?-1:1;
+
+  return rows.slice().sort((a,b)=>{
+    const av=workerSortValue(a,sort.key);
+    const bv=workerSortValue(b,sort.key);
+
+    if(typeof av==='number'&&typeof bv==='number'){
+      if(av!==bv)return (av-bv)*factor;
+    }else{
+      const cmp=String(av??'').localeCompare(String(bv??''),'es',{numeric:true,sensitivity:'base'});
+      if(cmp)return cmp*factor;
+    }
+
+    return (Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  });
+}
+
+function filteredRowsForWork(trabajo,rows){
+  const filter=state.workTeamFilters[trabajo]||'ALL';
+
+  if(filter==='ALL')return rows;
+  if(filter==='UNASSIGNED')return rows.filter(w=>!w.teamId);
+
+  return rows.filter(w=>w.teamId===filter);
+}
+
+function setWorkTeamFilter(trabajo,teamId){
+  state.workTeamFilters[trabajo]=teamId||'ALL';
+
+  const details=[...document.querySelectorAll('.work-group')]
+    .find(el=>(el.getAttribute('data-work-group')||'')===trabajo);
+
+  if(!details)return;
+
+  const body=details.querySelector('tbody[data-work-team-body]');
+  if(!body)return;
+
+  const rows=state.service.workers.filter(w=>
+    (w.serviceDate||'SIN FECHA')===state.activeDay &&
+    (w.trabajo||'SIN TIPO')===trabajo
+  );
+
+  const filtered=filteredRowsForWork(trabajo,rows);
+
+  const sorted=sortedRowsForWork(trabajo,filtered);
+
+  body.innerHTML=filtered.length
+    ? rowsGroupedByEntryHtml(trabajo,filtered)
+    : '<tr><td colspan="11" class="empty" style="padding:14px">No hay personal en este equipo.</td></tr>';
+
+  // Restaurar valores de los selects de las filas recién creadas.
+  sorted.forEach(w=>{
+    const teamSelect=document.querySelector(`[data-team-worker="${cssEscape(w.id)}"]`);
+    const statusSelect=document.querySelector(`[data-status-worker="${cssEscape(w.id)}"]`);
+
+    if(teamSelect)teamSelect.value=w.teamId||'';
+    if(statusSelect)statusSelect.value=w.status||'PENDIENTE';
+  });
+}
+
+function allRequirementsForWork(trabajo){
+  if(!state.service)return[];
+
+  return (state.service.requirements||[]).filter(r=>
+    r.serviceDate===state.activeDay &&
+    normalize(r.trabajo)===normalize(trabajo)
+  );
+}
+
+function workHasNoTeams(trabajo){
+  return allRequirementsForWork(trabajo).some(r=>
+    r.teamId===NO_TEAMS_REQUIREMENT_TEAM_ID
+  );
+}
+
+function requirementsForWork(trabajo){
+  return allRequirementsForWork(trabajo).filter(r=>
+    r.teamId!==NO_TEAMS_REQUIREMENT_TEAM_ID
+  );
+}
+
+function staffingSummaryForWork(trabajo,rows){
+  if(workHasNoTeams(trabajo)){
+    return {
+      html:`<div class="staffing-summary">
+        <span class="staffing-chip neutral">SIN EQUIPOS · ${rows.length} personas</span>
+        <button class="secondary plan-btn" onclick="openStaffingModal('${escapeAttr(trabajo)}')">Configurar</button>
+      </div>`,
+      readiness:null,
+      stats:[]
+    };
+  }
+
+  const requirements=requirementsForWork(trabajo);
+  const teamIds=new Set(requirements.map(r=>r.teamId));
+
+  const counts={};
+
+  rows.forEach(w=>{
+    if(!w.teamId)return;
+
+    teamIds.add(w.teamId);
+
+    if(!counts[w.teamId]){
+      counts[w.teamId]={assigned:0,present:0};
+    }
+
+    counts[w.teamId].assigned++;
+
+    if(w.status==='PRESENTE'){
+      counts[w.teamId].present++;
+    }
+  });
+
+  const requirementMap={};
+  requirements.forEach(r=>{
+    requirementMap[r.teamId]=Number(r.requiredCount||0);
+  });
+
+  const stats=[...teamIds].map(teamId=>{
+    const team=state.service.teams.find(t=>t.id===teamId);
+    if(!team)return null;
+
+    const count=counts[teamId]||{assigned:0,present:0};
+
+    return {
+      team,
+      required:Number(requirementMap[teamId]||0),
+      assigned:count.assigned,
+      present:count.present
+    };
+  }).filter(Boolean);
+
+  let readiness=null;
+
+  if(requirements.length){
+    let requiredTotal=0;
+    let assignedCovered=0;
+    let presentCovered=0;
+
+    requirements.forEach(r=>{
+      const required=Number(r.requiredCount||0);
+      const count=counts[r.teamId]||{assigned:0,present:0};
+
+      requiredTotal+=required;
+      assignedCovered+=Math.min(required,count.assigned);
+      presentCovered+=Math.min(required,count.present);
+    });
+
+    if(requiredTotal&&presentCovered>=requiredTotal){
+      readiness={cls:'ready',label:'LISTO'};
+    }else if(requiredTotal&&assignedCovered>=requiredTotal){
+      readiness={cls:'partial',label:'ASIGNADO'};
+    }else{
+      readiness={cls:'critical',label:'FALTA PERSONAL'};
+    }
+  }
+
+  let html='';
+
+  if(!requirements.length&&!stats.length){
+    html=`<div class="staffing-summary">
+      <div class="staffing-empty">
+        <span class="hint" style="margin:0">
+          Sin equipos asignados ni objetivos definidos. ${rows.length} personas en total.
+        </span>
+        <button
+          class="secondary plan-btn"
+          onclick="openStaffingModal('${escapeAttr(trabajo)}')">
+          Planificar equipos
+        </button>
+      </div>
+    </div>`;
+  }else{
+    const chips=stats.map(s=>{
+      let cls='neutral';
+
+      if(s.required){
+        if(s.present>=s.required)cls='ok';
+        else if(s.assigned>=s.required)cls='warn';
+        else cls='bad';
+      }
+
+      return `<button type="button"
+        class="staffing-chip team-clickable ${cls}"
+        data-staffing-team="${escapeAttr(s.team.id)}"
+        onclick="openTeamMembersModal('${escapeJsString(trabajo)}','${escapeAttr(s.team.id)}')">
+        <span class="team-chip-dot" style="background:${escapeAttr(s.team.colorHex||'#bdbdbd')}"></span>
+        <strong>${escapeHtml(s.team.name)}</strong>
+        <span>${s.assigned}</span>
+        <span class="team-chip-present">${s.present} ✓</span>
+        ${s.required?`<span class="team-chip-needed">/${s.required}</span>`:''}
+      </button>`;
+    }).join('');
+
+    html=`<div class="staffing-summary">
+      ${chips||'<span class="hint">Sin asignaciones.</span>'}
+      <button
+        class="secondary plan-btn"
+        onclick="openStaffingModal('${escapeAttr(trabajo)}')">
+        Planificar
+      </button>
+    </div>`;
+  }
+
+  return {html,readiness,stats};
+}
+
+
+function currentTeamPanelRows(){
+  if(!state.service||!state.teamMembersTeamId)return[];
+  return state.service.workers.filter(w=>
+    w.included &&
+    (w.serviceDate||'SIN FECHA')===state.activeDay &&
+    normalize(w.trabajo||'SIN TIPO')===normalize(state.teamMembersWork) &&
+    w.teamId===state.teamMembersTeamId
+  );
+}
+
+function openTeamMembersModal(trabajo,teamId){
+  state.teamMembersWork=trabajo;
+  state.teamMembersTeamId=teamId;
+  renderTeamMembersModal();
+  document.getElementById('teamMembersModal').classList.remove('hidden');
+}
+
+function renderTeamMembersModal(){
+  const team=state.service?.teams.find(t=>t.id===state.teamMembersTeamId);
+  if(!team)return;
+
+  const rows=currentTeamPanelRows();
+  const present=rows.filter(w=>w.status==='PRESENTE').length;
+  const contacted=rows.filter(w=>w.status==='CONTACTADO').length;
+  const noShow=rows.filter(w=>w.status==='NO PRESENTADO').length;
+
+  document.getElementById('teamMembersTitle').textContent=team.name;
+  document.getElementById('teamMembersSub').textContent=
+    `${state.teamMembersWork} · ${dayLabel(state.activeDay)} ${state.activeDay}`;
+
+  document.getElementById('teamMembersStats').innerHTML=`
+    <div><strong>${rows.length}</strong><span>personas</span></div>
+    <div class="good"><strong>${present}</strong><span>presentes</span></div>
+    <div><strong>${contacted}</strong><span>contactados</span></div>
+    <div class="${noShow?'bad':''}"><strong>${noShow}</strong><span>no presentados</span></div>`;
+
+  const byTime=new Map();
+  rows.forEach(w=>{
+    const t=workerEntryTime(w);
+    if(!byTime.has(t))byTime.set(t,[]);
+    byTime.get(t).push(w);
+  });
+
+  const times=[...byTime.keys()].sort((a,b)=>{
+    if(a==='SIN HORA')return 1;
+    if(b==='SIN HORA')return -1;
+    return clockToMinutes(a)-clockToMinutes(b);
+  });
+
+  document.getElementById('teamMembersList').innerHTML=times.length
+    ? times.map(time=>`
+        <div class="team-panel-shift">
+          <div class="team-panel-shift-head">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+            <strong>${escapeHtml(time)}</strong>
+            <span>${byTime.get(time).length}</span>
+          </div>
+          ${byTime.get(time)
+            .sort((a,b)=>a.personal.localeCompare(b.personal,'es'))
+            .map(teamMemberCardHtml).join('')}
+        </div>
+      `).join('')
+    : '<div class="empty">No hay personal en este equipo.</div>';
+}
+
+function teamMemberCardHtml(w){
+  const arrival=w.arrivalAt?`Llegó ${escapeHtml(w.arrivalAt)}`:'';
+  return `<div class="team-member-card">
+    <select class="status ${statusClassName(w.status)}"
+      onchange="teamPanelChangeStatus('${escapeAttr(w.id)}',this.value)">
+      <option value="PENDIENTE" ${w.status==='PENDIENTE'?'selected':''}>NO CONTACTADO</option>
+      <option value="CONTACTADO" ${w.status==='CONTACTADO'?'selected':''}>CONTACTADO</option>
+      <option value="PRESENTE" ${w.status==='PRESENTE'?'selected':''}>PRESENTE</option>
+      <option value="NO PRESENTADO" ${w.status==='NO PRESENTADO'?'selected':''}>NO PRESENTADO</option>
+    </select>
+    <button class="team-member-name" onclick="closeTeamMembersModal();openWorkerModal('${escapeAttr(w.id)}')">
+      <strong>${escapeHtml(w.personal)}</strong>
+      <span>${escapeHtml(w.especialidad||'')}${arrival?' · '+arrival:''}</span>
+    </button>
+    <span class="team-member-time">${escapeHtml(w.inicio||w.hLlam||'—')}</span>
+    ${w.movil
+      ? `<a class="team-member-phone" href="tel:${escapeAttr(w.movil)}" title="Llamar">
+          <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-3 2c1 3 3 5 6 6l2-3 5 2v4c0 1-1 2-2 2C10 22 2 14 2 5c0-1 1-1 3-1Z"></path></svg>
+        </a>`
+      : '<span></span>'}
+  </div>`;
+}
+
+function statusClassName(status){
+  return 'status-'+String(status||'PENDIENTE').replace(/\s+/g,'-');
+}
+
+function teamPanelChangeStatus(workerId,status){
+  changeWorkerStatus(workerId,status);
+  renderTeamMembersModal();
+}
+
+function teamMarkAllPresent(){
+  const rows=currentTeamPanelRows().filter(w=>w.status!=='PRESENTE');
+  if(!rows.length)return;
+
+  const updates=[];
+  rows.forEach(w=>{
+    const update={workerId:w.id};
+    applyStatusLocally(w,'PRESENTE',update);
+    updates.push(update);
+    refreshWorkerRow(w.id);
+  });
+
+  renderStats();
+  updateGroupSummary(state.teamMembersWork);
+  renderOperationalAlerts();
+  renderTeamMembersModal();
+  saveWorkerUpdates(updates);
+}
+
+async function copyCurrentTeamMobiles(){
+  const mobiles=[...new Set(currentTeamPanelRows().map(w=>String(w.movil||'').trim()).filter(Boolean))];
+  if(!mobiles.length){
+    setSaveState('Sin móviles en el equipo','saved');
+    return;
+  }
+  const text=mobiles.join('\\n');
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    const area=document.createElement('textarea');
+    area.value=text;document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();
+  }
+  setSaveState(`${mobiles.length} móviles copiados`,'saved');
+}
+
+function closeTeamMembersModal(){
+  document.getElementById('teamMembersModal').classList.add('hidden');
+  state.teamMembersWork='';
+  state.teamMembersTeamId='';
+}
+
+function teamMembersBackdropClick(event){
+  if(event.target?.id==='teamMembersModal')closeTeamMembersModal();
+}
+
+function openStaffingModal(trabajo){
+  if(!state.service||state.service.closed)return;
+
+  state.staffingWork=trabajo;
+  state.staffingDraft={};
+
+  requirementsForWork(trabajo).forEach(r=>{
+    state.staffingDraft[r.teamId]=Number(r.requiredCount||0);
+  });
+
+  document.getElementById('staffingNoTeams').checked=workHasNoTeams(trabajo);
+
+  document.getElementById('staffingTitle').textContent='Planificación · '+trabajo;
+  document.getElementById('staffingSub').textContent=`${dayLabel(state.activeDay)} · ${state.activeDay}`;
+
+  populateStaffingCopySources();
+  renderStaffingRows();
+  toggleStaffingNoTeamsUI();
+  document.getElementById('staffingModal').classList.remove('hidden');
+}
+
+
+function populateStaffingCopySources(){
+  const select=document.getElementById('staffingCopySource');
+  if(!select||!state.service)return;
+
+  const grouped=new Map();
+
+  (state.service.requirements||[]).forEach(r=>{
+    const key=`${r.serviceDate}|||${r.trabajo}`;
+    if(
+      r.serviceDate===state.activeDay &&
+      normalize(r.trabajo)===normalize(state.staffingWork)
+    )return;
+
+    if(!grouped.has(key)){
+      grouped.set(key,{
+        serviceDate:r.serviceDate,
+        trabajo:r.trabajo
+      });
+    }
+  });
+
+  const options=[...grouped.values()]
+    .sort((a,b)=>
+      String(a.serviceDate).localeCompare(String(b.serviceDate))||
+      String(a.trabajo).localeCompare(String(b.trabajo))
+    )
+    .map(x=>`
+      <option value="${escapeAttr(x.serviceDate+'|||'+x.trabajo)}">
+        ${escapeHtml(x.serviceDate)} · ${escapeHtml(x.trabajo)}
+      </option>
+    `).join('');
+
+  select.innerHTML='<option value="">Copiar planificación desde…</option>'+options;
+}
+
+function copyStaffingPlanFromSource(){
+  const select=document.getElementById('staffingCopySource');
+  const value=select?select.value:'';
+
+  if(!value){
+    alert('Selecciona una planificación de origen.');
+    return;
+  }
+
+  const [date,work]=value.split('|||');
+
+  const source=(state.service.requirements||[]).filter(r=>
+    r.serviceDate===date &&
+    normalize(r.trabajo)===normalize(work)
+  );
+
+  if(!source.length){
+    alert('La planificación seleccionada está vacía.');
+    return;
+  }
+
+  const sourceNoTeams=source.some(r=>r.teamId===NO_TEAMS_REQUIREMENT_TEAM_ID);
+
+  state.staffingDraft={};
+
+  source
+    .filter(r=>r.teamId!==NO_TEAMS_REQUIREMENT_TEAM_ID)
+    .forEach(r=>{
+      state.staffingDraft[r.teamId]=Number(r.requiredCount||0);
+    });
+
+  document.getElementById('staffingNoTeams').checked=sourceNoTeams;
+  renderStaffingRows();
+  toggleStaffingNoTeamsUI();
+}
+
+function toggleStaffingNoTeamsUI(){
+  const checked=Boolean(document.getElementById('staffingNoTeams')?.checked);
+  const area=document.getElementById('staffingTeamPlanningArea');
+
+  if(area){
+    area.style.opacity=checked?'.38':'1';
+    area.style.pointerEvents=checked?'none':'auto';
+  }
+}
+
+
+function renderStaffingRows(){
+  const rows=state.service.workers.filter(w=>
+    w.serviceDate===state.activeDay &&
+    normalize(w.trabajo)===normalize(state.staffingWork) &&
+    w.included
+  );
+
+  // Una sola pasada por los trabajadores.
+  const counts={};
+
+  rows.forEach(w=>{
+    if(!w.teamId)return;
+
+    if(!counts[w.teamId]){
+      counts[w.teamId]={assigned:0,present:0};
+    }
+
+    counts[w.teamId].assigned++;
+
+    if(w.status==='PRESENTE'){
+      counts[w.teamId].present++;
+    }
+  });
+
+  document.getElementById('staffingRows').innerHTML=state.service.scenarios.map(scenario=>{
+    const teams=state.service.teams.filter(t=>t.scenarioId===scenario.id);
+    if(!teams.length)return'';
+
+    return `<div class="planned-box" style="margin-bottom:10px">
+      <strong>${escapeHtml(scenario.name)}</strong>
+
+      ${teams.map(team=>{
+        const count=counts[team.id]||{assigned:0,present:0};
+        const value=Number(state.staffingDraft[team.id]||0);
+
+        return `<div class="requirement-row">
+          <div class="requirement-team">
+            <span class="team-dot" style="background:${escapeAttr(team.noVest?'#BDBDBD':team.colorHex||'#ddd')}"></span>
+            ${escapeHtml(team.name)}
+            ${team.noVest?'<span class="hint" style="margin:0">sin chaleco</span>':''}
+          </div>
+
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value="${value||''}"
+            placeholder="Necesarios"
+            oninput="state.staffingDraft['${escapeAttr(team.id)}']=Math.max(0,Number(this.value||0))">
+
+          <div class="requirement-current">
+            <strong>${count.assigned}</strong><br>asignados
+          </div>
+
+          <div class="requirement-current">
+            <strong>${count.present}</strong><br>presentes
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function saveStaffingPlan(){
+  if(!state.service||state.service.closed)return;
+
+  const trabajo=state.staffingWork;
+  const serviceDate=state.activeDay;
+
+  const noTeams=Boolean(document.getElementById('staffingNoTeams')?.checked);
+
+  const payload=noTeams
+    ? []
+    : Object.entries(state.staffingDraft)
+      .map(([teamId,requiredCount])=>({
+        teamId,
+        requiredCount:Math.max(0,Math.floor(Number(requiredCount||0)))
+      }))
+      .filter(x=>x.requiredCount>0);
+
+  // Guardamos una copia solo por si Google Sheets devuelve error.
+  const previousRequirements=(state.service.requirements||[]).map(r=>({...r}));
+
+  // ACTUALIZACIÓN LOCAL INSTANTÁNEA:
+  // sustituimos los objetivos de este día + tipo de servicio en memoria.
+  state.service.requirements=(state.service.requirements||[])
+    .filter(r=>!(
+      r.serviceDate===serviceDate &&
+      normalize(r.trabajo)===normalize(trabajo)
+    ))
+    .concat(
+      noTeams
+        ? [{
+            serviceDate,
+            trabajo,
+            teamId:NO_TEAMS_REQUIREMENT_TEAM_ID,
+            requiredCount:0
+          }]
+        : payload.map(r=>({
+            serviceDate,
+            trabajo,
+            teamId:r.teamId,
+            requiredCount:r.requiredCount
+          }))
+    );
+
+  closeStaffingModal();
+
+  // Solo actualiza el resumen afectado; NO vuelve a pintar 158 personas.
+  updateGroupSummary(trabajo);
+  renderOperationalAlerts();
+  setSaveState('Guardando planificación…','saving');
+
+  backend.run
+    .withSuccessHandler(result=>{
+      // La UI ya estaba actualizada. El servidor solo confirma.
+      if(result&&Array.isArray(result.saved)){
+        state.service.requirements=(state.service.requirements||[])
+          .filter(r=>!(
+            r.serviceDate===serviceDate &&
+            normalize(r.trabajo)===normalize(trabajo)
+          ))
+          .concat(result.saved);
+      }
+
+      setSaveState('Guardado','saved');
+    })
+    .withFailureHandler(err=>{
+      // Si falla el servidor, restauramos lo anterior para no mentir en pantalla.
+      state.service.requirements=previousRequirements;
+      updateGroupSummary(trabajo);
+      renderOperationalAlerts();
+      setSaveState('Error al guardar','error');
+      alert(errorMessage(err));
+    })
+    .saveTeamRequirements(
+      state.service.code,
+      serviceDate,
+      trabajo,
+      payload,
+      noTeams
+    );
+}
+
+function clearStaffingPlan(){
+  state.staffingDraft={};
+
+  const noTeams=document.getElementById('staffingNoTeams');
+  if(noTeams)noTeams.checked=false;
+
+  toggleStaffingNoTeamsUI();
+  saveStaffingPlan();
+}
+
+function closeStaffingModal(){
+  document.getElementById('staffingModal').classList.add('hidden');
+  state.staffingWork='';
+  state.staffingDraft={};
+}
+
+function staffingBackdropClick(event){
+  if(event.target&&event.target.id==='staffingModal')closeStaffingModal();
+}
+
+
+function workerRowHtml(w){
+  const team=state.service.teams.find(t=>t.id===w.teamId);
+  const scenario=team?state.service.scenarios.find(s=>s.id===team.scenarioId):null;
+  const noVest=isNoVestRole(w.especialidad)||(team&&team.noVest);
+
+  const vest=noVest
+    ?'<span class="vest" style="background:#eee;color:#333">SIN CHALECO</span>'
+    :team?`<span class="vest" style="background:${escapeAttr(team.colorHex||'#ddd')};color:${bestTextColor(team.colorHex)}">${escapeHtml(team.colorName||team.name)}</span>`:'—';
+
+  let options='<option value="">Sin asignar</option>';
+  state.service.scenarios.forEach(s=>{
+    const teams=state.service.teams.filter(t=>t.scenarioId===s.id);
+    if(!teams.length)return;
+    options+=`<optgroup label="${escapeAttr(s.name)}">`;
+    teams.forEach(t=>options+=`<option value="${escapeAttr(t.id)}">${escapeHtml(t.name)}</option>`);
+    options+='</optgroup>';
+  });
+
+  const statusClass='status-'+String(w.status||'PENDIENTE').replace(/\s+/g,'-');
+  const avg=workerRatingAverage(w);
+  const incidentCount=(state.service.incidents||[]).filter(i=>i.workerId===w.id).length;
+  const rating=avg?`<span class="rating-mini">★ ${avg.toFixed(1)}</span>${incidentCount?`<span class="incident-count" title="${incidentCount} incidencia(s)">${incidentCount}</span>`:''}`:(incidentCount?`<span class="incident-count">${incidentCount}</span>`:'—');
+  const reserve=w.isReserve?'<span class="reserve-badge">RESERVA</span>':'';
+
+  const shiftKey=shiftStateKey(w.trabajo||'SIN TIPO',workerEntryTime(w));
+  const shiftCollapsed=Boolean(state.collapsedShifts[shiftKey]);
+
+  return `<tr data-worker-row="${escapeAttr(w.id)}" data-shift-key="${escapeAttr(shiftKey)}"
+    aria-selected="${state.selected.has(w.id)?'true':'false'}"
+    onclick="handleWorkerRowClick(event,'${escapeAttr(w.id)}')"
+    class="${w.included?'':'excluded'} ${shiftCollapsed?'shift-row-hidden':''} ${state.selected.has(w.id)?'worker-row-selected':''}">
+    <td class="mobile-check"><input type="checkbox" ${state.selected.has(w.id)?'checked':''}
+      tabindex="-1" aria-hidden="true"
+      onchange="toggleSelected('${escapeAttr(w.id)}',this.checked)"></td>
+
+    <td class="mobile-status">
+      <select data-status-worker="${escapeAttr(w.id)}" class="status ${statusClass}"
+        onchange="changeWorkerStatus('${escapeAttr(w.id)}',this.value)">
+        <option value="PENDIENTE">NO CONTACTADO</option>
+        <option value="CONTACTADO">CONTACTADO</option>
+        <option value="PRESENTE">PRESENTE</option>
+        <option value="NO PRESENTADO">NO PRESENTADO</option>
+      </select>
+    </td>
+
+    <td class="worker-name mobile-name">
+      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}${w.isSubCoordinator?'<span class="coordinator-badge" style="background:#ff7a14;color:#111">COORDINADOR '+escapeHtml(w.subCoordinatorScope||'EQUIPO')+'</span>':''}
+    </td>
+
+    <td class="mobile-role"><span class="role">${escapeHtml(w.especialidad)}</span></td>
+    <td class="mobile-schedule">${scheduleRangeHtml(w)}${hoursSummaryHtml(w)}</td>
+    <td class="mobile-pause">${pauseChipHtml(w)}</td>
+    <td class="mobile-diet">${dietChipHtml(w)}</td>
+
+    <td class="mobile-phone">${w.movil
+      ? `<a href="tel:${escapeAttr(w.movil)}" style="color:#111;text-decoration:none;font-weight:700">${escapeHtml(w.movil)}</a>`
+      : '—'}</td>
+
+    <td class="mobile-team">
+      ${workHasNoTeams(w.trabajo)
+        ? '<span class="no-teams-chip">SIN EQUIPOS</span>'
+        : `<select data-team-worker="${escapeAttr(w.id)}" onchange="changeWorkerTeam('${escapeAttr(w.id)}',this.value)">
+            ${options}
+          </select>
+          ${scenario?`<div class="stage-name">${escapeHtml(scenario.name)}</div>`:''}`}
+    </td>
+
+    <td class="mobile-vest">${workHasNoTeams(w.trabajo)?'—':vest}</td>
+    <td class="mobile-rating">${rating}</td>
+  </tr>`;
+}
+
+function scheduleValueHtml(planned,actual){
+  const base=escapeHtml(planned||'—');
+  if(!actual||actual===planned)return base;
+  return `${base}<span class="schedule-real">Real ${escapeHtml(actual)}</span>`;
+}
+
+
+function scheduleRangeHtml(w){
+  const plannedStart=w.inicio||'—';
+  const plannedEnd=w.fin||'—';
+  const planned=`<span class="schedule-planned">${escapeHtml(plannedStart)} – ${escapeHtml(plannedEnd)}</span>`;
+
+  const realStart=w.actualStart||'';
+  const realEnd=w.actualEnd||'';
+  const hasReal=Boolean(realStart||realEnd);
+
+  if(!hasReal){
+    return planned+overnightBadge(w.inicio,w.fin);
+  }
+
+  const real=`${escapeHtml(realStart||plannedStart)} – ${escapeHtml(realEnd||plannedEnd)}`;
+  return `${planned}<span class="schedule-real">Real ${real}</span>${overnightBadge(realStart||w.inicio,realEnd||w.fin)}`;
+}
+
+
+function hoursSummaryHtml(w){
+  const planned=Number(w.plannedMinutes||0);
+
+  // IMPORTANT: 0 real minutes is a valid value.
+  // Do not use `w.actualMinutes || planned`, because 0 is falsy.
+  const hasActualMinutes=
+    w.actualMinutes!==undefined &&
+    w.actualMinutes!==null &&
+    w.actualMinutes!=='';
+
+  const actual=hasActualMinutes
+    ? Number(w.actualMinutes)
+    : planned;
+
+  const hasDiff=
+    w.overtimeMinutes!==undefined &&
+    w.overtimeMinutes!==null &&
+    w.overtimeMinutes!=='';
+
+  const diff=hasDiff
+    ? Number(w.overtimeMinutes)
+    : (actual-planned);
+
+  if(!planned&&!actual)return'';
+
+  let cls='';
+  if(diff>0)cls=' extra';
+  if(diff<0)cls=' less';
+
+  const text=`${formatMinutesClient(actual)}${diff?` · ${diff>0?'+':''}${formatMinutesClient(diff)}`:''}`;
+  return `<span class="hours-chip${cls}">${text}</span>`;
+}
+
+function formatMinutesClient(minutes){
+  const n=Number(minutes||0);
+  const sign=n<0?'-':'';
+  const abs=Math.abs(n);
+  const h=Math.floor(abs/60);
+  const m=abs%60;
+  return `${sign}${h}h ${String(m).padStart(2,'0')}m`;
+}
+
+function effectivePause(w){
+  return w.actualPause!==undefined&&w.actualPause!==null&&w.actualPause!==''
+    ? w.actualPause
+    : (w.pausa||'00:00');
+}
+
+function pauseChipHtml(w){
+  const effective=effectivePause(w);
+  const manual=w.actualPause!==undefined&&w.actualPause!==null&&w.actualPause!=='';
+  const label=effective==='00:00'?'SIN PAUSA':formatPauseLabel(effective);
+  return `<span class="ops-chip ${manual?'manual':''}">${escapeHtml(label)}</span>`;
+}
+
+function formatPauseLabel(value){
+  const m=String(value||'').match(/^(\d{2}):(\d{2})$/);
+  if(!m)return value||'—';
+  const h=Number(m[1]),min=Number(m[2]);
+  if(h===0)return `${min} min`;
+  if(min===0)return `${h} h`;
+  return `${h} h ${min} min`;
+}
+
+function effectiveDiet(w){
+  return w.actualDiet!==undefined&&w.actualDiet!==null&&w.actualDiet!==''
+    ? Number(w.actualDiet)
+    : Number(w.nDieta||0);
+}
+
+function dietChipHtml(w){
+  const count=effectiveDiet(w);
+  const manual=w.actualDiet!==undefined&&w.actualDiet!==null&&w.actualDiet!=='';
+  const text=count===0?'SIN DIETA':(count===1?'1 DIETA':`${count} DIETAS`);
+  return `<span class="ops-chip ${manual?'manual':''}">${escapeHtml(text)}</span>`;
+}
+
+function overnightBadge(start,end){
+  if(!isValidClock(start)||!isValidClock(end))return'';
+
+  const startMinutes=clockToMinutes(start);
+  const endMinutes=clockToMinutes(end);
+
+  if(endMinutes>=startMinutes)return'';
+
+  return '<span class="schedule-real">+1 día</span>';
+}
+
+function isValidClock(value){
+  return /^\d{2}:\d{2}$/.test(String(value||''));
+}
+
+function clockToMinutes(value){
+  const parts=String(value).split(':').map(Number);
+  return parts[0]*60+parts[1];
+}
+
+function workerRatingAverage(w){
+  const vals=[w.ratingUniformidad,w.ratingActitud,w.ratingPuntualidad].map(Number).filter(v=>v>0);
+  if(!vals.length)return 0;
+  return vals.reduce((a,b)=>a+b,0)/vals.length;
+}
+
+function renderStats(){
+  if(!state.service)return;
+  const workers=state.service.workers.filter(w=>(w.serviceDate||'SIN FECHA')===state.activeDay&&w.included);
+  const c={total:workers.length,pendiente:0,contactado:0,presente:0,noPresentado:0};
+  workers.forEach(w=>{
+    if(w.status==='CONTACTADO')c.contactado++;
+    else if(w.status==='PRESENTE')c.presente++;
+    else if(w.status==='NO PRESENTADO')c.noPresentado++;
+    else c.pendiente++;
+  });
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><strong>${c.total}</strong><span>Personal del día</span></div>
+    <div class="stat"><strong>${c.pendiente}</strong><span>Pendientes</span></div>
+    <div class="stat"><strong>${c.contactado}</strong><span>Contactados</span></div>
+    <div class="stat"><strong>${c.presente}</strong><span>Presentes</span></div>
+    <div class="stat"><strong>${c.noPresentado}</strong><span><span class="sidebar-btn-icon">✕</span>No present.</span></div>`;
+}
+
+
+function workersInWorkGroup(trabajo){
+  if(!state.service)return[];
+
+  return state.service.workers.filter(w=>
+    (w.serviceDate||'SIN FECHA')===state.activeDay &&
+    (w.trabajo||'SIN TIPO')===trabajo &&
+    w.included
+  );
+}
+
+
+function refreshSelectionRows(rows){
+  (rows||[]).forEach(w=>syncWorkerRowSelectionVisual(w.id));
+  updateSelectedCounter();
+}
+
+function refreshShiftSelectionButton(trabajo,time){
+  const key=shiftStateKey(trabajo,time);
+  const btn=document.querySelector(`[data-shift-select-key="${cssEscape(key)}"]`);
+  if(!btn)return;
+
+  const rows=workersInEntryTime(trabajo,time);
+  const selected=rows.filter(w=>state.selected.has(w.id)).length;
+  const allSelected=rows.length>0 && selected===rows.length;
+
+  btn.classList.toggle('active',allSelected);
+
+  const check=btn.querySelector('.shift-select-check-v1211');
+  if(check)check.textContent=allSelected?'✓':'☐';
+
+  const count=btn.querySelector('.shift-selected-count-v121');
+  if(count)count.textContent=`${selected}/${rows.length}`;
+
+  btn.title=allSelected
+    ? `Quitar de la selección a los ${rows.length} trabajadores de ${time}`
+    : `Seleccionar a los ${rows.length} trabajadores de ${time}`;
+}
+
+function toggleSelectWorkGroup(trabajo){
+  const rows=workersInWorkGroup(trabajo);
+  if(!rows.length)return;
+
+  const allSelected=rows.every(w=>state.selected.has(w.id));
+
+  rows.forEach(w=>{
+    if(allSelected)state.selected.delete(w.id);
+    else state.selected.add(w.id);
+  });
+
+  updateGroupSelectionButton(trabajo);
+  refreshSelectionRows(rows);
+}
+
+function selectWorkGroupByStatus(trabajo,status){
+  const rows=workersInWorkGroup(trabajo);
+  const affected=rows.filter(w=>(w.status||'PENDIENTE')===status);
+
+  affected.forEach(w=>state.selected.add(w.id));
+
+  updateGroupSelectionButton(trabajo);
+  refreshSelectionRows(affected);
+}
+
+function selectWorkGroupReserves(trabajo){
+  const rows=workersInWorkGroup(trabajo);
+  const affected=rows.filter(w=>w.isReserve);
+
+  affected.forEach(w=>state.selected.add(w.id));
+
+  updateGroupSelectionButton(trabajo);
+  refreshSelectionRows(affected);
+}
+
+function workersInEntryTime(trabajo,time){
+  return workersInWorkGroup(trabajo)
+    .filter(w=>workerEntryTime(w)===time);
+}
+
+function toggleSelectEntryTime(trabajo,time){
+  const rows=workersInEntryTime(trabajo,time);
+  if(!rows.length)return;
+
+  const allSelected=rows.every(w=>state.selected.has(w.id));
+
+  rows.forEach(w=>{
+    if(allSelected)state.selected.delete(w.id);
+    else state.selected.add(w.id);
+  });
+
+  refreshSelectionRows(rows);
+  refreshShiftSelectionButton(trabajo,time);
+}
+
+function updateGroupSelectionButton(trabajo){
+  const rows=workersInWorkGroup(trabajo);
+  const allSelected=rows.length>0&&rows.every(w=>state.selected.has(w.id));
+
+  document.querySelectorAll('[data-group-select-all]').forEach(btn=>{
+    if(btn.getAttribute('data-group-select-all')!==trabajo)return;
+
+    btn.textContent=(allSelected?'Deseleccionar ':'Seleccionar ')+trabajo;
+    btn.classList.toggle('active',allSelected);
+  });
+}
+
+function refreshAllGroupSelectionButtons(){
+  if(!state.service)return;
+
+  const works=[...new Set(
+    state.service.workers
+      .filter(w=>(w.serviceDate||'SIN FECHA')===state.activeDay&&w.included)
+      .map(w=>w.trabajo||'SIN TIPO')
+  )];
+
+  works.forEach(updateGroupSelectionButton);
+}
+
+function escapeJsString(value){
+  return String(value??'')
+    .replace(/\\/g,'\\\\')
+    .replace(/'/g,"\\'")
+    .replace(/\r?\n/g,' ');
+}
+
+
+function workerRowClickIsInteractive(target){
+  if(!target)return false;
+  return Boolean(

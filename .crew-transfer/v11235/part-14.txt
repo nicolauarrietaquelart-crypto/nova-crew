@@ -1,0 +1,286 @@
+  const dietServiceOption=document.getElementById('modalDietServiceOption');
+  if(dietServiceOption){
+    const serviceDiet=Number(w.nDieta||0);
+    dietServiceOption.textContent=
+      `Según servicio · ${serviceDiet===0?'sin dieta':serviceDiet===1?'1 dieta':`${serviceDiet} dietas`}`;
+  }
+
+  document.getElementById('modalActualDiet').value=
+    (w.actualDiet===undefined||w.actualDiet===null||w.actualDiet==='')?'__PDF__':String(w.actualDiet);
+
+  document.getElementById('modalWorkerReserve').checked=Boolean(w.isReserve);
+  document.getElementById('modalNotes').value=w.notes||'';
+  renderModalStars();
+  document.getElementById('workerModal').classList.remove('hidden');
+}
+
+function closeWorkerModal(){
+  document.getElementById('workerModal').classList.add('hidden');
+  state.modalWorkerId='';state.modalDraft=null;
+}
+
+function modalBackdropClick(event){
+  if(event.target&&event.target.id==='workerModal')closeWorkerModal();
+}
+
+function renderModalStars(){
+  if(!state.modalDraft)return;
+  renderStarRow('starsUniformidad','ratingUniformidad',state.modalDraft.ratingUniformidad);
+  renderStarRow('starsActitud','ratingActitud',state.modalDraft.ratingActitud);
+  renderStarRow('starsPuntualidad','ratingPuntualidad',state.modalDraft.ratingPuntualidad);
+}
+
+function renderStarRow(containerId,field,value){
+  const host=document.getElementById(containerId);
+  host.innerHTML=[1,2,3,4,5].map(n=>
+    `<button type="button" class="star-btn ${n<=Number(value||0)?'on':''}" onclick="setModalRating('${field}',${n})" aria-label="${n} estrellas">★</button>`
+  ).join('');
+}
+
+function setModalRating(field,value){
+  if(!state.modalDraft)return;
+  state.modalDraft[field]=Number(value);
+  renderModalStars();
+}
+
+
+function setPauseFromPdf(){
+  const w=state.service.workers.find(x=>x.id===state.modalWorkerId);if(!w)return;
+  document.getElementById('modalActualPause').value=w.pausa||'00:00';
+  document.getElementById('modalActualPause').dataset.usePdf='1';
+}
+
+function setNoPause(){
+  document.getElementById('modalActualPause').value='00:00';
+  document.getElementById('modalActualPause').dataset.usePdf='0';
+}
+
+function resetActualSchedule(){
+  const w=state.service.workers.find(x=>x.id===state.modalWorkerId);if(!w)return;
+  document.getElementById('modalActualStart').value=w.inicio||'';
+  document.getElementById('modalActualEnd').value=w.fin||'';
+}
+
+function saveWorkerModal(){
+  const w=state.service.workers.find(x=>x.id===state.modalWorkerId);if(!w||!state.modalDraft)return;
+
+  const update={workerId:w.id};
+
+  applyReserveStateLocally(
+    w,
+    document.getElementById('modalWorkerReserve').checked,
+    update
+  );
+
+  w.actualStart=document.getElementById('modalActualStart').value||'';
+  w.actualEnd=document.getElementById('modalActualEnd').value||'';
+
+  const pauseInput=document.getElementById('modalActualPause');
+  w.actualPause=pauseInput.dataset.usePdf==='1'?'':(pauseInput.value||'00:00');
+
+  const dietValue=document.getElementById('modalActualDiet').value;
+  w.actualDiet=dietValue==='__PDF__'?null:Number(dietValue);
+
+  w.notes=document.getElementById('modalNotes').value||'';
+  w.ratingUniformidad=Number(state.modalDraft.ratingUniformidad||0);
+  w.ratingActitud=Number(state.modalDraft.ratingActitud||0);
+  w.ratingPuntualidad=Number(state.modalDraft.ratingPuntualidad||0);
+  recomputeWorkerMinutes(w);
+
+  Object.assign(update,{
+    actualStart:w.actualStart,
+    actualEnd:w.actualEnd,
+    actualPause:w.actualPause,
+    actualDiet:w.actualDiet,
+    notes:w.notes,
+    ratingUniformidad:w.ratingUniformidad,
+    ratingActitud:w.ratingActitud,
+    ratingPuntualidad:w.ratingPuntualidad
+  });
+
+  saveWorkerUpdates([update]);
+
+  const id=w.id;
+  closeWorkerModal();
+  refreshWorkerRow(id);
+}
+
+
+function recomputeWorkerMinutes(w){
+  const planned=calculateClientMinutes(w.inicio,w.fin,w.pausa||'00:00');
+  const actual=calculateClientMinutes(
+    w.actualStart||w.inicio,
+    w.actualEnd||w.fin,
+    (w.actualPause!==undefined&&w.actualPause!==null&&w.actualPause!=='')?w.actualPause:(w.pausa||'00:00')
+  );
+  w.plannedMinutes=planned;
+  w.actualMinutes=actual;
+  w.overtimeMinutes=actual-planned;
+}
+
+/* helpers */
+function isNoVestRole(role){
+  const v=normalize(role);return v.includes('CREW HEAD')||v.includes('FORKLIFTER');
+}
+function normalize(v){
+  return String(v||'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+}
+function bestTextColor(hex){
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex||''))return'#111';
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return(.299*r+.587*g+.114*b)<150?'#fff':'#111';
+}
+function showBox(id,text,type){
+  const el=document.getElementById(id);el.className='status-box show '+type;el.textContent=text;
+}
+function showBoxHtml(id,html,type){
+  const el=document.getElementById(id);el.className='status-box show '+type;el.innerHTML=html;
+}
+function errorMessage(err){return !err?'Ha ocurrido un error.':(typeof err==='string'?err:(err.message||String(err)))}
+function escapeHtml(v){
+  return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+function escapeAttr(v){return escapeHtml(v)}
+function cssEscape(v){
+  if(window.CSS&&CSS.escape)return CSS.escape(String(v));
+  return String(v).replace(/["\\]/g,'\\$&');
+}
+
+
+function setupModalCustomScrollbars(){
+  document.querySelectorAll('.modal').forEach(modal=>{
+    if(modal.dataset.scrollbarReady==='1')return;
+
+    const card=modal.querySelector('.modal-card');
+    if(!card)return;
+
+    modal.dataset.scrollbarReady='1';
+    card.classList.add('modal-native-scroll-hidden-v11227');
+
+    const rail=document.createElement('div');
+    rail.className='modal-custom-scroll-rail-v11227';
+    rail.innerHTML='<div class="modal-custom-scroll-thumb-v11227"></div>';
+    modal.appendChild(rail);
+
+    const thumb=rail.firstElementChild;
+
+    const update=()=>{
+      if(modal.classList.contains('hidden')){
+        rail.style.display='none';
+        return;
+      }
+
+      const max=card.scrollHeight-card.clientHeight;
+      if(max<=2){
+        rail.style.display='none';
+        return;
+      }
+
+      const modalRect=modal.getBoundingClientRect();
+      const cardRect=card.getBoundingClientRect();
+      const inset=8;
+      const railHeight=Math.max(40,cardRect.height-inset*2);
+
+      rail.style.display='block';
+      rail.style.left=`${Math.max(0,cardRect.right-modalRect.left-9)}px`;
+      rail.style.top=`${Math.max(0,cardRect.top-modalRect.top+inset)}px`;
+      rail.style.height=`${railHeight}px`;
+
+      const thumbHeight=Math.max(38,railHeight*(card.clientHeight/card.scrollHeight));
+      const travel=Math.max(0,railHeight-thumbHeight);
+      const pos=max>0?travel*(card.scrollTop/max):0;
+
+      thumb.style.height=`${thumbHeight}px`;
+      thumb.style.transform=`translateY(${pos}px)`;
+    };
+
+    card.addEventListener('scroll',update,{passive:true});
+
+    rail.addEventListener('pointerdown',event=>{
+      if(event.target===thumb)return;
+      const rect=rail.getBoundingClientRect();
+      const ratio=Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height));
+      card.scrollTop=(card.scrollHeight-card.clientHeight)*ratio;
+    });
+
+    thumb.addEventListener('pointerdown',event=>{
+      event.preventDefault();
+      event.stopPropagation();
+
+      const startY=event.clientY;
+      const startScroll=card.scrollTop;
+      const max=card.scrollHeight-card.clientHeight;
+      const railHeight=rail.clientHeight;
+      const thumbHeight=thumb.offsetHeight;
+      const travel=Math.max(1,railHeight-thumbHeight);
+
+      thumb.setPointerCapture?.(event.pointerId);
+
+      const move=e=>{
+        const delta=e.clientY-startY;
+        card.scrollTop=startScroll+(delta/travel)*max;
+      };
+
+      const up=()=>{
+        window.removeEventListener('pointermove',move);
+        window.removeEventListener('pointerup',up);
+      };
+
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',up,{once:true});
+    });
+
+    const resizeObserver=new ResizeObserver(update);
+    resizeObserver.observe(card);
+
+    const mutationObserver=new MutationObserver(()=>requestAnimationFrame(update));
+    mutationObserver.observe(modal,{attributes:true,attributeFilter:['class']});
+
+    modal._updateCustomScrollbar=update;
+  });
+}
+
+function refreshModalCustomScrollbars(){
+  setupModalCustomScrollbars();
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('.modal')
+      .forEach(modal=>modal._updateCustomScrollbar?.());
+  });
+}
+
+setTimeout(setupModalCustomScrollbars,0);
+window.addEventListener('resize',refreshModalCustomScrollbars);
+window.addEventListener('resize',updateOperationalWorkNextButton);
+
+document.addEventListener('click',closeTeamColorPalette);
+window.addEventListener('resize',closeTeamColorPalette);
+window.addEventListener('scroll',closeTeamColorPalette,true);
+
+</script>
+
+<script>
+(function(){
+  const back=document.getElementById('ccReturnEmployee');
+  const qr=document.getElementById('ccScanWorker');
+  const leave=()=>{
+    try{if(window.parent!==window&&typeof window.parent.closeCrewFullscreen==='function'){window.parent.closeCrewFullscreen();return}}catch(e){}
+    if(window.parent!==window)window.parent.postMessage({type:'NOVA_CC_BACK'},location.origin);
+    else location.replace('/');
+  };
+  back?.addEventListener('click',leave);
+  qr?.addEventListener('click',()=>{if(window.parent!==window)window.parent.postMessage({type:'NOVA_CC_QR'},location.origin)});
+  function init(){
+    const code=new URLSearchParams(location.search).get('service');
+    if(!code)return;
+    const allowed=/^(svc[1-4]|9[0-9]{5})$/.test(code);
+    if(!allowed)return;
+    const el=document.getElementById('serviceCodeInput');if(el)el.value=code;
+    Promise.resolve().then(()=>firebaseLoadService(code)).then(service=>{
+      if(service)openServiceData(service);
+    }).catch(err=>{const t=document.getElementById('startStatus');if(t){t.classList.add('show','error');t.textContent=String(err?.message||err)}});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+</body>
+</html>

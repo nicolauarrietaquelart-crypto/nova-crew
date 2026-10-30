@@ -581,3 +581,70 @@ body.crew-fullscreen-active{overflow:hidden!important;touch-action:auto!importan
 @media(max-width:1150px){.nova-unified-worker{grid-template-columns:minmax(110px,1fr) minmax(65px,.8fr) minmax(105px,1.2fr);gap:8px}.nova-unified-worker .nova-rating{grid-column:2}.nova-unified-last{grid-column:3;justify-content:flex-end}.nova-unified-worker select{max-width:100%}}
 @media(max-width:880px){.nova-unified-layout{grid-template-columns:1fr}.nova-coord-sidebar{position:static}.nova-coord-sidebody{grid-template-columns:1fr 1fr;align-items:start}.nova-coord-metrics{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:590px){.nova-unified-heading{padding:14px}.nova-coord-sidebody{grid-template-columns:1fr}.nova-coord-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.nova-coord-metrics>div{padding:10px 6px}.nova-coord-metrics b{font-size:17px}.nova-coord-metrics span{font-size:7px}.nova-unified-tools{padding:9px}.nova-unified-worker{grid-template-columns:minmax(105px,1fr) minmax(80px,.9fr);gap:8px;padding:10px}.nova-unified-worker select{grid-column:1;grid-row:2}.nova-unified-worker .nova-rating{grid-column:2;grid-row:2}.nova-unified-last{grid-column:1/-1;grid-row:3;justify-content:space-between}.nova-star{font-size:23px}}
+
+
+/* NOVA Crew mobile navigation, vector toolbar and fluid interactions (2026-10-30). */
+.nova-toolbar-icon{width:21px;height:21px;display:block;flex:none;pointer-events:none}
+#novaQrQuick,#notificationsBtn,#messagesBtn{display:grid;place-items:center;position:relative;color:#16191e}
+#notificationsBtn .nova-toolbar-icon{width:20px;height:20px}
+#v15BellDot{position:absolute;right:8px;top:7px}
+.portal-topbar,.sidebar,.glass.card,.service-card,.nova-coord-sidebar{transform:translateZ(0)}
+.nav-btn,.icon-btn,.profile-chip,.btn,.v15-alert-item,.service-card,.nova-unified-worker,.nova-filter-button{transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .2s ease,transform .22s cubic-bezier(.2,.8,.2,1)}
+@media(hover:hover) and (pointer:fine){
+ .icon-btn:hover,.profile-chip:hover,.btn:not(:disabled):hover{transform:translateY(-2px)}
+ .service-card:hover,.nova-unified-worker:hover{box-shadow:0 10px 28px rgba(27,32,40,.09)}
+ .nav-btn:hover{transform:translateX(2px)}
+}
+.page.active{animation:nova-page-in .23s cubic-bezier(.2,.7,.25,1) both}
+@keyframes nova-page-in{from{opacity:.6;translate:0 5px}to{opacity:1;translate:0 0}}
+/* Small service coordination: preserve the dark operative sidebar language of Crew Control. */
+.nova-coord-sidebar{background:linear-gradient(160deg,#fff,#f5f6f8);border:1px solid #e5e7ea;border-radius:20px;box-shadow:0 10px 32px rgba(24,27,35,.055)}
+.nova-coord-sidehead{background:#111115;color:white;border-bottom:4px solid #ff7a14;border-radius:15px 15px 5px 5px;margin:11px 11px 0;padding:15px 15px 13px}
+.nova-coord-sidehead span{color:#ff8b27;font-size:11px}
+.nova-coord-sidehead strong{font-size:16px;letter-spacing:-.02em}
+.nova-coord-sidebody{padding:12px;gap:12px}
+.nova-coord-metrics>div{background:#fff;border:1px solid #e3e5e9;border-radius:12px;box-shadow:0 1px 0 rgba(255,255,255,.9)}
+.nova-coord-metrics>div:nth-child(2) b{color:#198653}
+.nova-coord-metrics>div:nth-child(3) b{color:#d78626}
+.nova-coord-metrics>div:nth-child(4) b{color:#bc3f45}
+.nova-coord-side-title{font-size:10px;letter-spacing:.025em;color:#585d66}
+.nova-filter-button{border-radius:10px;background:#fff;border:1px solid #e1e2e5;color:#30333a;min-height:35px;padding:8px 10px}
+.nova-filter-button.on{background:#111115;border-color:#111115;color:#fff}
+.nova-coord-selected{background:#111115;color:white;border-radius:10px;text-align:center;padding:10px;font-weight:800}
+.nova-coord-side-actions button{background:#fff}
+.nova-coord-edit{background:#ff8120!important;color:#111!important;border-color:#ff8120!important;font-weight:850!important}
+.nova-unified-worker.selected{border-left-color:#ff7a14;background:#fff1e6}
+.nova-star{transition:transform .13s ease,color .13s ease}
+@media(max-width:900px){
+ /* Navigation appears as a top sheet instead of entering from the left. */
+ #sidebar.sidebar{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:min(86dvh,760px)!important;overflow:auto!important;display:flex!important;flex-direction:column!important;padding:14px!important;border-radius:0 0 24px 24px!important;z-index:120!important;transform:translateY(calc(-100% - 14px))!important;opacity:0;visibility:hidden;box-shadow:0 20px 70px rgba(20,24,34,.20)!important;transition:transform .3s cubic-bezier(.2,.85,.25,1),opacity .2s ease,visibility .3s}
+ #sidebar.sidebar.open{transform:translateY(0)!important;opacity:1!important;visibility:visible!important}
+ #sidebar .sidebar-brand{position:sticky;top:-14px;background:rgba(250,251,253,.98);z-index:2;padding:8px 4px 14px}
+ #sidebar .sidebar-nav{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 8px!important;max-height:50dvh;overflow:auto}
+ #sidebar .nav-btn{min-width:0;justify-content:flex-start;padding:12px 9px}
+ #sidebar .sidebar-foot{display:none}
+ #mobileMenu{display:grid!important}
+}
+@media(max-width:680px){
+ .portal-topbar{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:9px!important;padding:10px 12px!important;position:sticky!important;top:0!important;z-index:30!important}
+ .topbar-left{width:100%!important;min-width:0!important;display:flex!important;align-items:center!important}
+ .topbar-left>div{flex:1;min-width:0}
+ .topbar-left h2{font-size:clamp(17px,4.5vw,23px)!important}
+ .topbar-actions{display:flex!important;width:100%!important;min-width:0!important;justify-content:flex-end!important;gap:8px!important;flex-wrap:nowrap!important;overflow:visible!important}
+ #novaQrQuick,#notificationsBtn,#messagesBtn{display:grid!important;place-items:center!important;flex:none!important;width:39px!important;min-width:39px!important;height:39px!important;padding:0!important;border-radius:11px!important;visibility:visible!important;opacity:1!important}
+ .topbar-actions .profile-chip{display:flex!important;align-items:center;justify-content:center;min-width:42px!important;height:39px!important;max-width:45px!important;padding:0!important}
+ .topbar-actions .v15-profile-wrap{flex:none}
+ #mobileMenu{display:grid!important;place-items:center!important;width:39px!important;height:39px!important;min-width:39px!important;max-width:39px!important}
+ .v15-alert-panel{top:102px!important;right:8px!important;width:calc(100vw - 16px)!important;max-height:70dvh!important}
+}
+@media(max-width:375px){
+ #notificationsBtn,#messagesBtn{display:grid!important;visibility:visible!important}
+ .topbar-actions{gap:5px!important}
+ #novaQrQuick,#notificationsBtn,#messagesBtn{width:35px!important;min-width:35px!important;height:35px!important}
+ .topbar-actions .profile-chip{height:35px!important;min-width:35px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .page.active{animation:none!important}
+ .sidebar,.btn,.icon-btn,.nav-btn,.service-card,.nova-unified-worker,.nova-filter-button{transition:none!important}
+ .page.active{translate:none!important}
+}

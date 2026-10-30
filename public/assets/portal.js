@@ -206,7 +206,9 @@ function navigate(key){
   if(key!=='crew-control'){
     const meta=pageMeta[key]||['Área de empleado','Portal'];
     $('#breadcrumb').textContent=meta[0];
-    $('#pageTitle').textContent=meta[1];
+    const actor=window.novaActiveAccount||window.NOVA_API?.account;
+    const firstName=actor==='coord'?'Álvaro':((actor==='demo'&&portalProfile?.firstName)||'Pau');
+    $('#pageTitle').textContent=key==='home'?'Buenos días, '+firstName:meta[1];
   }
   $('#sidebar').classList.remove('open');
   const sc=$('#mainScroller'); if(sc){ if(typeof sc.scrollTo==='function') sc.scrollTo({top:0,behavior:'smooth'}); else sc.scrollTop=0; }
@@ -593,13 +595,15 @@ function readProfileForm(){
 function saveProfileFromForm(){
   portalProfile={...portalProfile,...readProfileForm()};
   $('#profileSummaryName').textContent=portalProfile.name||'Pau Ferrer';
-  localStorage.setItem('novaProfileV7',JSON.stringify(portalProfile));
+  localStorage.setItem('novaProfileV7-'+(window.novaActiveAccount||'demo'),JSON.stringify(portalProfile));
   renderAvailabilityBasePreview();renderAvailability();
   if(window.google&&google.script&&google.script.run){google.script.run.withSuccessHandler(()=>toast('Perfil','Cambios guardados.')).withFailureHandler(e=>toast('Perfil',e.message||'Error al guardar')).savePortalProfile(portalProfile)}else toast('Perfil','Cambios guardados localmente.');
 }
 function applyBootstrapProfile(profile){
-  try{const local=JSON.parse(localStorage.getItem('novaProfileV7')||'{}');profile={...(profile||{}),...local}}catch(e){}
-  portalProfile={...PROFILE_DEFAULTS,...(profile||{})};
+  try{const local=JSON.parse(localStorage.getItem('novaProfileV7-'+(window.novaActiveAccount||'demo'))||'{}');profile={...(profile||{}),...local}}catch(e){}
+  const isCoord=(window.novaActiveAccount||window.NOVA_API?.account)==='coord';
+  const identityDefaults=isCoord?{firstName:'Álvaro',lastName:'Costa',name:'Álvaro Costa',initials:'AC',phone:'664 690 034',email:'alvaro.costa@novacrew.demo',dni:'',birthDate:'',address:'',postalCode:'',employeeNumber:'002010'}:{};
+  portalProfile={...PROFILE_DEFAULTS,...identityDefaults,...(profile||{})};
   portalProfile.name=portalProfile.name||`${portalProfile.firstName} ${portalProfile.lastName}`;
   const set=(id,v)=>{const el=$(id);if(el&&v!==undefined&&v!==null)el.value=v};
   set('#profileFirstName',portalProfile.firstName);set('#profileLastName',portalProfile.lastName);set('#profileDni',portalProfile.dni);set('#profileNationality',portalProfile.nationality);set('#profileSex',portalProfile.sex);set('#profileBirthDate',portalProfile.birthDate);set('#profileAddress',portalProfile.address);set('#profilePostalCode',portalProfile.postalCode);set('#profileCity',portalProfile.city);set('#profileProvince',portalProfile.province);set('#profileCountry',portalProfile.country);set('#profilePhone',portalProfile.phone);set('#profileEmail',portalProfile.email);set('#profileNumber',portalProfile.employeeNumber);set('#profileUnemployment',portalProfile.unemployment);set('#profileOwnVehicle',portalProfile.ownVehicle);set('#profileDrivingLicense',portalProfile.drivingLicense);set('#profileShirt',portalProfile.shirt);
@@ -1110,6 +1114,7 @@ function enterApp(){
     $('#loginError')?.classList.remove('show');
     $('#appView')?.classList.remove('hidden');
     $('#loginView')?.classList.add('hidden');
+    applyBootstrapProfile({});
     updateHomeNextService();
     updateCountdown();
     navigate('home');

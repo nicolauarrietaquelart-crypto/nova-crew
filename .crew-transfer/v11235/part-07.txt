@@ -1,0 +1,1000 @@
+          <option value="PRESENTE">Presentes</option>
+          <option value="NO PRESENTADO">No presentados</option>
+          <option value="RESERVA">Reservas</option>
+          <option value="SIN_EQUIPO">Sin equipo</option>
+        </select>
+
+        <button type="button" id="arrivalModeBtn" class="arrival-mode-v128"
+          onclick="toggleArrivalMode()" title="Mostrar solo personal pendiente de llegar">
+          <span>⚡</span><strong>Llegadas</strong>
+        </button>
+
+        <button type="button" id="mobileOperationalMoreV11234"
+          class="mobile-ops-more-v11234" onclick="toggleMobileOperationalMoreV11234()"
+          aria-expanded="false" aria-label="Mostrar incidencias, equipos y PDF">
+          <span>Más opciones</span><span class="mobile-ops-more-chevron-v11234">⌄</span>
+        </button>
+        <div class="sidebar-link-actions-v129">
+          <button type="button" class="sidebar-link-btn-v129" onclick="openIncidentsBoardModal()" title="Ver incidencias">
+            <span class="icon">⚠</span><span class="label">Incidencias</span><span id="sidebarIncidentsCount" class="sidebar-utility-badge-v1210">0</span>
+          </button>
+          <button type="button" class="sidebar-link-btn-v129" onclick="openScenariosTeamsModal()" title="Escenarios y equipos">
+            <span class="icon">▦</span><span class="label">Equipos</span><span id="sidebarTeamsCount" class="sidebar-utility-badge-v1210">0</span>
+          </button>
+        </div>
+
+        <div id="sidebarPdfManager">
+          <div class="sidebar-pdf-v11227" id="dropZone">
+            <input id="pdfInput" type="file" accept=".pdf,application/pdf">
+            <div class="sidebar-pdf-copy-v11227">
+              <strong>PDF personal</strong>
+              <span id="pdfFileName">Sin PDF</span>
+            </div>
+            <label class="sidebar-pdf-action-v11227" for="pdfInput" title="Cargar o actualizar PDF">↻ PDF</label>
+          </div>
+          <div id="pdfStatus" class="status-box sidebar-pdf-status-v11227"></div>
+        </div>
+
+        <button type="button" id="scopeSelectBtn" class="scope-select-v1210"
+          onclick="toggleSelectOperationalScope()"
+          title="Seleccionar todo el alcance activo">
+          <span class="scope-icon">☑</span>
+          <span id="scopeSelectLabel">Todo</span>
+          <span id="scopeSelectCount" class="scope-count-v1210">0</span>
+        </button>
+
+        <div id="selectedCounter" class="selected-counter">0 seleccionados</div>
+
+        <div class="sidebar-icon-actions-v124 sidebar-icon-actions-v125">
+          <button class="sidebar-icon-btn-v124 visible" onclick="selectVisible()" title="Seleccionar visibles" aria-label="Seleccionar visibles">☑</button>
+          <button class="sidebar-icon-btn-v124 present" onclick="quickSelectedStatus('PRESENTE')" title="Marcar presentes" aria-label="Marcar presentes">✓</button>
+          <button class="sidebar-icon-btn-v124 absent" onclick="quickSelectedStatus('NO PRESENTADO')" title="Marcar no presentados" aria-label="Marcar no presentados">✕</button>
+          <button class="sidebar-icon-btn-v124 rate" onclick="openBulkRatingModal()" title="Valorar selección" aria-label="Valorar selección">★</button>
+          <button class="sidebar-icon-btn-v124 changes-v125"
+  onclick="openBulkChangesModal()"
+  title="Editar selección"
+  aria-label="Editar selección">⚙</button>
+        </div>
+      </div>
+        </aside>
+
+        <div class="personnel-main-v121">
+          <div id="hiddenWorkTypesBar" class="hidden-work-types-bar-v11227"></div>
+          <div id="personnelGroups" class="personnel-groups-fast"></div>
+        </div>
+      </div>
+    </section>
+
+
+    <div id="incidentsBoardModal" class="modal hidden" onclick="integratedSectionBackdropClick(event,'incidentsBoardModal','incidentsBoardSection')">
+      <div class="modal-card integrated-modal-card-v129">
+        <div class="modal-head integrated-modal-head-v129">
+          <div>
+            <h3>⚠ Incidencias</h3>
+            <div class="modal-sub">Consulta las incidencias del día y crea una nueva si hace falta.</div>
+          </div>
+          <button class="modal-close" onclick="closeIntegratedSectionModal('incidentsBoardModal','incidentsBoardSection')">×</button>
+        </div>
+        <div id="incidentsBoardModalBody" class="integrated-modal-body-v129"></div>
+      </div>
+    </div>
+
+    <div id="scenariosTeamsModal" class="modal hidden" onclick="integratedSectionBackdropClick(event,'scenariosTeamsModal','scenariosTeamsSection')">
+      <div class="modal-card integrated-modal-card-v129 modal-wide">
+        <div class="modal-head integrated-modal-head-v129">
+          <div>
+            <h3>▦ Escenarios y equipos</h3>
+            <div class="modal-sub">Gestiona escenarios, equipos y colores desde una sola ventana.</div>
+          </div>
+          <button class="modal-close" onclick="closeIntegratedSectionModal('scenariosTeamsModal','scenariosTeamsSection')">×</button>
+        </div>
+        <div id="scenariosTeamsModalBody" class="integrated-modal-body-v129"></div>
+      </div>
+    </div>
+
+    <div id="workerModal" class="modal hidden" onclick="modalBackdropClick(event)">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3 id="modalWorkerName">Trabajador</h3>
+            <div id="modalWorkerSub" class="modal-sub"></div>
+          </div>
+          <button class="modal-close" onclick="closeWorkerModal()">×</button>
+        </div>
+
+        <div class="modal-grid">
+          <div class="full planned-box" id="modalPlannedSchedule"></div>
+
+          <div class="full worker-reserve-box-v11226">
+            <label class="worker-reserve-toggle-v11226">
+              <input id="modalWorkerReserve" type="checkbox">
+              <span>
+                <strong>Reserva</strong>
+                <small>Si al cerrar sigue PRESENTE y marcada como reserva: HAND A + 3 h automáticamente.</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="full arrival-record" id="modalArrivalRecord">
+            <span class="arrival-record-label">Llegada registrada</span>
+            <strong id="modalArrivalTime">—</strong>
+            <span class="arrival-record-note">Se guarda al marcar PRESENTE por primera vez y no modifica el horario real.</span>
+          </div>
+
+          <div>
+            <label class="field">Entrada real</label>
+            <div class="time-now-row">
+              <input id="modalActualStart" type="time">
+              <button type="button" class="secondary mini-btn" onclick="setModalTimeNow('modalActualStart')">Ahora</button>
+            </div>
+          </div>
+          <div>
+            <label class="field">Fin real</label>
+            <div class="time-now-row">
+              <input id="modalActualEnd" type="time">
+              <button type="button" class="secondary mini-btn" onclick="setModalTimeNow('modalActualEnd')">Ahora</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="field">Pausa aplicada</label>
+            <input id="modalActualPause" type="time" step="900" onchange="this.dataset.usePdf='0'">
+            <div class="compact-actions">
+              <button id="modalPauseServiceBtn" type="button" class="secondary mini-btn" onclick="setPauseFromPdf()">Según servicio</button>
+              <button type="button" class="secondary mini-btn" onclick="setNoPause()">Sin pausa</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="field">N.º dietas aplicado</label>
+            <select id="modalActualDiet">
+              <option id="modalDietServiceOption" value="__PDF__">Según servicio</option>
+              <option value="0">0 · Sin dieta</option>
+              <option value="1">1 dieta</option>
+              <option value="2">2 dietas</option>
+              <option value="3">3 dietas</option>
+            </select>
+          </div>
+
+          <div class="full">
+            <div class="rating-row">
+              <strong>Uniformidad</strong>
+              <div id="starsUniformidad" class="stars"></div>
+            </div>
+            <div class="rating-row">
+              <strong>Actitud</strong>
+              <div id="starsActitud" class="stars"></div>
+            </div>
+            <div class="rating-row">
+              <strong>Puntualidad</strong>
+              <div id="starsPuntualidad" class="stars"></div>
+            </div>
+          </div>
+
+          <div class="full">
+            <label class="field">Notas</label>
+            <textarea id="modalNotes" class="worker-notes" placeholder="Incidencias, valoración, observaciones…"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="justify-content:space-between">
+          <div class="service-actions">
+            <button class="danger" onclick="deleteCurrentWorker()">Eliminar trabajador</button>
+            <button class="secondary" onclick="openIncidentModal(state.modalWorkerId)">Incidencia</button>
+            <button class="secondary" onclick="openIncidentModal(state.modalWorkerId,'CAMBIO_CATEGORIA')">Cambiar categoría</button>
+            <button class="secondary" onclick="openWorkerHistory(state.modalWorkerId)">Historial</button>
+          </div>
+          <div class="service-actions">
+            <button class="secondary" onclick="closeWorkerModal()">Cancelar</button>
+            <button class="primary" onclick="saveWorkerModal()">Guardar ficha</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="addWorkerModal" class="modal hidden" onclick="addWorkerBackdropClick(event)">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3>Añadir trabajador</h3>
+            <div id="addWorkerSub" class="modal-sub"></div>
+          </div>
+          <button class="modal-close" onclick="closeAddWorkerModal()">×</button>
+        </div>
+
+        <div class="modal-grid">
+          <div class="full">
+            <label class="field">Nombre y apellidos *</label>
+            <input id="addWorkerName" type="text" autocomplete="off">
+          </div>
+
+          <div>
+            <label class="field">Especialidad</label>
+            <input id="addWorkerSpecialty" type="text" placeholder="HAND, CREW HEAD, FORKLIFTER…">
+          </div>
+
+          <div>
+            <label class="field">Móvil</label>
+            <input id="addWorkerMobile" type="tel">
+          </div>
+
+          <div>
+            <label class="field">Inicio previsto</label>
+            <input id="addWorkerStart" type="time">
+          </div>
+
+          <div>
+            <label class="field">Fin previsto</label>
+            <input id="addWorkerEnd" type="time">
+          </div>
+
+          <div>
+            <label class="field">Pausa</label>
+            <select id="addWorkerPause">
+              <option value="00:00">Sin pausa</option>
+              <option value="00:15">15 min</option>
+              <option value="00:30">30 min</option>
+              <option value="00:45">45 min</option>
+              <option value="01:00">1 hora</option>
+              <option value="01:30">1 h 30 min</option>
+              <option value="02:00">2 horas</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field">Dietas</label>
+            <select id="addWorkerDiet">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+
+          <div id="addWorkerTeamWrap">
+            <label class="field">Equipo</label>
+            <select id="addWorkerTeam"></select>
+          </div>
+
+          <div class="full compact-actions">
+            <label><input id="addWorkerReserve" type="checkbox"> Reserva</label>
+            <label><input id="addWorkerCoordinator" type="checkbox"> CS / Coordinador</label>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary" onclick="closeAddWorkerModal()">Cancelar</button>
+          <button class="primary" onclick="saveManualWorker()">Añadir trabajador</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="bulkChangesModal" class="modal hidden" onclick="bulkChangesBackdropClick(event)">
+      <div class="modal-card bulk-changes-modal-v125">
+        <div class="modal-head bulk-changes-head-v125">
+          <div>
+            <h3>Editar selección</h3>
+            <div id="bulkChangesSub" class="modal-sub">Aplicar acciones sobre la selección</div>
+          </div>
+          <button class="modal-close bulk-close-v125" onclick="closeBulkChangesModal()">×</button>
+        </div>
+
+        <div class="modal-grid bulk-changes-grid-v125">
+          <div>
+            <label class="field">Equipo</label>
+            <select id="bulkTeam"></select>
+          </div>
+
+          <div>
+            <label class="field">Estado</label>
+            <select id="bulkStatus">
+              <option value="">Sin cambio</option>
+              <option value="PENDIENTE">NO CONTACTADO</option>
+              <option value="CONTACTADO">CONTACTADO</option>
+              <option value="PRESENTE">PRESENTE</option>
+              <option value="NO PRESENTADO">NO PRESENTADO</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field">Reserva</label>
+            <select id="bulkReserve">
+              <option value="">Sin cambio</option>
+              <option value="1">Marcar reserva</option>
+              <option value="0">Quitar reserva</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field">Pausa</label>
+            <select id="bulkPause">
+              <option value="">Sin cambio</option>
+              <option value="__PDF__">Según servicio</option>
+              <option value="00:00">Sin pausa</option>
+              <option value="00:15">15 min</option>
+              <option value="00:30">30 min</option>
+              <option value="00:45">45 min</option>
+              <option value="01:00">1 hora</option>
+              <option value="01:30">1 h 30 min</option>
+              <option value="02:00">2 horas</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field">Dieta</label>
+            <select id="bulkDiet">
+              <option value="">Sin cambio</option>
+              <option value="__PDF__">Según servicio</option>
+              <option value="0">Sin dieta</option>
+              <option value="1">1 dieta</option>
+              <option value="2">2 dietas</option>
+              <option value="3">3 dietas</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field">Entrada real</label>
+            <div class="time-now-row">
+              <input id="bulkActualStart" type="time">
+              <button type="button" class="secondary mini-btn" onclick="setBulkModalNow('bulkActualStart')">Ahora</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="field">Fin real</label>
+            <div class="time-now-row">
+              <input id="bulkActualEnd" type="time">
+              <button type="button" class="secondary mini-btn" onclick="setBulkModalNow('bulkActualEnd')">Ahora</button>
+            </div>
+          </div>
+
+          <div class="full">
+            <label class="field">Horario real</label>
+            <select id="bulkScheduleMode">
+              <option value="">Usar horas indicadas</option>
+              <option value="__PDF__">Usar horario previsto</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bulk-modal-shortcuts-v125">
+          <button type="button" class="bulk-shortcut-v125 present" onclick="quickSelectedStatus('PRESENTE');closeBulkChangesModal()" title="Marcar presentes">✓</button>
+          <button type="button" class="bulk-shortcut-v125 absent" onclick="quickSelectedStatus('NO PRESENTADO');closeBulkChangesModal()" title="Marcar no presentados">✕</button>
+          <button type="button" class="bulk-shortcut-v125 rate" onclick="closeBulkChangesModal();openBulkRatingModal()" title="Valorar selección">★</button>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary" onclick="closeBulkChangesModal()">Cancelar</button>
+          <button class="bulk-apply-v125" onclick="applyBulk()">Aplicar cambios</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="bulkRatingModal" class="modal hidden" onclick="bulkRatingBackdropClick(event)">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3>Valorar seleccionados</h3>
+            <div id="bulkRatingSub" class="modal-sub">Aplicar estrellas a varios trabajadores</div>
+          </div>
+          <button class="modal-close" onclick="closeBulkRatingModal()">×</button>
+        </div>
+
+        <div class="bulk-modal-grid">
+          <div class="rating-row">
+            <strong>Uniformidad</strong>
+            <div id="bulkStarsUniformidad" class="stars"></div>
+          </div>
+          <div class="rating-row">
+            <strong>Actitud</strong>
+            <div id="bulkStarsActitud" class="stars"></div>
+          </div>
+          <div class="rating-row">
+            <strong>Puntualidad</strong>
+            <div id="bulkStarsPuntualidad" class="stars"></div>
+          </div>
+          <div class="hint">Deja una categoría sin marcar si no quieres modificarla.</div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary" onclick="clearBulkRatings()">Limpiar selección</button>
+          <button class="secondary" onclick="closeBulkRatingModal()">Cancelar</button>
+          <button class="primary" onclick="applyBulkRatings()">Aplicar valoración</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="incidentModal" class="modal hidden" onclick="incidentBackdropClick(event)">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3>Reportar incidencia</h3>
+            <div class="modal-sub">Puede ser general del servicio o vinculada a un trabajador.</div>
+          </div>
+          <button class="modal-close" onclick="closeIncidentModal()">×</button>
+        </div>
+
+        <div class="modal-grid">
+          <div>
+            <label class="field">Ámbito</label>
+            <select id="incidentScope" onchange="updateIncidentModalFields()">
+              <option value="GENERAL">General</option>
+              <option value="WORKER">Trabajador</option>
+            </select>
+          </div>
+
+          <div id="incidentWorkWrap">
+            <label class="field">Tipo de servicio</label>
+            <select id="incidentWork"></select>
+          </div>
+
+          <div id="incidentWorkerWrap" class="full hidden">
+            <label class="field">Trabajador</label>
+            <select id="incidentWorker" onchange="updateIncidentModalFields()"></select>
+          </div>
+
+          <div>
+            <label class="field">Tipo de incidencia</label>
+            <select id="incidentCategory" onchange="updateIncidentModalFields()">
+              <option value="RETRASO">Retraso</option>
+              <option value="UNIFORMIDAD">Uniformidad</option>
+              <option value="ACTITUD">Actitud</option>
+              <option value="SEGURIDAD">Seguridad</option>
+              <option value="AUSENCIA">Ausencia</option>
+              <option value="DAÑOS">Daños</option>
+              <option value="CAMBIO CATEGORIA">Cambio de categoría</option>
+              <option value="OTRO">Otro</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field">Gravedad</label>
+            <select id="incidentSeverity">
+              <option value="LEVE">Leve</option>
+              <option value="MEDIA">Media</option>
+              <option value="GRAVE">Grave</option>
+            </select>
+          </div>
+
+          <div id="incidentCategoryChangeWrap" class="full hidden category-change-box">
+            <div>
+              <label class="field">Categoría actual</label>
+              <input id="incidentOldCategory" type="text" readonly>
+            </div>
+            <div>
+              <label class="field">Nueva categoría</label>
+              <input id="incidentNewCategory" type="text" placeholder="Ej. FORKLIFTER">
+            </div>
+          </div>
+
+          <div class="full">
+            <label class="field">Descripción</label>
+            <textarea id="incidentDescription" rows="3" placeholder="Qué ha ocurrido…"></textarea>
+          </div>
+
+          <div class="full">
+            <label class="field">Medida / actuación</label>
+            <textarea id="incidentAction" rows="2" placeholder="Advertencia, sustitución, comunicación…"></textarea>
+          </div>
+
+          <div>
+            <label class="field">Estado</label>
+            <select id="incidentStatus">
+              <option value="ABIERTA">Abierta</option>
+              <option value="RESUELTA">Resuelta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary" onclick="closeIncidentModal()">Cancelar</button>
+          <button class="primary" onclick="saveIncidentModal()">Guardar incidencia</button>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div id="teamMembersModal" class="modal hidden team-members-modal" onclick="teamMembersBackdropClick(event)">
+      <div class="modal-card team-members-card">
+        <div class="modal-head">
+          <div>
+            <div class="eyebrow">EQUIPO</div>
+            <h3 id="teamMembersTitle">—</h3>
+            <div id="teamMembersSub" class="modal-sub"></div>
+          </div>
+          <button class="modal-close" onclick="closeTeamMembersModal()">×</button>
+        </div>
+
+        <div id="teamMembersStats" class="team-members-stats"></div>
+
+        <div class="team-panel-actions">
+          <button class="secondary icon-btn" onclick="teamMarkAllPresent()">
+            <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"></path></svg><span>Todos presentes</span>
+          </button>
+          <button class="secondary icon-btn" onclick="copyCurrentTeamMobiles()">
+            <svg viewBox="0 0 24 24"><path d="M7 2h10v20H7z"></path><path d="M10 18h4"></path></svg><span>Móviles</span>
+          </button>
+        </div>
+
+        <div id="teamMembersList" class="team-members-list"></div>
+      </div>
+    </div>
+
+    <div id="staffingModal" class="modal hidden" onclick="staffingBackdropClick(event)">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3 id="staffingTitle">Planificar equipos</h3>
+            <div id="staffingSub" class="modal-sub"></div>
+          </div>
+          <button class="modal-close" onclick="closeStaffingModal()">×</button>
+        </div>
+
+        <div class="hint" style="margin:0 0 10px">
+          Define cuántas personas necesitas de cada equipo para este tipo de servicio.
+          Se comparará automáticamente con asignados y presentes.
+        </div>
+
+        <label class="no-teams-option">
+          <input id="staffingNoTeams" type="checkbox" onchange="toggleStaffingNoTeamsUI()">
+          <span>
+            <strong>Sin equipos</strong>
+            <small>Para servicios como CATERING, SITE u otros donde no se reparta personal por equipos.</small>
+          </span>
+        </label>
+
+        <div id="staffingTeamPlanningArea">
+          <div class="copy-plan-row">
+          <select id="staffingCopySource">
+            <option value="">Copiar planificación desde…</option>
+          </select>
+          <button type="button" class="secondary" onclick="copyStaffingPlanFromSource()">Copiar</button>
+        </div>
+
+          <div id="staffingRows"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary" onclick="clearStaffingPlan()">Quitar objetivos</button>
+          <button class="secondary" onclick="closeStaffingModal()">Cancelar</button>
+          <button class="primary" onclick="saveStaffingPlan()">Guardar planificación</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="historyModal" class="modal hidden" onclick="historyBackdropClick(event)">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3 id="historyTitle">Historial del trabajador</h3>
+            <div id="historySub" class="modal-sub"></div>
+          </div>
+          <button class="modal-close" onclick="closeHistoryModal()">×</button>
+        </div>
+        <div id="historyContent"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+
+<div id="teamColorPalette" class="team-palette-popover hidden" onclick="event.stopPropagation()">
+  <div class="team-palette-head">
+    <strong>Colores rápidos</strong>
+    <button type="button" class="team-palette-reset" onclick="resetTeamColorPalette()">↺ Restablecer</button>
+  </div>
+  <div id="teamColorPaletteGrid" class="team-palette-grid"></div>
+</div>
+
+<script src="/assets/crew-cloud-adapter.js"></script>
+<script>
+const NO_TEAMS_REQUIREMENT_TEAM_ID='__NO_TEAMS__';
+
+const state = {
+  service: null,
+  activeDay: '',
+  selected: new Set(),
+  metaTimer: null,
+  structureTimer: null,
+  nextTeamSeq: 1,
+  modalWorkerId: '',
+  modalDraft: null,
+  bulkRatingDraft: {
+    ratingUniformidad: null,
+    ratingActitud: null,
+    ratingPuntualidad: null
+  },
+  controlMode: false,
+  incidentEditingId: '',
+  staffingWork: '',
+  staffingDraft: {},
+  workTeamFilters: {},
+  workSorts: {},
+  manualWork: '',
+  collapsedShifts: {},
+  teamMembersWork: '',
+  teamMembersTeamId: '',
+  operationalWorkFilter: 'ALL',
+  operationalTimeFilter: 'ALL',
+  expandedWorkGroups: new Set(),
+  pendingWorkerUpdates: {},
+  workerSaveTimer: null,
+  workerSaveInFlight: false,
+  workerSaveCallbacks: []
+};
+
+/* =========================================================
+   V11 FIREBASE DATA LAYER
+   UI: v11.2 demo/minimalista
+   Firestore: operational source of truth
+   Google Sheets: legacy import/PDF/history mirror
+   ========================================================= */
+
+const FIREBASE_CONFIG=null; // Demo: no Firebase access
+
+let firebaseCtx=null;
+let firebaseReadyPromise=null;
+let firebaseRealtimeUnsubs=[];
+let firebaseRenderTimer=null;
+let firebaseRealtimeCode='';
+
+function callAppsScript(method,args){return Promise.reject(new Error('La función '+method+' requiere un módulo de Cloudflare no habilitado en esta demo.'));}
+function shadowAppsScript(){ /* Demo: no real Sheets or Apps Script mirroring. */ }
+
+async function ensureFirebase(){
+  if(!window.CREW_CLOUDFLARE_FS)throw new Error('Conexión Cloudflare no disponible. Vuelve a iniciar sesión en NOVA Crew.');
+  return {db:{},fs:window.CREW_CLOUDFLARE_FS};
+}
+
+function firebaseErrorMessage(err){
+  const raw=String(err?.message||err||'Error de Firebase');
+  if(/missing or insufficient permissions/i.test(raw)){
+    return 'Firebase está bloqueando el acceso. Revisa Firestore → Rules y permite lectura/escritura durante la prueba.';
+  }
+  return raw;
+}
+
+function firestoreValueToIso(value){
+  if(!value)return '';
+  if(typeof value==='string')return value;
+  if(value&&typeof value.toDate==='function'){
+    try{return value.toDate().toISOString()}catch(e){}
+  }
+  if(value instanceof Date)return value.toISOString();
+  return String(value||'');
+}
+
+function sanitizeFirestore(value){
+  // google.script.run can return array-like/custom Array objects.
+  // Firestore only accepts native plain JS Arrays, so Array.from()
+  // is used deliberately instead of value.map(), which may preserve
+  // the custom Array constructor/species.
+  if(Array.isArray(value)){
+    return Array.from(value, item=>sanitizeFirestore(item));
+  }
+
+  if(value&&typeof value==='object'){
+    // Convert special/custom objects into plain Firestore-safe objects.
+    if(value instanceof Date){
+      return value.toISOString();
+    }
+
+    const out={};
+    Object.keys(value).forEach(k=>{
+      const v=value[k];
+      if(v!==undefined)out[k]=sanitizeFirestore(v);
+    });
+    return out;
+  }
+
+  return value;
+}
+
+function firebaseServiceRoot(service){
+  return sanitizeFirestore({
+    code:String(service.code||''),
+    serviceName:String(service.serviceName||''),
+    serviceDate:String(service.serviceDate||''),
+    venue:String(service.venue||''),
+    pdfName:String(service.pdfName||''),
+    workOrder:Array.from(service.workOrder||[],String),
+    hiddenWorkTypes:Array.from(service.hiddenWorkTypes||[],String),
+    createdAt:firestoreValueToIso(service.createdAt)||new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+    closed:Boolean(service.closed),
+    closedAt:firestoreValueToIso(service.closedAt),
+    finalPdfId:String(service.finalPdfId||''),
+    finalPdfUrl:String(service.finalPdfUrl||''),
+    scenarios:Array.from(service.scenarios||[],s=>sanitizeFirestore(s)),
+    teams:Array.from(service.teams||[],t=>sanitizeFirestore(t)),
+    requirements:Array.from(service.requirements||[],r=>sanitizeFirestore(r)),
+    audit:Array.from(service.audit||[],a=>sanitizeFirestore(a)),
+    backend:'FIRESTORE',
+    schemaVersion:'11.2.34'
+  });
+}
+
+function normalizeFirebaseWorker(w){
+  const worker={...w,id:String(w.id||'')};
+
+  if(typeof calculateClientMinutes==='function'){
+    const planned=calculateClientMinutes(worker.inicio,worker.fin,worker.pausa);
+    const actual=calculateClientMinutes(
+      worker.actualStart||worker.inicio,
+      worker.actualEnd||worker.fin,
+      worker.actualPause||worker.pausa
+    );
+    worker.plannedMinutes=planned;
+    worker.actualMinutes=actual;
+    worker.overtimeMinutes=actual-planned;
+  }
+
+  return worker;
+}
+
+function normalizeFirebaseIncident(i){
+  return {
+    ...i,
+    id:String(i.id||''),
+    createdAt:firestoreValueToIso(i.createdAt)
+  };
+}
+
+async function commitFirestoreOps(ops){
+  if(!ops.length)return;
+  const {db,fs}=await ensureFirebase();
+
+  for(let start=0;start<ops.length;start+=400){
+    const batch=fs.writeBatch(db);
+    ops.slice(start,start+400).forEach(op=>{
+      if(op.type==='delete')batch.delete(op.ref);
+      else batch.set(op.ref,sanitizeFirestore(op.data),{merge:Boolean(op.merge)});
+    });
+    await batch.commit();
+  }
+}
+
+async function replaceFirestoreCollection(code,name,items){
+  const {db,fs}=await ensureFirebase();
+  const col=fs.collection(db,'services',code,name);
+  const snap=await fs.getDocs(col);
+  const wanted=new Map(
+    (items||[])
+      .filter(x=>x&&x.id)
+      .map(x=>[String(x.id),sanitizeFirestore(x)])
+  );
+
+  const ops=[];
+  snap.docs.forEach(d=>{
+    if(!wanted.has(d.id))ops.push({type:'delete',ref:d.ref});
+  });
+
+  wanted.forEach((data,id)=>{
+    ops.push({
+      type:'set',
+      ref:fs.doc(db,'services',code,name,id),
+      data,
+      merge:false
+    });
+  });
+
+  await commitFirestoreOps(ops);
+}
+
+async function migrateServiceToFirebase(service){
+  if(!service||!service.code)throw new Error('Servicio inválido para Firebase.');
+
+  const {db,fs}=await ensureFirebase();
+  const code=String(service.code);
+
+  await fs.setDoc(
+    fs.doc(db,'services',code),
+    firebaseServiceRoot(service),
+    {merge:true}
+  );
+
+  await Promise.all([
+    replaceFirestoreCollection(
+      code,
+      'workers',
+      (service.workers||[]).map(w=>sanitizeFirestore({...w,id:String(w.id||'')}))
+    ),
+    replaceFirestoreCollection(
+      code,
+      'incidents',
+      (service.incidents||[]).map(i=>sanitizeFirestore({...i,id:String(i.id||'')}))
+    )
+  ]);
+
+  return service;
+}
+
+async function readServiceFromFirebase(code){
+  const {db,fs}=await ensureFirebase();
+  const ref=fs.doc(db,'services',code);
+  const rootSnap=await fs.getDoc(ref);
+
+  if(!rootSnap.exists())return null;
+
+  const [workersSnap,incidentsSnap]=await Promise.all([
+    fs.getDocs(fs.collection(db,'services',code,'workers')),
+    fs.getDocs(fs.collection(db,'services',code,'incidents'))
+  ]);
+
+  const root=rootSnap.data()||{};
+  const workers=workersSnap.docs
+    .map(d=>normalizeFirebaseWorker({id:d.id,...d.data()}))
+    .sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
+
+  const incidents=incidentsSnap.docs
+    .map(d=>normalizeFirebaseIncident({id:d.id,...d.data()}))
+    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+
+  return {
+    code:String(code),
+    serviceName:String(root.serviceName||''),
+    serviceDate:String(root.serviceDate||''),
+    venue:String(root.venue||''),
+    pdfName:String(root.pdfName||''),
+    workOrder:Array.isArray(root.workOrder)?root.workOrder.map(String):[],
+    hiddenWorkTypes:Array.isArray(root.hiddenWorkTypes)?root.hiddenWorkTypes.map(String):[],
+    createdAt:firestoreValueToIso(root.createdAt),
+    updatedAt:firestoreValueToIso(root.updatedAt),
+    closed:Boolean(root.closed),
+    closedAt:firestoreValueToIso(root.closedAt),
+    finalPdfId:String(root.finalPdfId||''),
+    finalPdfUrl:String(root.finalPdfUrl||''),
+    scenarios:Array.isArray(root.scenarios)?root.scenarios:[],
+    teams:Array.isArray(root.teams)?root.teams:[],
+    workers,
+    incidents,
+    requirements:Array.isArray(root.requirements)?root.requirements:[],
+    audit:Array.isArray(root.audit)?root.audit:[]
+  };
+}
+
+function stopFirebaseRealtime(){
+  firebaseRealtimeUnsubs.forEach(fn=>{
+    try{fn()}catch(e){}
+  });
+  firebaseRealtimeUnsubs=[];
+  firebaseRealtimeCode='';
+}
+
+let firebaseOpsRenderTimer=null;
+function scheduleOperationalRefresh(){
+  clearTimeout(firebaseOpsRenderTimer);
+  firebaseOpsRenderTimer=setTimeout(()=>{
+    if(!state.service)return;
+    renderOperationalAlerts();
+  },120);
+}
+
+function upsertRealtimeWorker(worker){
+  if(!state.service)return null;
+
+  const rows=state.service.workers||[];
+  const idx=rows.findIndex(w=>String(w.id)===String(worker.id));
+  const previous=idx>=0?rows[idx]:null;
+
+  if(idx>=0)rows[idx]=worker;
+  else rows.push(worker);
+
+  rows.sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  return previous;
+}
+
+function removeRealtimeWorker(id){
+  if(!state.service)return null;
+  const idx=(state.service.workers||[]).findIndex(w=>String(w.id)===String(id));
+  if(idx<0)return null;
+  return state.service.workers.splice(idx,1)[0]||null;
+}
+
+function refreshWorkerFromRealtime(worker,previous){
+  if(!worker||!state.service)return;
+
+  const currentDay=(worker.serviceDate||'SIN FECHA')===state.activeDay;
+  const previousDay=previous
+    ? (previous.serviceDate||'SIN FECHA')===state.activeDay
+    : false;
+
+  // If the worker enters/leaves the active day or work block, rebuild only
+  // the personnel area. Normal status/team changes update one row.
+  if(!previous || currentDay!==previousDay ||
+     String(worker.trabajo||'')!==String(previous.trabajo||'')){
+    renderPersonnel(true);
+    return;
+  }
+
+  if(currentDay){
+    refreshWorkerRow(worker.id);
+
+    const currentWork=worker.trabajo||'SIN TIPO';
+    const previousWork=previous?.trabajo||currentWork;
+
+    updateGroupSummary(currentWork);
+    if(previousWork!==currentWork)updateGroupSummary(previousWork);
+
+    updateStaffingChipFast(currentWork,worker.teamId);
+    if(previous?.teamId && previous.teamId!==worker.teamId){
+      updateStaffingChipFast(currentWork,previous.teamId);
+    }
+
+    // If the interactive team panel is currently open, update it too.
+    if(
+      !document.getElementById('teamMembersModal')?.classList.contains('hidden') &&
+      normalize(state.teamMembersWork)===normalize(currentWork) &&
+      (
+        String(state.teamMembersTeamId||'')===String(worker.teamId||'') ||
+        String(state.teamMembersTeamId||'')===String(previous?.teamId||'')
+      )
+    ){
+      renderTeamMembersModal();
+    }
+  }
+
+  renderStats();
+  scheduleOperationalRefresh();
+}
+
+function refreshIncidentWorkerBadge(workerId){
+  if(!workerId)return;
+  const worker=state.service?.workers?.find(w=>String(w.id)===String(workerId));
+  if(worker && (worker.serviceDate||'SIN FECHA')===state.activeDay){
+    refreshWorkerRow(worker.id);
+  }
+}
+
+async function startFirebaseRealtime(code){
+  code=String(code||'');
+  if(!code)return;
+
+  if(firebaseRealtimeCode===code&&firebaseRealtimeUnsubs.length)return;
+
+  stopFirebaseRealtime();
+
+  const {db,fs}=await ensureFirebase();
+  firebaseRealtimeCode=code;
+
+  let firstServiceSnapshot=true;
+  let firstWorkersSnapshot=true;
+  let firstIncidentsSnapshot=true;
+
+  const serviceUnsub=fs.onSnapshot(
+    fs.doc(db,'services',code),
+    snap=>{
+      if(!snap.exists()||!state.service||String(state.service.code)!==code)return;
+
+      const root=snap.data()||{};
+
+      if(firstServiceSnapshot){
+        firstServiceSnapshot=false;
+        return;
+      }
+
+      const oldScenarios=JSON.stringify(state.service.scenarios||[]);
+      const oldTeams=JSON.stringify(state.service.teams||[]);
+      const oldRequirements=JSON.stringify(state.service.requirements||[]);
+      const oldWorkOrder=JSON.stringify(state.service.workOrder||[]);
+      const oldHiddenWorkTypes=JSON.stringify(state.service.hiddenWorkTypes||[]);
+      const oldClosed=Boolean(state.service.closed);
+
+      state.service.serviceName=String(root.serviceName??state.service.serviceName??'');
+      state.service.serviceDate=String(root.serviceDate??state.service.serviceDate??'');
+      state.service.venue=String(root.venue??state.service.venue??'');
+      state.service.pdfName=String(root.pdfName??state.service.pdfName??'');
+      if(Array.isArray(root.workOrder))state.service.workOrder=root.workOrder.map(String);
+      if(Array.isArray(root.hiddenWorkTypes))state.service.hiddenWorkTypes=root.hiddenWorkTypes.map(String);
+      state.service.createdAt=firestoreValueToIso(root.createdAt)||state.service.createdAt;
+      state.service.updatedAt=firestoreValueToIso(root.updatedAt)||state.service.updatedAt;
+      state.service.closed=Boolean(root.closed);
+      state.service.closedAt=firestoreValueToIso(root.closedAt);
+      state.service.finalPdfId=String(root.finalPdfId||'');
+      state.service.finalPdfUrl=String(root.finalPdfUrl||'');
+
+      if(Array.isArray(root.scenarios))state.service.scenarios=root.scenarios;

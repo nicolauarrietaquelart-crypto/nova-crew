@@ -1,0 +1,1000 @@
+    const label=time==='ALL'?'Todas':time;
+    const count=time==='ALL'
+      ? state.service.workers.filter(w=>
+          w.included &&
+          (w.serviceDate||'SIN FECHA')===state.activeDay &&
+          normalize(w.trabajo||'SIN TIPO')===normalize(state.operationalWorkFilter)
+        ).length
+      : state.service.workers.filter(w=>
+          w.included &&
+          (w.serviceDate||'SIN FECHA')===state.activeDay &&
+          normalize(w.trabajo||'SIN TIPO')===normalize(state.operationalWorkFilter) &&
+          workerEntryTime(w)===time
+        ).length;
+
+    return `<button type="button"
+      class="operational-time-chip-v1210 ${active?'active':''}"
+      onclick="setOperationalTimeFilter('${escapeJsString(time)}')">
+      ${escapeHtml(label)}
+      <span>${count}</span>
+    </button>`;
+  }).join('');
+
+  updateScopeSelectButton();
+}
+
+function setOperationalTimeFilter(time){
+  state.operationalTimeFilter=time||'ALL';
+  renderOperationalTimeFilters();
+  renderOperationalDashboard();
+  renderOperationalAlerts(false);
+  // Do not scroll the page behind an open mobile menu.
+  if(!mobileOperationalPanelIsOpenV11235()){
+    focusOperationalWorkBlock(state.operationalWorkFilter,state.operationalTimeFilter);
+  }
+}
+
+function operationalTimeMatches(worker){
+  return state.operationalTimeFilter==='ALL' ||
+    workerEntryTime(worker)===state.operationalTimeFilter;
+}
+
+function operationalWorkMatches(work){
+  return state.operationalWorkFilter==='ALL' ||
+    normalize(work)===normalize(state.operationalWorkFilter);
+}
+
+/* v11.2.33: real pager, not a scrollLeft guess. Keeps all work types reachable
+   even when an iframe/browser refuses horizontal scrolling. */
+let operationalWorkPageStartV11233=0;
+let operationalWorkPageLastV11233=0;
+
+function updateOperationalWorkNextButton(){
+  const host=document.getElementById('operationalWorkFilters');
+  const prev=document.getElementById('operationalWorkPrevious');
+  const next=document.getElementById('operationalWorkNext');
+  if(!host||!prev||!next)return;
+
+  const items=[...host.querySelectorAll('.operational-work-chip-v122')];
+  if(!items.length){prev.disabled=true;next.disabled=true;return;}
+
+  const maxIndex=items.length-1;
+  const start=Math.max(0,Math.min(maxIndex,operationalWorkPageStartV11233));
+  operationalWorkPageStartV11233=start;
+
+  // Measure while temporarily visible; all items fit into a 1-row clipped rail.
+  items.forEach(button=>button.hidden=false);
+  const widths=items.map(button=>Math.ceil(button.getBoundingClientRect().width));
+  const available=Math.max(85,host.clientWidth-4);
+  let used=0;
+  let last=start;
+
+  for(let index=start;index<items.length;index++){
+    const width=Math.min(available,Math.max(36,widths[index]));
+    const required=width+(index>start?5:0);
+    if(index>start && used+required>available)break;
+    used+=required;
+    last=index;
+  }
+
+  operationalWorkPageLastV11233=last;
+  items.forEach((button,index)=>{
+    button.hidden=index<start||index>last;
+  });
+
+  prev.disabled=start===0;
+  next.disabled=last>=maxIndex;
+  next.classList.toggle('at-end-v11232',next.disabled);
+  host.scrollLeft=0;
+}
+
+function nextOperationalWorkType(){
+  const host=document.getElementById('operationalWorkFilters');
+  if(!host)return;
+  const count=host.querySelectorAll('.operational-work-chip-v122').length;
+  if(!count || operationalWorkPageLastV11233>=count-1)return;
+  operationalWorkPageStartV11233=operationalWorkPageLastV11233+1;
+  updateOperationalWorkNextButton();
+}
+
+function previousOperationalWorkType(){
+  const host=document.getElementById('operationalWorkFilters');
+  if(!host || operationalWorkPageStartV11233<=0)return;
+  const items=[...host.querySelectorAll('.operational-work-chip-v122')];
+  items.forEach(item=>item.hidden=false);
+  const available=Math.max(85,host.clientWidth-4);
+  let used=0;
+  let newStart=operationalWorkPageStartV11233-1;
+  for(let index=operationalWorkPageStartV11233-1;index>=0;index--){
+    const width=Math.min(available,Math.max(36,Math.ceil(items[index].getBoundingClientRect().width)));
+    if(used && used+width+5>available)break;
+    used+=width+(used?5:0);
+    newStart=index;
+  }
+  operationalWorkPageStartV11233=newStart;
+  updateOperationalWorkNextButton();
+}
+
+function renderOperationalWorkFilters(){
+  const host=document.getElementById('operationalWorkFilters');
+  if(!host||!state.service)return;
+
+  const works=operationalWorkTypesForDay();
+  if(state.operationalWorkFilter!=='ALL' &&
+     !works.some(w=>normalize(w)===normalize(state.operationalWorkFilter))){
+    state.operationalWorkFilter='ALL';
+  }
+
+  const buttons=['ALL',...works];
+  const signature=JSON.stringify(buttons);
+  if(host.dataset.workSignature!==signature){
+    host.dataset.workSignature=signature;
+    operationalWorkPageStartV11233=0;
+    host.innerHTML=buttons.map(work=>`<button type="button"
+      data-work-type="${escapeAttr(work)}"
+      class="operational-work-chip-v122"
+      onclick="setOperationalWorkFilter('${escapeJsString(work)}')">
+      ${escapeHtml(work==='ALL'?'TODO':work)}
+    </button>`).join('');
+  }
+
+  // Reuse the buttons instead of rebuilding them on every attendance update.
+  [...host.children].forEach((button,index)=>{
+    const work=buttons[index];
+    button.classList.toggle('active',
+      work==='ALL'?state.operationalWorkFilter==='ALL':
+      normalize(work)===normalize(state.operationalWorkFilter));
+  });
+  updateOperationalWorkNextButton();
+  renderOperationalTimeFilters();
+  updateSidebarUtilityBadges();
+}
+
+
+function focusOperationalWorkBlock(work,time){
+  if(!work || work==='ALL')return;
+
+  requestAnimationFrame(()=>{
+    const details=[...document.querySelectorAll('.work-group')]
+      .find(el=>normalize(el.getAttribute('data-work-group')||'')===normalize(work));
+
+    if(!details)return;
+
+    details.open=true;
+    state.expandedWorkGroups.add(work);
+
+    let target=details.querySelector(':scope > summary')||details;
+
+    if(time && time!=='ALL'){
+      const shift=details.querySelector(
+        `[data-shift-summary="${cssEscape(shiftStateKey(work,time))}"]`
+      );
+      if(shift)target=shift;
+    }
+
+    const header=document.querySelector('header');
+    const headerHeight=header?.offsetHeight||0;
+    const y=target.getBoundingClientRect().top + window.scrollY - headerHeight - 12;
+
+    window.scrollTo({
+      top:Math.max(0,y),
+      behavior:'auto'
+    });
+  });
+}
+
+function setOperationalWorkFilter(work){
+  state.operationalWorkFilter=work||'ALL';
+  state.operationalTimeFilter='ALL';
+  renderOperationalWorkFilters();
+  renderOperationalDashboard();
+  renderOperationalAlerts(false);
+  // Keep the mobile control panel open while selecting work/time.
+  if(!mobileOperationalPanelIsOpenV11235()){
+    focusOperationalWorkBlock(state.operationalWorkFilter,'ALL');
+  }
+}
+
+function operationalWorkersForSummary(){
+  if(!state.service)return[];
+
+  return state.service.workers.filter(w=>
+    (w.serviceDate||'SIN FECHA')===state.activeDay &&
+    w.included &&
+    operationalWorkMatches(w.trabajo||'SIN TIPO') &&
+    operationalTimeMatches(w)
+  );
+}
+
+
+function operationalScopeLabel(){
+  if(state.operationalWorkFilter==='ALL')return 'Todo';
+  if(state.operationalTimeFilter==='ALL')return state.operationalWorkFilter;
+  return `${state.operationalWorkFilter} · ${state.operationalTimeFilter}`;
+}
+
+function updateScopeSelectButton(){
+  const btn=document.getElementById('scopeSelectBtn');
+  const label=document.getElementById('scopeSelectLabel');
+  const count=document.getElementById('scopeSelectCount');
+  if(!btn||!label||!count||!state.service)return;
+
+  const rows=operationalWorkersForSummary();
+  const allSelected=rows.length>0 && rows.every(w=>state.selected.has(w.id));
+
+  label.textContent=operationalScopeLabel();
+  count.textContent=String(rows.length);
+  btn.classList.toggle('active',allSelected);
+}
+
+function toggleSelectOperationalScope(){
+  const rows=operationalWorkersForSummary();
+  if(!rows.length)return;
+
+  const allSelected=rows.every(w=>state.selected.has(w.id));
+
+  rows.forEach(w=>{
+    if(allSelected)state.selected.delete(w.id);
+    else state.selected.add(w.id);
+  });
+
+  refreshSelectionRows(rows);
+  updateScopeSelectButton();
+}
+
+function applySidebarMetricFilter(value){
+  const select=document.getElementById('quickStatusFilter');
+  if(!select)return;
+  select.value=value;
+  syncArrivalModeState();
+  renderPersonnel(true);
+}
+
+function updateSidebarUtilityBadges(){
+  if(!state.service)return;
+
+  const incidentsBadge=document.getElementById('sidebarIncidentsCount');
+  const teamsBadge=document.getElementById('sidebarTeamsCount');
+
+  if(incidentsBadge){
+    const count=(state.service.incidents||[]).filter(i=>
+      (!state.activeDay||i.serviceDate===state.activeDay) &&
+      i.status==='ABIERTA'
+    ).length;
+    incidentsBadge.textContent=String(count);
+    incidentsBadge.classList.toggle('has-value',count>0);
+  }
+
+  if(teamsBadge){
+    const count=(state.service.teams||[]).length;
+    teamsBadge.textContent=String(count);
+    teamsBadge.classList.toggle('has-value',count>0);
+  }
+}
+
+function getDayOperationalMetrics(){
+  if(!state.service)return null;
+
+  const workers=operationalWorkersForSummary();
+
+  const present=workers.filter(w=>w.status==='PRESENTE').length;
+  const contacted=workers.filter(w=>w.status==='CONTACTADO').length;
+  const absent=workers.filter(w=>w.status==='NO PRESENTADO').length;
+  const unassigned=workers.filter(w=>
+    !w.teamId &&
+    !w.isReserve &&
+    !workHasNoTeams(w.trabajo)
+  ).length;
+
+  return {
+    total:workers.length,
+    present,
+    contacted,
+    absent,
+    unassigned,
+    attendancePct:workers.length?Math.round((present/workers.length)*100):0
+  };
+}
+
+function renderOperationalDashboard(){
+  renderOperationalWorkFilters();
+  const host=document.getElementById('operationalDashboard');
+  if(!host)return;
+
+  const metrics=getDayOperationalMetrics();
+  if(!metrics){
+    host.innerHTML='';
+    return;
+  }
+
+  host.innerHTML=`
+    <article class="dashboard-metric simple-v127 metric-present-v11232">
+      <strong>${metrics.present}/${metrics.total}</strong>
+      <span>Presentes</span>
+    </article>
+    <article class="dashboard-metric simple-v127 metric-contacted-v11232">
+      <strong>${metrics.contacted}</strong>
+      <span>Contactados</span>
+    </article>
+    <article class="dashboard-metric simple-v127 metric-absent-v11232">
+      <strong>${metrics.absent}</strong>
+      <span>No presentados</span>
+    </article>
+    <article class="dashboard-metric simple-v127">
+      <strong>${metrics.unassigned}</strong>
+      <span>Sin equipo</span>
+    </article>
+  `;
+
+  updateScopeSelectButton();
+  updateSidebarUtilityBadges();
+}
+
+function renderOperationalAlerts(refreshDashboard=true){
+  if(!state.service)return;
+
+  renderOperationalWorkFilters();
+
+  const workers=operationalWorkersForSummary();
+
+  const unassigned=workers.filter(w=>
+    !w.teamId &&
+    !w.isReserve &&
+    !workHasNoTeams(w.trabajo)
+  ).length;
+
+  const noShows=workers.filter(w=>w.status==='NO PRESENTADO').length;
+  const reserves=workers.filter(w=>w.isReserve&&w.status!=='NO PRESENTADO').length;
+
+  const workTypes=[...new Set(workers.map(w=>w.trabajo))];
+  const withoutCs=workTypes.filter(work=>
+    !workers.some(w=>w.trabajo===work&&w.isCoordinator)
+  ).length;
+
+  const deficits=[];
+
+  (state.service.requirements||[])
+    .filter(r=>
+      r.serviceDate===state.activeDay &&
+      r.teamId!==NO_TEAMS_REQUIREMENT_TEAM_ID &&
+      operationalWorkMatches(r.trabajo)
+    )
+    .forEach(req=>{
+      const team=state.service.teams.find(t=>t.id===req.teamId);
+      if(!team)return;
+
+      const assigned=workers.filter(w=>
+        normalize(w.trabajo)===normalize(req.trabajo)&&
+        w.teamId===req.teamId
+      ).length;
+
+      const missing=Math.max(0,Number(req.requiredCount||0)-assigned);
+
+      if(missing){
+        deficits.push(`${req.trabajo}: faltan ${missing} ${team.name}`);
+      }
+    });
+
+  const overlapCount=countScheduleConflicts(workers);
+
+  const alerts=[];
+
+  if(state.operationalWorkFilter!=='ALL'){
+    alerts.push(`Vista: ${state.operationalWorkFilter}`);
+  }
+
+  if(unassigned)alerts.push(`${unassigned} sin equipo`);
+  if(noShows)alerts.push(`${noShows} no presentados`);
+  if(reserves)alerts.push(`${reserves} reservas disponibles`);
+  if(withoutCs)alerts.push(`${withoutCs} servicios sin CS`);
+  /* vacantes ocultadas del resumen */
+  if(overlapCount){
+    alerts.push(`${overlapCount} conflicto${overlapCount===1?'':'s'} de horario`);
+  }
+
+  const host=document.getElementById('operationalAlerts');
+
+  if(host){
+    host.innerHTML=
+      alerts.length
+        ? alerts.map(x=>`<span class="alert-chip">${escapeHtml(x)}</span>`).join('')
+        : '<span class="hint">Sin alertas operativas.</span>';
+  }
+
+  if(refreshDashboard)renderOperationalDashboard();
+}
+
+
+function countScheduleConflicts(workers){
+  const byPerson=new Map();
+
+  workers.forEach(w=>{
+    const key=w.movil||normalize(w.personal);
+    if(!key)return;
+    if(!byPerson.has(key))byPerson.set(key,[]);
+    byPerson.get(key).push(w);
+  });
+
+  let conflicts=0;
+
+  byPerson.forEach(list=>{
+    if(list.length<2)return;
+    for(let i=0;i<list.length;i++){
+      for(let j=i+1;j<list.length;j++){
+        if(shiftsOverlap(list[i],list[j]))conflicts++;
+      }
+    }
+  });
+
+  return conflicts;
+}
+
+function shiftsOverlap(a,b){
+  const aStart=clockMinutes(a.actualStart||a.inicio);
+  const aEndRaw=clockMinutes(a.actualEnd||a.fin);
+  const bStart=clockMinutes(b.actualStart||b.inicio);
+  const bEndRaw=clockMinutes(b.actualEnd||b.fin);
+
+  if(aStart===null||aEndRaw===null||bStart===null||bEndRaw===null)return false;
+
+  let aEnd=aEndRaw,bEnd=bEndRaw;
+  if(aEnd<aStart)aEnd+=1440;
+  if(bEnd<bStart)bEnd+=1440;
+
+  return (
+    Math.max(aStart,bStart)<Math.min(aEnd,bEnd) ||
+    Math.max(aStart,bStart+1440)<Math.min(aEnd,bEnd+1440) ||
+    Math.max(aStart+1440,bStart)<Math.min(aEnd+1440,bEnd)
+  );
+}
+
+function toggleControlView(){
+  state.controlMode=!state.controlMode;
+  document.body.classList.toggle('control-mode',state.controlMode);
+  document.getElementById('controlViewBtn').classList.toggle('on',state.controlMode);
+}
+
+function applyClosedState(){
+  const closed=Boolean(state.service&&state.service.closed);
+  document.body.classList.toggle('service-closed',closed);
+
+  const banner=document.getElementById('closedBanner');
+  banner.classList.toggle('show',closed);
+
+  const closeBtn=document.getElementById('closeServiceBtn');
+  closeBtn.style.display=closed?'none':'inline-flex';
+
+  if(closed){
+    const when=state.service.closedAt?new Date(state.service.closedAt).toLocaleString('es-ES'):'';
+    document.getElementById('closedBannerText').textContent=
+      `Cerrado ${when}. Los cambios están bloqueados.${state.service.finalPdfUrl?'':' Generando PDF final…'}`;
+    const link=document.getElementById('finalPdfLink');
+    link.href=state.service.finalPdfUrl||'#';
+    link.style.display=state.service.finalPdfUrl?'inline-flex':'none';
+  }
+}
+
+function buildCloseChecklist(){
+  const workers=(state.service.workers||[]).filter(w=>w.included);
+  const openIncidents=(state.service.incidents||[]).filter(i=>i.status==='ABIERTA').length;
+  const unassigned=workers.filter(w=>!w.teamId&&!w.isReserve&&!workHasNoTeams(w.trabajo)).length;
+  const noShows=workers.filter(w=>w.status==='NO PRESENTADO').length;
+  const pending=workers.filter(w=>w.status==='PENDIENTE').length;
+
+  let deficits=0;
+
+  (state.service.requirements||[])
+    .filter(req=>req.teamId!==NO_TEAMS_REQUIREMENT_TEAM_ID)
+    .forEach(req=>{
+    const assigned=workers.filter(w=>
+      w.serviceDate===req.serviceDate &&
+      normalize(w.trabajo)===normalize(req.trabajo) &&
+      w.teamId===req.teamId
+    ).length;
+
+    deficits+=Math.max(0,Number(req.requiredCount||0)-assigned);
+  });
+
+  const warnings=[];
+  if(openIncidents)warnings.push(`${openIncidents} incidencia(s) abierta(s)`);
+  if(unassigned)warnings.push(`${unassigned} trabajador(es) sin equipo`);
+  if(deficits)warnings.push(`${deficits} plaza(s) de planificación sin cubrir`);
+  if(pending)warnings.push(`${pending} trabajador(es) todavía pendientes`);
+  if(noShows)warnings.push(`${noShows} no presentado(s)`);
+
+  return warnings;
+}
+
+function presentReservesPendingClose(){
+  if(!state.service)return[];
+  return state.service.workers.filter(w=>
+    w.included &&
+    w.status==='PRESENTE' &&
+    w.isReserve
+  );
+}
+
+function normalizePresentReservesBeforeClose(done){
+  const reserves=presentReservesPendingClose();
+  if(!reserves.length){
+    if(typeof done==='function')done();
+    return;
+  }
+
+  const updates=[];
+
+  reserves.forEach(w=>{
+    const start=w.actualStart||w.inicio||w.arrivalAt||'';
+    const end=clockPlusMinutes(start,180);
+
+    w.especialidad='HAND A';
+    w.actualStart=start;
+    w.actualEnd=end;
+    w.actualPause='00:00';
+    recomputeWorkerMinutes(w);
+
+    updates.push({
+      workerId:w.id,
+      especialidad:'HAND A',
+      actualStart:start,
+      actualEnd:end,
+      actualPause:'00:00'
+    });
+  });
+
+  renderPersonnel();
+  renderStats();
+  updateGroupSummaries();
+
+  saveWorkerUpdates(updates);
+  flushPendingWorkerSaves(()=>{
+    if(typeof done==='function')done();
+  });
+}
+
+function requestCloseService(){
+  if(!state.service||state.service.closed)return;
+
+  const warnings=buildCloseChecklist();
+  const presentReserves=presentReservesPendingClose();
+
+  let msg=
+    `¿Cerrar definitivamente el servicio ${state.service.code}?\n\n`+
+    `Se guardarán los cambios y el servicio se bloqueará inmediatamente. El PDF final se generará justo después.`;
+
+  if(warnings.length){
+    msg+=`\n\nREVISIÓN ANTES DEL CIERRE:\n• ${warnings.join('\n• ')}`;
+  }else{
+    msg+='\n\n✓ No se han detectado problemas pendientes.';
+  }
+
+  if(presentReserves.length){
+    const names=presentReserves.slice(0,6).map(w=>w.personal).join(', ');
+    const extra=presentReserves.length>6?` +${presentReserves.length-6} más`:'';
+
+    msg+=
+      `\n\nRESERVAS PRESENTES: ${presentReserves.length}`+
+      `\nAl cerrar se aplicará automáticamente HAND A + 3 h a quienes sigan marcados como Reserva.`+
+      `\n${names}${extra}`+
+      `\n\nSi alguna reserva se ha quedado trabajando, cancela y quítale la marca Reserva en su ficha antes de cerrar.`;
+  }
+
+  msg+='\n\nPodrás reabrir el servicio posteriormente si fuera necesario.';
+
+  if(!confirm(msg))return;
+
+  setSaveState('Guardando cambios pendientes…','saving');
+
+  flushPendingWorkerSaves(()=>{
+    normalizePresentReservesBeforeClose(()=>{
+      performCloseService();
+    });
+  });
+}
+
+function performCloseService(){
+  if(!state.service||state.service.closed)return;
+
+  const code=state.service.code;
+  setSaveState('Cerrando servicio…','saving');
+
+  backend.run
+    .withSuccessHandler(result=>{
+      // El servicio ya queda cerrado aquí; no esperamos al PDF.
+      state.service.closed=true;
+      state.service.closedAt=result.closedAt||new Date().toISOString();
+      state.service.finalPdfId='';
+      state.service.finalPdfUrl=result.pdfUrl||'';
+
+      applyClosedState();
+      renderPersonnel();
+      renderIncidents();
+
+      if(result.pdfUrl){
+        state.service.finalPdfUrl=result.pdfUrl;
+        applyClosedState();
+        setSaveState('Servicio cerrado','saved');
+        return;
+      }
+
+      setSaveState('Servicio cerrado · generando PDF…','saving');
+
+      backend.run
+        .withSuccessHandler(pdf=>{
+          if(pdf?.pdfUrl){
+            state.service.finalPdfId=pdf.pdfId||'';
+            state.service.finalPdfUrl=pdf.pdfUrl;
+            applyClosedState();
+          }
+
+          renderAudit();
+          setSaveState('Servicio cerrado · PDF listo','saved');
+        })
+        .withFailureHandler(err=>{
+          // El servicio sigue correctamente cerrado aunque falle el PDF.
+          setSaveState('Servicio cerrado · PDF pendiente','saved');
+          console.error('Error generando PDF final:',errorMessage(err));
+        })
+        .generateClosedServicePdf(code);
+    })
+    .withFailureHandler(err=>{
+      alert(errorMessage(err));
+      setSaveState('Error al cerrar','error');
+    })
+    .closeService(code);
+}
+
+function requestReopenService(){
+  if(!state.service||!state.service.closed)return;
+  if(!confirm('¿Reabrir este servicio para permitir cambios?'))return;
+
+  const previous={
+    closed:state.service.closed,
+    closedAt:state.service.closedAt
+  };
+
+  // Respuesta visual inmediata.
+  state.service.closed=false;
+  state.service.closedAt='';
+  applyClosedState();
+  renderPersonnel();
+  renderIncidents();
+  setSaveState('Reabriendo…','saving');
+
+  backend.run
+    .withSuccessHandler(()=>{
+      setSaveState('Servicio reabierto','saved');
+    })
+    .withFailureHandler(err=>{
+      state.service.closed=previous.closed;
+      state.service.closedAt=previous.closedAt;
+      applyClosedState();
+      renderPersonnel();
+      renderIncidents();
+      setSaveState('Error','error');
+      alert(errorMessage(err));
+    })
+    .reopenService(state.service.code);
+}
+
+function openWorkerHistory(workerId){
+  const w=state.service.workers.find(x=>x.id===workerId);if(!w)return;
+
+  document.getElementById('historyTitle').textContent='Historial · '+w.personal;
+  document.getElementById('historySub').textContent='Cargando…';
+  document.getElementById('historyContent').innerHTML='<div class="empty">Cargando historial…</div>';
+  document.getElementById('historyModal').classList.remove('hidden');
+
+  backend.run
+    .withSuccessHandler(renderWorkerHistory)
+    .withFailureHandler(err=>{
+      document.getElementById('historyContent').innerHTML=
+        `<div class="status-box show error">${escapeHtml(errorMessage(err))}</div>`;
+    })
+    .getWorkerHistory(state.service.code,workerId);
+}
+
+function renderWorkerHistory(h){
+  document.getElementById('historySub').textContent=h.movil||'';
+
+  document.getElementById('historyContent').innerHTML=`
+    <div class="history-stats">
+      <div class="history-stat"><strong>${h.services}</strong><span>Servicios</span></div>
+      <div class="history-stat"><strong>${h.present}</strong><span>Presentes</span></div>
+      <div class="history-stat"><strong>${h.noShow}</strong><span><span class="sidebar-btn-icon">✕</span>No present.</span></div>
+      <div class="history-stat"><strong>${h.incidents}</strong><span>Incidencias</span></div>
+      <div class="history-stat"><strong>${h.averageRating?`★ ${h.averageRating}`:'—'}</strong><span>Valoración</span></div>
+    </div>
+    <div class="hint" style="margin:0 0 8px"><strong>Horas reales acumuladas:</strong> ${formatMinutesClient(h.totalActualMinutes)}</div>
+    <div class="history-list">
+      ${(h.recent||[]).map(r=>`
+        <div class="history-item">
+          <strong>${escapeHtml(r.date||'')}</strong>
+          <span>${escapeHtml(r.trabajo||'')}</span>
+          <span>${escapeHtml(r.status||'')}</span>
+          <span>${formatMinutesClient(
+            calculateClientMinutes(r.actualStart||r.inicio,r.actualEnd||r.fin,r.actualPause||r.pausa)
+          )}</span>
+        </div>`).join('')||'<div class="empty">Sin historial anterior.</div>'}
+    </div>`;
+}
+
+function calculateClientMinutes(start,end,pause){
+  const sm=clockMinutes(start),em=clockMinutes(end);
+  if(sm===null||em===null)return 0;
+  let d=em-sm;if(d<0)d+=1440;
+  return Math.max(0,d-(clockMinutes(pause)||0));
+}
+function clockMinutes(v){
+  const m=String(v||'').match(/^(\d{2}):(\d{2})$/);
+  return m?Number(m[1])*60+Number(m[2]):null;
+}
+
+function closeHistoryModal(){document.getElementById('historyModal').classList.add('hidden')}
+function historyBackdropClick(event){if(event.target&&event.target.id==='historyModal')closeHistoryModal()}
+
+
+/* VALORACIÓN MASIVA */
+function openBulkRatingModal(){
+  if(!state.selected.size){
+    alert('Selecciona al menos una persona.');return;
+  }
+
+  state.bulkRatingDraft={
+    ratingUniformidad:null,
+    ratingActitud:null,
+    ratingPuntualidad:null
+  };
+
+  document.getElementById('bulkRatingSub').textContent=
+    `${state.selected.size} trabajador${state.selected.size===1?'':'es'} seleccionado${state.selected.size===1?'':'s'}`;
+
+  renderBulkRatingStars();
+  document.getElementById('bulkRatingModal').classList.remove('hidden');
+}
+
+function closeBulkRatingModal(){
+  document.getElementById('bulkRatingModal').classList.add('hidden');
+}
+
+function bulkRatingBackdropClick(event){
+  if(event.target&&event.target.id==='bulkRatingModal')closeBulkRatingModal();
+}
+
+function clearBulkRatings(){
+  state.bulkRatingDraft={
+    ratingUniformidad:null,
+    ratingActitud:null,
+    ratingPuntualidad:null
+  };
+  renderBulkRatingStars();
+}
+
+function renderBulkRatingStars(){
+  renderBulkStarRow('bulkStarsUniformidad','ratingUniformidad',state.bulkRatingDraft.ratingUniformidad);
+  renderBulkStarRow('bulkStarsActitud','ratingActitud',state.bulkRatingDraft.ratingActitud);
+  renderBulkStarRow('bulkStarsPuntualidad','ratingPuntualidad',state.bulkRatingDraft.ratingPuntualidad);
+}
+
+function renderBulkStarRow(containerId,field,value){
+  const host=document.getElementById(containerId);
+  host.innerHTML=[1,2,3,4,5].map(n=>
+    `<button type="button" class="star-btn ${value!==null&&n<=Number(value)?'on':''}" onclick="setBulkRating('${field}',${n})">★</button>`
+  ).join('')+
+  `<button type="button" class="secondary mini-btn" onclick="setBulkRating('${field}',null)">Sin cambio</button>`;
+}
+
+function setBulkRating(field,value){
+  state.bulkRatingDraft[field]=value===null?null:Number(value);
+  renderBulkRatingStars();
+}
+
+function applyBulkRatings(){
+  if(!state.selected.size){closeBulkRatingModal();return;}
+
+  const draft=state.bulkRatingDraft||{};
+  const hasAny=['ratingUniformidad','ratingActitud','ratingPuntualidad']
+    .some(key=>draft[key]!==null&&draft[key]!==undefined);
+
+  if(!hasAny){
+    alert('Marca al menos una valoración.');return;
+  }
+
+  const updates=[];
+
+  state.service.workers.forEach(w=>{
+    if(!state.selected.has(w.id))return;
+    const u={workerId:w.id};
+
+    if(draft.ratingUniformidad!==null){
+      w.ratingUniformidad=Number(draft.ratingUniformidad);
+      u.ratingUniformidad=w.ratingUniformidad;
+    }
+    if(draft.ratingActitud!==null){
+      w.ratingActitud=Number(draft.ratingActitud);
+      u.ratingActitud=w.ratingActitud;
+    }
+    if(draft.ratingPuntualidad!==null){
+      w.ratingPuntualidad=Number(draft.ratingPuntualidad);
+      u.ratingPuntualidad=w.ratingPuntualidad;
+    }
+
+    updates.push(u);
+  });
+
+  closeBulkRatingModal();
+  renderPersonnel();
+  saveWorkerUpdates(updates);
+}
+
+
+function openAddWorkerModal(trabajo){
+  if(!state.service||state.service.closed)return;
+
+  state.manualWork=trabajo;
+
+  document.getElementById('addWorkerSub').textContent=
+    `${dayLabel(state.activeDay)} · ${state.activeDay} · ${trabajo}`;
+
+  document.getElementById('addWorkerName').value='';
+  document.getElementById('addWorkerSpecialty').value='';
+  document.getElementById('addWorkerMobile').value='';
+  document.getElementById('addWorkerStart').value='';
+  document.getElementById('addWorkerEnd').value='';
+  document.getElementById('addWorkerPause').value='00:00';
+  document.getElementById('addWorkerDiet').value='0';
+  document.getElementById('addWorkerReserve').checked=false;
+  document.getElementById('addWorkerCoordinator').checked=false;
+
+  const wrap=document.getElementById('addWorkerTeamWrap');
+  const select=document.getElementById('addWorkerTeam');
+
+  if(workHasNoTeams(trabajo)){
+    wrap.style.display='none';
+    select.innerHTML='<option value="">Sin equipos</option>';
+  }else{
+    wrap.style.display='block';
+
+    let options='<option value="">Sin asignar</option>';
+
+    state.service.scenarios.forEach(s=>{
+      const teams=state.service.teams.filter(t=>t.scenarioId===s.id);
+      if(!teams.length)return;
+
+      options+=`<optgroup label="${escapeAttr(s.name)}">`;
+      teams.forEach(t=>{
+        options+=`<option value="${escapeAttr(t.id)}">${escapeHtml(t.name)}</option>`;
+      });
+      options+='</optgroup>';
+    });
+
+    select.innerHTML=options;
+  }
+
+  document.getElementById('addWorkerModal').classList.remove('hidden');
+}
+
+function closeAddWorkerModal(){
+  document.getElementById('addWorkerModal').classList.add('hidden');
+  state.manualWork='';
+}
+
+function addWorkerBackdropClick(event){
+  if(event.target&&event.target.id==='addWorkerModal')closeAddWorkerModal();
+}
+
+function saveManualWorker(){
+  if(!state.service||state.service.closed)return;
+
+  const personal=document.getElementById('addWorkerName').value.trim();
+
+  if(!personal){
+    alert('Introduce el nombre del trabajador.');
+    return;
+  }
+
+  const trabajo=state.manualWork;
+
+  if(!confirm(
+    `Vas a añadir manualmente a "${personal}" en ${trabajo}.\\n\\n¿Continuar?`
+  ))return;
+
+  if(!confirm(
+    `SEGUNDA CONFIRMACIÓN\\n\\n¿Seguro que quieres añadir a "${personal}" al servicio?`
+  ))return;
+
+  const data={
+    serviceDate:state.activeDay,
+    trabajo,
+    personal,
+    especialidad:document.getElementById('addWorkerSpecialty').value.trim(),
+    movil:document.getElementById('addWorkerMobile').value.trim(),
+    inicio:document.getElementById('addWorkerStart').value,
+    fin:document.getElementById('addWorkerEnd').value,
+    pausa:document.getElementById('addWorkerPause').value,
+    nDieta:Number(document.getElementById('addWorkerDiet').value||0),
+    teamId:workHasNoTeams(trabajo)?'':document.getElementById('addWorkerTeam').value,
+    isReserve:document.getElementById('addWorkerReserve').checked,
+    isCoordinator:document.getElementById('addWorkerCoordinator').checked
+  };
+
+  setSaveState('Añadiendo trabajador…','saving');
+
+  backend.run
+    .withSuccessHandler(worker=>{
+      state.service.workers.push(worker);
+      closeAddWorkerModal();
+      renderPersonnel();
+      renderStats();
+      renderOperationalAlerts();
+      setSaveState('Trabajador añadido','saved');
+    })
+    .withFailureHandler(err=>{
+      alert(errorMessage(err));
+      setSaveState('Error al añadir','error');
+    })
+    .addManualWorker(state.service.code,data);
+}
+
+function deleteCurrentWorker(){
+  const w=state.service.workers.find(x=>x.id===state.modalWorkerId);
+  if(!w||state.service.closed)return;
+
+  if(!confirm(
+    `Vas a eliminar a "${w.personal}" de este servicio.\\n\\n¿Continuar?`
+  ))return;
+
+  if(!confirm(
+    `SEGUNDA CONFIRMACIÓN\\n\\nEsta persona dejará de aparecer en el servicio. ¿Eliminar a "${w.personal}"?`
+  ))return;
+
+  const id=w.id;
+  const trabajo=w.trabajo||'SIN TIPO';
+
+  // Soft-delete: queda marcado como excluido en la base.
+  // Si se reimporta el PDF, la exclusión se conserva.
+  w.included=false;
+  state.service.workers=state.service.workers.filter(x=>x.id!==id);
+  state.selected.delete(id);
+
+  closeWorkerModal();
+  renderPersonnel();
+  renderStats();
+  updateGroupSummary(trabajo);
+  renderOperationalAlerts();
+
+  saveWorkerUpdates([{workerId:id,included:false}]);
+}
+
+
+/* FICHA DEL TRABAJADOR */
+function openWorkerModal(id){
+  const w=state.service.workers.find(x=>x.id===id);if(!w)return;
+  state.modalWorkerId=id;
+  state.modalDraft={
+    ratingUniformidad:Number(w.ratingUniformidad||0),
+    ratingActitud:Number(w.ratingActitud||0),
+    ratingPuntualidad:Number(w.ratingPuntualidad||0)
+  };
+
+  document.getElementById('modalWorkerName').textContent=w.personal;
+  document.getElementById('modalWorkerSub').textContent=`${w.especialidad||''} · ${w.trabajo||''} · ${w.serviceDate||''}`;
+  document.getElementById('modalPlannedSchedule').innerHTML=
+    `<strong>Horario previsto:</strong> ${escapeHtml(w.inicio||'—')} – ${escapeHtml(w.fin||'—')}`+
+    ` · Pausa ${escapeHtml(formatPauseLabel(w.pausa||'00:00'))}`+
+    ` · ${Number(w.nDieta||0)} dieta${Number(w.nDieta||0)===1?'':'s'}`+
+    (w.isReserve?' <span class="reserve-badge">RESERVA</span>':'')+
+    (w.isCoordinator?' <span class="coordinator-badge">CS · COORDINADOR</span>':'');
+  document.getElementById('modalArrivalTime').textContent=w.arrivalAt||'Todavía no registrada';
+  document.getElementById('modalArrivalRecord').classList.toggle('empty-arrival',!w.arrivalAt);
+  document.getElementById('modalActualStart').value=w.actualStart||w.inicio||'';
+  document.getElementById('modalActualEnd').value=w.actualEnd||w.fin||'';
+  document.getElementById('modalActualPause').value=w.actualPause||w.pausa||'00:00';
+  document.getElementById('modalActualPause').dataset.usePdf=
+    (w.actualPause===undefined||w.actualPause===null||w.actualPause==='')?'1':'0';
+
+  const pauseServiceBtn=document.getElementById('modalPauseServiceBtn');
+  if(pauseServiceBtn){
+    pauseServiceBtn.textContent=`Según servicio · ${formatPauseLabel(w.pausa||'00:00')}`;
+  }
+

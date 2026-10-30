@@ -1,0 +1,1000 @@
+  if(!raw)return'';
+  if(/\d{1,2}[:.,]\d{2}/.test(raw))return'';
+
+  const letters=(raw.match(/[A-ZÁÉÍÓÚÜÑ]/gi)||[]).length;
+  const words=raw.split(/\s+/).filter(Boolean);
+
+  if(letters<4||words.length<2)return'';
+
+  return raw;
+}
+
+function repairShiftedPdfWorkerRow(items,current){
+  const sorted=items.slice().sort((a,b)=>a.x-b.x);
+  const times=extractAllRowTimes(sorted);
+
+  let hLlam=times[0]||current.hLlam||'';
+  let inicio=times[1]||current.inicio||'';
+  let fin=times[2]||current.fin||'';
+
+  const afterLastTimeX=(()=>{
+    const timeItems=sorted.filter(i=>
+      /^\d{1,2}[:.,]\d{2}$/.test(String(i.text||'').trim())
+    );
+    if(!timeItems.length)return -Infinity;
+    const third=timeItems[Math.min(2,timeItems.length-1)];
+    return third.x+Number(third.w||0);
+  })();
+
+  const afterTimes=sorted.filter(i=>i.x>=afterLastTimeX-1);
+
+  // En la plantilla desplazada, PAUSA/DIETA suelen aparecer justo después
+  // de las tres horas y antes del nombre.
+  const leadingNumeric=[];
+  for(const item of afterTimes){
+    const text=String(item.text||'').trim();
+
+    if(
+      /^\d+(?:[:.,]\d+)?$/.test(text) &&
+      !/^\d{1,2}[:.,]\d{2}$/.test(text)
+    ){
+      leadingNumeric.push(text);
+      if(leadingNumeric.length>=2)break;
+      continue;
+    }
+
+    if(personLikePdfText(text))break;
+  }
+
+  let pausaRaw=current.pausaRaw||leadingNumeric[0]||'0';
+  let dietaRaw=current.dietaRaw||leadingNumeric[1]||'0';
+
+  // La antigua columna ESPECIALIDAD contiene a menudo "0 NOMBRE APELLIDOS".
+  let personal=personLikePdfText(current.especialidad);
+
+  const textCandidates=afterTimes
+    .map(i=>personLikePdfText(i.text))
+    .filter(Boolean);
+
+  if(!personal){
+    personal=textCandidates.find(text=>
+      !/\b(CREW HEAD|HAND [A-Z]|FORKLIFT|FORKLIFTER|RUNNER|AUXILIAR|COORD)\b/i.test(text)
+    )||textCandidates[0]||'';
+  }
+
+  // Especialidad suele venir a continuación del nombre.
+  const normalizedPersonal=normalize(personal);
+  let especialidad='';
+
+  if(textCandidates.length){
+    const personalIndex=textCandidates.findIndex(t=>normalize(t)===normalizedPersonal);
+    if(personalIndex>=0){
+      especialidad=textCandidates.slice(personalIndex+1)
+        .find(Boolean)||'';
+    }
+  }
+
+  // El parser antiguo puede haber capturado la especialidad en INICIO/FIN.
+  const oldSpecialtyCandidates=[
+    current.fin,
+    current.inicio,
+    current.hLlam
+  ].map(x=>String(x||'').trim())
+   .filter(x=>x&&!/^\d{1,2}[:.,]\d{2}$/.test(x));
+
+  if(!especialidad){
+    especialidad=oldSpecialtyCandidates
+      .sort((a,b)=>b.length-a.length)[0]||'';
+  }
+
+  // Evita duplicaciones tipo "BCN BCN CREW HEAD".
+  especialidad=String(especialidad||'')
+    .replace(/^(\S+)\s+\1\b/i,'$1')
+    .replace(/\s+/g,' ')
+    .trim();
+
+  const phoneCandidates=sorted
+    .map(i=>String(i.text||'').trim())
+    .filter(looksLikePhoneNumber);
+
+  const movil=phoneCandidates.length
+    ? phoneCandidates[phoneCandidates.length-1]
+    : '';
+
+  const csMarker=sorted
+    .map(i=>String(i.text||'').trim())
+    .find(x=>/^X$/i.test(x)||/^CS$/i.test(x))||'';
+
+  return {
+    personal,
+    especialidad,
+    hLlam,
+    inicio,
+    fin,
+    pausaRaw,
+    dietaRaw,
+    telefono:'',
+    movil,
+    csMarker
+  };
+}
+
+function looksLikePhoneNumber(value){
+  const raw=String(value||'').trim();
+  const digits=raw.replace(/\D/g,'');
+  return digits.length>=7&&digits.length<=15;
+}
+
+function groupItemsIntoLines(items){
+  const sorted=items.slice().sort((a,b)=>{
+    if(Math.abs(a.y-b.y)>1.8)return b.y-a.y;
+    return a.x-b.x;
+  });
+  const lines=[];
+  for(const item of sorted){
+    let line=lines.find(l=>Math.abs(l.y-item.y)<=1.8);
+    if(!line){line={y:item.y,items:[]};lines.push(line)}
+    line.items.push(item);
+  }
+  return lines.sort((a,b)=>b.y-a.y).map(l=>l.items.sort((a,b)=>a.x-b.x));
+}
+
+function columnText(items,width,minRatio,maxRatio){
+  return items.filter(i=>i.x>=width*minRatio&&i.x<width*maxRatio)
+    .sort((a,b)=>a.x-b.x).map(i=>i.text).join(' ').replace(/\s+/g,' ').trim();
+}
+
+function extractShiftTimes(items,width){
+  // Zona del PDF que contiene H.LLAM., INICIO, FIN, PAUSA y N.DIETA.
+  // Deliberadamente amplia para tolerar pequeñas variaciones de maquetación.
+  const candidates=items
+    .filter(i=>i.x>=width*.40&&i.x<width*.72)
+    .sort((a,b)=>a.x-b.x)
+    .map(i=>String(i.text||'').trim())
+    .filter(text=>/^\d{1,2}[:.,]\d{2}$/.test(text))
+    .map(normalizeTime);
+
+  // En una fila normal habrá 5 valores. Los 3 primeros siempre son
+  // H.LLAM., INICIO y FIN en este formato de producción.
+  return candidates;
+}
+
+function extractBetween(text,startLabel,endLabels){
+  const upper=normalize(text),start=upper.indexOf(normalize(startLabel));
+  if(start<0)return'';
+  let value=text.substring(Math.min(text.length,start+startLabel.length)),end=value.length;
+  endLabels.forEach(label=>{
+    const i=normalize(value).indexOf(normalize(label));if(i>=0)end=Math.min(end,i);
+  });
+  return value.substring(0,end).trim();
+}
+
+function cleanName(v){return String(v||'').replace(/\s+/g,' ').trim()}
+function normalizePhone(v){
+  const raw=String(v||'').trim();
+  if(!looksLikePhoneNumber(raw))return'';
+
+  let x=raw.replace(/[()\s.-]/g,'').trim();
+  if(x.startsWith('0034'))x='+34'+x.slice(4);
+  return x;
+}
+function normalizeTime(v){
+  const x=String(v||'').trim(),m=x.match(/^(\d{1,2})[:.,](\d{1,2})$/);
+  if(!m)return x;
+  return String(Number(m[1])).padStart(2,'0')+':'+String(Number(m[2])).padStart(2,'0');
+}
+function normalizeDietFromPdf(value){
+  const v=String(value||'').trim();
+  if(!v)return 0;
+  const m=v.match(/^(\d{1,2})[:.,]\d{1,2}$/);
+  if(m)return Math.max(0,Number(m[1])||0);
+  const n=Number(v.replace(',','.'));
+  return Number.isFinite(n)?Math.max(0,Math.round(n)):0;
+}
+
+function dateId(v){return String(v||'').replace(/\D/g,'')||'NODATE'}
+
+/* DÍAS + GRUPOS */
+function getDays(){
+  if(!state.service)return[];
+  const values=[...new Set(state.service.workers.map(w=>w.serviceDate||'SIN FECHA'))];
+  return values.sort(compareDateStrings);
+}
+
+function compareDateStrings(a,b){
+  const da=parseDateString(a),db=parseDateString(b);
+  if(!da&&!db)return String(a).localeCompare(String(b));
+  if(!da)return 1;if(!db)return-1;
+  return da-db;
+}
+
+function parseDateString(v){
+  const m=String(v||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m?new Date(Number(m[3]),Number(m[2])-1,Number(m[1])):null;
+}
+
+function dayLabel(v){
+  const d=parseDateString(v);
+  if(!d)return 'SIN FECHA';
+  return new Intl.DateTimeFormat('es-ES',{weekday:'short',day:'2-digit',month:'short'})
+    .format(d).replace('.','').toUpperCase();
+}
+
+function renderDays(){
+  if(!state.service)return;
+  const days=getDays();
+  if(days.length&&!days.includes(state.activeDay))state.activeDay=days[0];
+
+  document.getElementById('daysNav').innerHTML=days.map(day=>{
+    const count=state.service.workers.filter(w=>(w.serviceDate||'SIN FECHA')===day&&w.included).length;
+    const fullDate=day==='SIN FECHA'?'':day;
+    return `<button class="day-btn ${state.activeDay===day?'active':''} ${day==='SIN FECHA'?'no-day':''}"
+      onclick="setActiveDay('${escapeAttr(day)}')">${escapeHtml(dayLabel(day))}
+      ${fullDate?`<span class="day-date-full">${escapeHtml(fullDate)}</span>`:''}
+      <span class="day-count">${count}</span></button>`;
+  }).join('');
+}
+
+function setActiveDay(day){
+  state.activeDay=day;
+  state.selected.clear();
+  state.workTeamFilters={};
+  state.workSorts={};
+  state.operationalWorkFilter='ALL';
+  state.operationalTimeFilter='ALL';
+  state.expandedWorkGroups=new Set();
+  renderDays();
+  renderPersonnel();
+}
+
+function workersForActiveDay(){
+  if(!state.service)return[];
+  const q=normalize(document.getElementById('searchWorker').value);
+  const quickFilter=document.getElementById('quickStatusFilter')?.value||'ALL';
+
+  return state.service.workers.filter(w=>{
+    if(!w.included)return false;
+    if((w.serviceDate||'SIN FECHA')!==state.activeDay)return false;
+
+    if(quickFilter==='RESERVA'&&!w.isReserve)return false;
+    if(quickFilter==='SIN_EQUIPO'&&(w.teamId||workHasNoTeams(w.trabajo)))return false;
+    if(
+      ['PENDIENTE','CONTACTADO','PRESENTE','NO PRESENTADO'].includes(quickFilter) &&
+      (w.status||'PENDIENTE')!==quickFilter
+    )return false;
+
+    if(!q)return true;
+
+    const team=state.service.teams.find(t=>t.id===w.teamId);
+    const scenario=team?state.service.scenarios.find(s=>s.id===team.scenarioId):null;
+
+    return normalize(`${w.personal} ${w.especialidad} ${w.trabajo} ${w.movil} ${team?team.name:''} ${scenario?scenario.name:''} ${w.status} ${w.isCoordinator?'COORDINADOR CS':''}`).includes(q);
+  });
+}
+
+let personnelRenderTimer=null;
+
+
+function syncArrivalModeState(){
+  const btn=document.getElementById('arrivalModeBtn');
+  const select=document.getElementById('quickStatusFilter');
+  const search=document.getElementById('searchWorker');
+
+  const active=
+    select?.value==='PENDIENTE' &&
+    !String(search?.value||'').trim();
+
+  btn?.classList.toggle('active',Boolean(active));
+}
+
+function toggleArrivalMode(){
+  const select=document.getElementById('quickStatusFilter');
+  const search=document.getElementById('searchWorker');
+  const btn=document.getElementById('arrivalModeBtn');
+
+  const active=select?.value==='PENDIENTE' && !String(search?.value||'').trim();
+
+  if(active){
+    if(select)select.value='ALL';
+    btn?.classList.remove('active');
+  }else{
+    if(search)search.value='';
+    if(select)select.value='PENDIENTE';
+    btn?.classList.add('active');
+  }
+
+  renderPersonnel(true);
+}
+
+function schedulePersonnelRender(){
+  clearTimeout(personnelRenderTimer);
+  personnelRenderTimer=setTimeout(()=>renderPersonnel(true),180);
+}
+
+
+function allServiceWorkTypes(){
+  if(!state.service)return[];
+  const seen=new Set();
+  const out=[];
+  (state.service.workers||[]).forEach(w=>{
+    if(!w.included)return;
+    const name=String(w.trabajo||'SIN TIPO').trim()||'SIN TIPO';
+    const key=normalize(name);
+    if(seen.has(key))return;
+    seen.add(key);
+    out.push(name);
+  });
+  return out;
+}
+
+function orderedWorkTypes(workTypes){
+  const available=Array.from(workTypes||[],String);
+  const pref=Array.isArray(state.service?.workOrder)?state.service.workOrder:[];
+  const out=[];
+  const used=new Set();
+
+  pref.forEach(saved=>{
+    const match=available.find(w=>normalize(w)===normalize(saved));
+    if(match&&!used.has(normalize(match))){
+      out.push(match);
+      used.add(normalize(match));
+    }
+  });
+
+  available.forEach(w=>{
+    const key=normalize(w);
+    if(!used.has(key)){
+      out.push(w);
+      used.add(key);
+    }
+  });
+
+  if(state.service){
+    const master=allServiceWorkTypes();
+    const next=[];
+    const seen=new Set();
+
+    [...pref,...master].forEach(saved=>{
+      const match=master.find(w=>normalize(w)===normalize(saved));
+      if(match&&!seen.has(normalize(match))){
+        next.push(match);
+        seen.add(normalize(match));
+      }
+    });
+
+    state.service.workOrder=next;
+  }
+
+  return out;
+}
+
+function isWorkTypeHidden(work){
+  return (state.service?.hiddenWorkTypes||[])
+    .some(x=>normalize(x)===normalize(work));
+}
+
+function persistWorkDisplayPrefs(){
+  if(!state.service||state.service.closed)return;
+  scheduleMetaSave();
+}
+
+function hideWorkType(work){
+  if(!state.service)return;
+
+  const hidden=Array.isArray(state.service.hiddenWorkTypes)
+    ? state.service.hiddenWorkTypes
+    : [];
+
+  if(!hidden.some(x=>normalize(x)===normalize(work)))hidden.push(work);
+  state.service.hiddenWorkTypes=hidden;
+
+  if(normalize(state.operationalWorkFilter)===normalize(work)){
+    state.operationalWorkFilter='ALL';
+    state.operationalTimeFilter='ALL';
+  }
+
+  persistWorkDisplayPrefs();
+  renderPersonnel(true);
+  renderOperationalWorkFilters();
+}
+
+function restoreWorkType(work){
+  if(!state.service)return;
+
+  state.service.hiddenWorkTypes=(state.service.hiddenWorkTypes||[])
+    .filter(x=>normalize(x)!==normalize(work));
+
+  persistWorkDisplayPrefs();
+  renderPersonnel(true);
+  renderOperationalWorkFilters();
+}
+
+function renderHiddenWorkTypesBar(){
+  const host=document.getElementById('hiddenWorkTypesBar');
+  if(!host||!state.service)return;
+
+  const hidden=orderedWorkTypes(allServiceWorkTypes())
+    .filter(isWorkTypeHidden);
+
+  if(!hidden.length){
+    host.innerHTML='';
+    host.classList.remove('show');
+    return;
+  }
+
+  host.classList.add('show');
+  host.innerHTML=`
+    <span class="hidden-work-label-v11227">Ocultos</span>
+    ${hidden.map(work=>`
+      <button type="button"
+        class="hidden-work-chip-v11227"
+        onclick="restoreWorkType('${escapeJsString(work)}')">
+        + ${escapeHtml(work)}
+      </button>
+    `).join('')}
+  `;
+}
+
+function masterWorkOrder(){
+  return orderedWorkTypes(allServiceWorkTypes());
+}
+
+function reorderWorkTypes(source,target){
+  if(!state.service||!source||!target||normalize(source)===normalize(target))return;
+
+  const order=masterWorkOrder();
+  const sourceIndex=order.findIndex(w=>normalize(w)===normalize(source));
+  const targetIndex=order.findIndex(w=>normalize(w)===normalize(target));
+
+  if(sourceIndex<0||targetIndex<0)return;
+
+  const [item]=order.splice(sourceIndex,1);
+  order.splice(targetIndex,0,item);
+
+  state.service.workOrder=order;
+  persistWorkDisplayPrefs();
+  renderPersonnel(true);
+  renderOperationalWorkFilters();
+}
+
+function moveWorkType(work,delta){
+  const order=masterWorkOrder();
+  const index=order.findIndex(w=>normalize(w)===normalize(work));
+  if(index<0)return;
+
+  const next=Math.max(0,Math.min(order.length-1,index+Number(delta||0)));
+  if(next===index)return;
+
+  const [item]=order.splice(index,1);
+  order.splice(next,0,item);
+
+  state.service.workOrder=order;
+  persistWorkDisplayPrefs();
+  renderPersonnel(true);
+  renderOperationalWorkFilters();
+}
+
+function workDragStart(event,work){
+  event.stopPropagation();
+  event.dataTransfer.effectAllowed='move';
+  event.dataTransfer.setData('text/plain',work);
+  document.body.classList.add('work-dragging-v11227');
+}
+
+function workDragEnd(){
+  document.body.classList.remove('work-dragging-v11227');
+  document.querySelectorAll('.work-drop-target-v11227')
+    .forEach(el=>el.classList.remove('work-drop-target-v11227'));
+}
+
+function workDragOver(event){
+  event.preventDefault();
+  event.dataTransfer.dropEffect='move';
+  event.currentTarget.classList.add('work-drop-target-v11227');
+}
+
+function workDragLeave(event){
+  event.currentTarget.classList.remove('work-drop-target-v11227');
+}
+
+function workDrop(event,target){
+  event.preventDefault();
+  const source=event.dataTransfer.getData('text/plain');
+  event.currentTarget.classList.remove('work-drop-target-v11227');
+  workDragEnd();
+  reorderWorkTypes(source,target);
+}
+
+
+/* v11.2.35: mobile touch reorder, without up/down controls or native HTML5 DnD.
+   Long press a service's black header (not an action button), drag to another
+   header, then release. Only one render at the end of a successful reorder. */
+const touchWorkOrderV11235={
+  timer:null,
+  active:false,
+  source:'',
+  target:'',
+  startX:0,startY:0,
+  x:0,y:0,
+  ghost:null,
+  highlighted:null,
+  lastScrollFrame:0,
+  preventClickUntil:0
+};
+
+function cancelTouchWorkLongPressV11235(){
+  if(touchWorkOrderV11235.timer!==null){
+    clearTimeout(touchWorkOrderV11235.timer);
+    touchWorkOrderV11235.timer=null;
+  }
+}
+
+function touchWorkTargetV11235(x,y){
+  let closest=null;
+  let distance=Infinity;
+  document.querySelectorAll('#personnelGroups .work-group > summary.work-group-head').forEach(head=>{
+    const rect=head.getBoundingClientRect();
+    if(rect.bottom < 0 || rect.top > window.innerHeight)return;
+    const d=y<rect.top ? rect.top-y : y>rect.bottom ? y-rect.bottom : 0;
+    if(d<distance){distance=d;closest=head.closest('.work-group');}
+  });
+  return distance<=85?closest:null;
+}
+
+function highlightTouchWorkTargetV11235(group){
+  const drag=touchWorkOrderV11235;
+  if(drag.highlighted===group)return;
+  drag.highlighted?.classList.remove('touch-work-target-v11235');
+  drag.highlighted=group;
+  group?.classList.add('touch-work-target-v11235');
+  drag.target=group?.getAttribute('data-work-group')||'';
+}
+
+function moveTouchWorkGhostV11235(x,y){
+  const drag=touchWorkOrderV11235;
+  drag.x=x;drag.y=y;
+  if(drag.ghost){
+    drag.ghost.style.left=`${Math.max(8,Math.min(window.innerWidth-220,x+12))}px`;
+    drag.ghost.style.top=`${Math.max(72,Math.min(window.innerHeight-50,y-23))}px`;
+  }
+  highlightTouchWorkTargetV11235(touchWorkTargetV11235(x,y));
+}
+
+function touchWorkAutoScrollV11235(){
+  const drag=touchWorkOrderV11235;
+  if(!drag.active)return;
+  const margin=75;
+  const y=drag.y;
+  const speed=y<margin ? -Math.min(11,Math.ceil((margin-y)/7)) :
+    y>window.innerHeight-margin ? Math.min(11,Math.ceil((y-(window.innerHeight-margin))/7)) : 0;
+  if(speed){
+    window.scrollBy(0,speed);
+    highlightTouchWorkTargetV11235(touchWorkTargetV11235(drag.x,drag.y));
+  }
+  drag.lastScrollFrame=requestAnimationFrame(touchWorkAutoScrollV11235);
+}
+
+function startTouchWorkDragV11235(){
+  const drag=touchWorkOrderV11235;
+  if(!drag.source||drag.active)return;
+  drag.timer=null;
+  drag.active=true;
+  document.body.classList.add('touch-work-reordering-v11235');
+  const ghost=document.createElement('div');
+  ghost.className='touch-work-ghost-v11235';
+  ghost.textContent='⋮⋮  '+drag.source;
+  ghost.setAttribute('aria-hidden','true');
+  document.body.appendChild(ghost);
+  drag.ghost=ghost;
+  moveTouchWorkGhostV11235(drag.x,drag.y);
+  if(navigator.vibrate)navigator.vibrate(12);
+  drag.lastScrollFrame=requestAnimationFrame(touchWorkAutoScrollV11235);
+}
+
+function resetTouchWorkDragV11235(){
+  const drag=touchWorkOrderV11235;
+  cancelTouchWorkLongPressV11235();
+  if(drag.lastScrollFrame)cancelAnimationFrame(drag.lastScrollFrame);
+  drag.lastScrollFrame=0;
+  drag.ghost?.remove();
+  drag.ghost=null;
+  drag.highlighted?.classList.remove('touch-work-target-v11235');
+  drag.highlighted=null;
+  document.body.classList.remove('touch-work-reordering-v11235');
+  drag.active=false;
+  drag.source='';drag.target='';
+}
+
+function touchWorkStartV11235(event){
+  if(!state.service || state.service.closed ||
+      !window.matchMedia('(max-width: 900px)').matches ||
+      event.touches.length!==1)return;
+  const element=event.target;
+  if(!(element instanceof Element))return;
+  const head=element.closest('#personnelGroups .work-group > summary.work-group-head');
+  if(!head || element.closest('button,a,input,select,textarea,[role="button"]'))return;
+  resetTouchWorkDragV11235();
+  const touch=event.touches[0];
+  const drag=touchWorkOrderV11235;
+  drag.startX=drag.x=touch.clientX;
+  drag.startY=drag.y=touch.clientY;
+  drag.source=head.closest('.work-group')?.getAttribute('data-work-group')||'';
+  if(!drag.source)return;
+  drag.timer=setTimeout(startTouchWorkDragV11235,280);
+}
+
+function touchWorkMoveV11235(event){
+  const drag=touchWorkOrderV11235;
+  if(!drag.source)return;
+  if(event.touches.length!==1){resetTouchWorkDragV11235();return;}
+  const touch=event.touches[0];
+  const x=touch.clientX, y=touch.clientY;
+  if(!drag.active){
+    if(Math.hypot(x-drag.startX,y-drag.startY)>10){resetTouchWorkDragV11235();}
+    return;
+  }
+  // Non-passive listener: prevent scroll only AFTER holding, preserving ordinary swipes.
+  if(event.cancelable)event.preventDefault();
+  moveTouchWorkGhostV11235(x,y);
+}
+
+function touchWorkEndV11235(event){
+  const drag=touchWorkOrderV11235;
+  if(!drag.source)return;
+  if(!drag.active){resetTouchWorkDragV11235();return;}
+  if(event.cancelable)event.preventDefault();
+  const finger=event.changedTouches?.[0];
+  if(finger)moveTouchWorkGhostV11235(finger.clientX,finger.clientY);
+  const source=drag.source;
+  const target=drag.target;
+  drag.preventClickUntil=Date.now()+450;
+  resetTouchWorkDragV11235();
+  if(source&&target&&normalize(source)!==normalize(target)){
+    const currentY=window.scrollY;
+    reorderWorkTypes(source,target);
+    // Keep the page position instead of jumping to the top on rerender.
+    if(Math.abs(window.scrollY-currentY)>3)window.scrollTo(0,currentY);
+  }
+}
+
+document.addEventListener('touchstart',touchWorkStartV11235,{passive:true});
+document.addEventListener('touchmove',touchWorkMoveV11235,{passive:false});
+document.addEventListener('touchend',touchWorkEndV11235,{passive:false});
+document.addEventListener('touchcancel',resetTouchWorkDragV11235,{passive:true});
+document.addEventListener('contextmenu',event=>{
+  if(touchWorkOrderV11235.active && event.target.closest?.('.work-group-head'))event.preventDefault();
+},true);
+document.addEventListener('click',event=>{
+  if(Date.now()<touchWorkOrderV11235.preventClickUntil &&
+      event.target.closest?.('#personnelGroups .work-group-head')){
+    event.preventDefault();event.stopImmediatePropagation();
+  }
+},true);
+
+function renderPersonnel(light=false){
+  if(!state.service)return;
+
+  if(!light){
+    renderDays();
+    renderStats();
+    renderIncidents();
+    // One operational refresh at the bottom after worker DOM is committed.
+  }
+
+  const host=document.getElementById('personnelGroups');
+  const workers=workersForActiveDay();
+
+  if(!workers.length){
+    host.innerHTML='<div class="empty">No hay personal para este día.</div>';renderOperationalAlerts();return;
+  }
+
+  // Agrupamos por TIPO DE SERVICIO, no por cada bloque horario.
+  const groups=new Map();
+  workers.forEach(w=>{
+    const key=w.trabajo||'SIN TIPO';
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(w);
+  });
+
+  const orderedNames=orderedWorkTypes([...groups.keys()]);
+  const visibleEntries=orderedNames
+    .filter(work=>!isWorkTypeHidden(work))
+    .map(work=>[work,groups.get(work)]);
+
+  renderHiddenWorkTypesBar();
+
+  if(!visibleEntries.length){
+    host.innerHTML='<div class="empty">Todos los tipos de servicio de este día están ocultos.</div>';
+    return;
+  }
+
+  host.innerHTML=visibleEntries.map(([trabajo,rows])=>{
+    const includedRows=rows.filter(w=>w.included);
+    const present=includedRows.filter(w=>w.status==='PRESENTE').length;
+    const contacted=includedRows.filter(w=>w.status==='CONTACTADO').length;
+    const absent=includedRows.filter(w=>w.status==='NO PRESENTADO').length;
+    const reserves=includedRows.filter(w=>w.isReserve).length;
+    const coordinators=includedRows.filter(w=>w.isCoordinator);
+    const coordinatorHtml=coordinators.length
+      ? `<span class="coord-summary">CS · ${escapeHtml(coordinators.map(w=>w.personal).join(', '))}</span>`
+      : '';
+
+    const staffing=staffingSummaryForWork(trabajo,includedRows);
+    const readinessHtml=staffing.readiness
+      ? `<span class="readiness-badge ${staffing.readiness.cls}">${escapeHtml(staffing.readiness.label)}</span>`
+      : '';
+
+    return `
+    <details class="work-group"
+      data-work-group="${escapeAttr(trabajo)}"
+      ${state.expandedWorkGroups.has(trabajo)?'open':''}
+      ondragover="workDragOver(event)"
+      ondragleave="workDragLeave(event)"
+      ondrop="workDrop(event,'${escapeJsString(trabajo)}')"
+      ontoggle="rememberWorkGroupToggle(this,'${escapeJsString(trabajo)}')">
+      <summary class="work-group-head">
+        <div class="work-group-title">
+          <span class="work-drag-handle-v11227"
+            draggable="${window.matchMedia('(max-width: 900px)').matches?'false':'true'}"
+            onclick="event.preventDefault();event.stopPropagation()"
+            ondragstart="workDragStart(event,'${escapeJsString(trabajo)}')"
+            ondragend="workDragEnd()"
+            title="Arrastrar">⋮⋮</span>
+          ${escapeHtml(trabajo)}
+          ${readinessHtml}
+          <span class="group-bulk-actions">
+            <button type="button"
+              class="group-bulk-btn"
+              onclick="event.preventDefault();event.stopPropagation();selectWorkGroupByStatus('${escapeJsString(trabajo)}','PENDIENTE')">
+              Pendientes
+            </button>
+            <button type="button"
+              class="group-bulk-btn"
+              onclick="event.preventDefault();event.stopPropagation();selectWorkGroupReserves('${escapeJsString(trabajo)}')">
+              Reservas
+            </button>
+            <button type="button"
+              class="group-bulk-btn"
+              onclick="event.preventDefault();event.stopPropagation();openAddWorkerModal('${escapeJsString(trabajo)}')">
+              + Añadir trabajador
+            </button>
+          </span>
+          <span class="work-order-touch-v11227">
+            <button type="button"
+              onclick="event.preventDefault();event.stopPropagation();moveWorkType('${escapeJsString(trabajo)}',-1)"
+              title="Subir">↑</button>
+            <button type="button"
+              onclick="event.preventDefault();event.stopPropagation();moveWorkType('${escapeJsString(trabajo)}',1)"
+              title="Bajar">↓</button>
+          </span>
+          <button type="button"
+            class="work-hide-btn-v11227"
+            onclick="event.preventDefault();event.stopPropagation();hideWorkType('${escapeJsString(trabajo)}')"
+            title="Ocultar">⊖</button>
+          <span class="work-group-arrow">›</span>
+        </div>
+        <div class="work-group-meta">
+          <span class="meta-dot">●</span> ${includedRows.length}
+          <span class="meta-ok">✓ ${present}</span>
+          ${absent?`<span class="meta-bad">× ${absent}</span>`:''}
+          ${reserves?`<span>R ${reserves}</span>`:''}
+          ${coordinatorHtml}
+        </div>
+      </summary>
+      ${staffing.html}
+      ${workTeamFilterHtml(trabajo,includedRows)}
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th></th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'estado','Estado')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'personal','Personal')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'especialidad','Especialidad')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'horario','Horario')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'pausa','Pausa')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'dieta','Dieta')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'movil','Móvil')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'equipo','Escenario / equipo')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'chaleco','Chaleco')}</th>
+            <th class="sortable-th">${sortHeaderHtml(trabajo,'valoracion','Valoración')}</th>
+          </tr></thead>
+          <tbody data-work-team-body="${escapeAttr(trabajo)}">
+            ${rowsGroupedByEntryHtml(trabajo,filteredRowsForWork(trabajo,rows))}
+          </tbody>
+        </table>
+      </div>
+    </details>`;
+  }).join('');
+
+  // Restaurar selects.
+  workers.forEach(w=>{
+    const teamSelect=document.querySelector(`[data-team-worker="${cssEscape(w.id)}"]`);
+    const statusSelect=document.querySelector(`[data-status-worker="${cssEscape(w.id)}"]`);
+    if(teamSelect)teamSelect.value=w.teamId||'';
+    if(statusSelect)statusSelect.value=w.status||'PENDIENTE';
+  });
+  updateSelectedCounter();
+  refreshAllGroupSelectionButtons();
+  renderOperationalAlerts();
+}
+
+
+
+
+function rememberWorkGroupToggle(details,trabajo){
+  if(!details)return;
+  if(details.open)state.expandedWorkGroups.add(trabajo);
+  else state.expandedWorkGroups.delete(trabajo);
+}
+
+function workTeamFilterHtml(trabajo,rows){
+  if(workHasNoTeams(trabajo)){
+    return `<div class="work-team-filter-wrap">
+      <span class="work-team-filter-label">Organización</span>
+      <span class="no-teams-chip">SIN EQUIPOS</span>
+    </div>`;
+  }
+
+  const assignedTeamIds=[...new Set(
+    rows.map(w=>w.teamId).filter(Boolean)
+  )];
+
+  const teams=assignedTeamIds
+    .map(id=>state.service.teams.find(t=>t.id===id))
+    .filter(Boolean)
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+
+  const hasUnassigned=rows.some(w=>!w.teamId);
+  const current=state.workTeamFilters[trabajo]||'ALL';
+
+  let options='<option value="ALL">Todos los equipos</option>';
+
+  teams.forEach(team=>{
+    options+=`<option value="${escapeAttr(team.id)}" ${current===team.id?'selected':''}>${escapeHtml(team.name)}</option>`;
+  });
+
+  if(hasUnassigned){
+    options+=`<option value="UNASSIGNED" ${current==='UNASSIGNED'?'selected':''}>Sin asignar</option>`;
+  }
+
+  return `
+    <div class="work-team-filter-wrap">
+      <span class="work-team-filter-label">Filtrar equipo</span>
+      <select class="work-team-filter"
+        onchange="setWorkTeamFilter('${escapeJsString(trabajo)}',this.value)">
+        ${options}
+      </select>
+    </div>`;
+}
+
+
+
+function workerEntryTime(w){
+  return String(w.inicio||w.hLlam||'SIN HORA').trim()||'SIN HORA';
+}
+
+function shiftStateKey(trabajo,time){
+  return `${trabajo}|||${time}`;
+}
+
+function rowsGroupedByEntryHtml(trabajo,rows){
+  if(!rows.length)return '';
+
+  const groups=new Map();
+
+  rows.forEach(w=>{
+    const time=workerEntryTime(w);
+    if(!groups.has(time))groups.set(time,[]);
+    groups.get(time).push(w);
+  });
+
+  const times=[...groups.keys()].sort((a,b)=>{
+    if(a==='SIN HORA')return 1;
+    if(b==='SIN HORA')return -1;
+    return clockToMinutes(a)-clockToMinutes(b);
+  });
+
+  return times.map(time=>{
+    const groupRows=sortedRowsForWork(trabajo,groups.get(time));
+    const present=groupRows.filter(w=>w.status==='PRESENTE').length;
+    const selected=groupRows.filter(w=>state.selected.has(w.id)).length;
+    const allSelected=groupRows.length>0&&selected===groupRows.length;
+
+    const key=shiftStateKey(trabajo,time);
+    const collapsed=Boolean(state.collapsedShifts[key]);
+
+    return `
+      <tr class="shift-divider-row">
+        <td colspan="11">
+          <div class="shift-divider-controls-v121 shift-divider-controls-v1211">
+            <button type="button"
+              class="shift-select-v121 shift-select-left-v1211 ${allSelected?'active':''}"
+              data-shift-select-key="${escapeAttr(key)}"
+              onclick="event.preventDefault();event.stopPropagation();toggleSelectEntryTime('${escapeJsString(trabajo)}','${escapeJsString(time)}')"
+              title="${allSelected?'Quitar de la selección':'Seleccionar'} a los ${groupRows.length} trabajadores de ${escapeAttr(time)}">
+              <span class="shift-select-check-v1211">${allSelected?'✓':'☐'}</span>
+              <span class="shift-selected-count-v121">${selected}/${groupRows.length}</span>
+            </button>
+
+            <button type="button" class="shift-divider-btn ${collapsed?'collapsed':''}"
+              data-shift-summary="${escapeAttr(key)}"
+              onclick="toggleShiftGroup('${escapeJsString(trabajo)}','${escapeJsString(time)}')">
+              <span class="shift-clock-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+              </span>
+              <strong>${escapeHtml(time)}</strong>
+              <span>${groupRows.length}</span>
+              <span class="shift-present">${present} ✓</span>
+              <span class="shift-chevron">⌄</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+      ${groupRows.map(w=>workerRowHtml(w)).join('')}
+    `;
+  }).join('');
+}
+
+function toggleShiftGroup(trabajo,time){
+  const key=shiftStateKey(trabajo,time);
+  state.collapsedShifts[key]=!state.collapsedShifts[key];
+
+  const details=[...document.querySelectorAll('.work-group')]
+    .find(el=>(el.getAttribute('data-work-group')||'')===trabajo);
+
+  if(!details)return;
+
+  details.querySelectorAll(`[data-shift-key="${cssEscape(key)}"]`).forEach(row=>{
+    row.classList.toggle('shift-row-hidden',Boolean(state.collapsedShifts[key]));
+  });
+
+  // Refrescar solo la banda horaria para que gire la flecha.
+  const body=details.querySelector('tbody[data-work-team-body]');
+  if(body){
+    const rows=state.service.workers.filter(w=>
+      w.included &&
+      (w.serviceDate||'SIN FECHA')===state.activeDay &&
+      (w.trabajo||'SIN TIPO')===trabajo
+    );
+    const filtered=filteredRowsForWork(trabajo,rows);
+    body.innerHTML=filtered.length
+      ? rowsGroupedByEntryHtml(trabajo,filtered)
+      : '<tr><td colspan="11" class="empty">Sin personal.</td></tr>';
+
+    filtered.forEach(w=>{
+      const teamSelect=document.querySelector(`[data-team-worker="${cssEscape(w.id)}"]`);
+      const statusSelect=document.querySelector(`[data-status-worker="${cssEscape(w.id)}"]`);
+      if(teamSelect)teamSelect.value=w.teamId||'';
+      if(statusSelect)statusSelect.value=w.status||'PENDIENTE';
+    });
+  }
+}
+
+function sortHeaderHtml(trabajo,key,label){
+  const sort=state.workSorts[trabajo]||{};
+  const active=sort.key===key;
+  const arrow=active?(sort.dir==='desc'?'▼':'▲'):'';
+
+  return `<button type="button" class="sort-btn"
+    onclick="setWorkSort('${escapeJsString(trabajo)}','${escapeJsString(key)}')">
+    ${escapeHtml(label)}${arrow?`<span class="sort-arrow">${arrow}</span>`:''}
+  </button>`;
+}
+
+function setWorkSort(trabajo,key){
+  const current=state.workSorts[trabajo]||{};
+
+  if(current.key===key){
+    state.workSorts[trabajo]={
+      key,
+      dir:current.dir==='asc'?'desc':'asc'
+    };
+  }else{
+    state.workSorts[trabajo]={key,dir:'asc'};
+  }
+
+  renderPersonnel(true);
+}
+
+function workerSortValue(w,key){
+  const team=state.service.teams.find(t=>t.id===w.teamId);

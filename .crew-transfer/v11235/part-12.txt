@@ -1,0 +1,1000 @@
+    target.closest(
+      'button,a,input,select,textarea,label,[role="button"],[contenteditable="true"]'
+    )
+  );
+}
+
+function syncWorkerRowSelectionVisual(id){
+  const row=document.querySelector(`[data-worker-row="${cssEscape(id)}"]`);
+  if(!row)return;
+
+  const selected=state.selected.has(id);
+  row.classList.toggle('worker-row-selected',selected);
+  row.setAttribute('aria-selected',selected?'true':'false');
+
+  const hiddenCheckbox=row.querySelector('.mobile-check input[type="checkbox"]');
+  if(hiddenCheckbox)hiddenCheckbox.checked=selected;
+}
+
+function handleWorkerRowClick(event,id){
+  if(workerRowClickIsInteractive(event.target))return;
+
+  const selected=state.selected.has(id);
+  toggleSelected(id,!selected);
+  syncWorkerRowSelectionVisual(id);
+}
+
+function toggleSelected(id,checked){
+  if(checked)state.selected.add(id);else state.selected.delete(id);
+
+  const w=state.service.workers.find(x=>x.id===id);
+  if(w)updateGroupSelectionButton(w.trabajo||'SIN TIPO');
+
+  syncWorkerRowSelectionVisual(id);
+  updateSelectedCounter();
+}
+function selectVisible(){
+  const visible=workersForActiveDay().filter(w=>w.included);
+  const allSelected=visible.length>0&&visible.every(w=>state.selected.has(w.id));
+
+  visible.forEach(w=>{
+    if(allSelected)state.selected.delete(w.id);
+    else state.selected.add(w.id);
+  });
+
+  refreshSelectionRows(visible);
+}
+function updateSelectedCounter(){
+  const el=document.getElementById('selectedCounter');
+  if(el)el.textContent=`${state.selected.size} seleccionado${state.selected.size===1?'':'s'}`;
+  updateScopeSelectButton();
+}
+
+
+
+function applyStatusLocally(w,status,update){
+  const previousStatus=w.status||'PENDIENTE';
+  w.status=status;
+  update.status=status;
+
+  // Solo registramos la primera llegada. No tocamos Entrada real.
+  if(status==='PRESENTE'&&previousStatus!=='PRESENTE'&&!w.arrivalAt){
+    w.arrivalAt=nowClockValue();
+  }
+}
+
+function quickSelectedStatus(status){
+  if(!state.selected.size){
+    alert('Selecciona al menos una persona.');
+    return;
+  }
+
+  const updates=[];
+  const affectedWorks=new Set();
+
+  state.service.workers.forEach(w=>{
+    if(!state.selected.has(w.id))return;
+    const update={workerId:w.id};
+    applyStatusLocally(w,status,update);
+    affectedWorks.add(w.trabajo||'SIN TIPO');
+    updates.push(update);
+  });
+
+  renderPersonnel();
+  affectedWorks.forEach(updateGroupSummary);
+  renderStats();
+  renderOperationalAlerts();
+  saveWorkerUpdates(updates);
+}
+
+function nowClockValue(){
+  const d=new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function setSelectedTimeNow(mode){
+  if(!state.selected.size){
+    alert('Selecciona al menos una persona.');
+    return;
+  }
+
+  const value=nowClockValue();
+  const updates=[];
+
+  state.service.workers.forEach(w=>{
+    if(!state.selected.has(w.id))return;
+
+    if(mode==='start'){
+      w.actualStart=value;
+      updates.push({workerId:w.id,actualStart:value});
+    }else{
+      w.actualEnd=value;
+      updates.push({workerId:w.id,actualEnd:value});
+    }
+
+    recomputeWorkerMinutes(w);
+  });
+
+  renderPersonnel();
+  saveWorkerUpdates(updates);
+  setSaveState(`${mode==='start'?'Entrada':'Fin'} ${value} aplicado`,'saved');
+}
+
+function setModalTimeNow(inputId){
+  const el=document.getElementById(inputId);
+  if(el)el.value=nowClockValue();
+}
+
+
+
+
+function selectedWorkersList(){
+  if(!state.service)return[];
+  return [...state.selected]
+    .map(id=>state.service.workers.find(w=>w.id===id))
+    .filter(Boolean);
+}
+
+function plannedClockFromWorker(worker,which){
+  if(!worker)return'';
+
+  const direct = which==='start'
+    ? (worker.startTime||worker.start||worker.plannedStart||worker.shiftStart||'')
+    : (worker.endTime||worker.end||worker.plannedEnd||worker.shiftEnd||'');
+
+  const txt=String(direct||'').trim();
+  if(/^\d{1,2}:\d{2}$/.test(txt))return txt.padStart(5,'0');
+
+  const range=String(worker.scheduleText||worker.schedule||worker.horario||'').trim();
+  const m=range.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if(m)return (which==='start'?m[1]:m[2]).padStart(5,'0');
+
+  return '';
+}
+
+function suggestBulkModalTimes(workers){
+  if(!workers.length)return{start:'',end:''};
+
+  const starts=workers.map(w=>plannedClockFromWorker(w,'start')).filter(Boolean);
+  const ends=workers.map(w=>plannedClockFromWorker(w,'end')).filter(Boolean);
+
+  const uniqueStarts=[...new Set(starts)];
+  const uniqueEnds=[...new Set(ends)];
+
+  return {
+    start: uniqueStarts.length===1 ? uniqueStarts[0] : (starts[0]||''),
+    end: uniqueEnds.length===1 ? uniqueEnds[0] : (ends[0]||'')
+  };
+}
+
+function openBulkChangesModal(){
+  if(!state.selected.size){
+    alert('Selecciona al menos una persona.');
+    return;
+  }
+
+  const workers=selectedWorkersList();
+  const sub=document.getElementById('bulkChangesSub');
+  if(sub){
+    const works=new Set();
+    workers.forEach(w=>{
+      if(w)works.add(w.trabajo||'SIN TIPO');
+    });
+
+    const scope=works.size===1?` · ${[...works][0]}`:'';
+    sub.textContent=`${state.selected.size} trabajador${state.selected.size===1?'':'es'} seleccionado${state.selected.size===1?'':'s'}${scope}`;
+  }
+
+  const suggestion=suggestBulkModalTimes(workers);
+  const startInput=document.getElementById('bulkActualStart');
+  const endInput=document.getElementById('bulkActualEnd');
+  if(startInput)startInput.value=suggestion.start||'';
+  if(endInput)endInput.value=suggestion.end||'';
+
+  document.getElementById('bulkChangesModal').classList.remove('hidden');
+}
+
+function closeBulkChangesModal(){
+  document.getElementById('bulkChangesModal').classList.add('hidden');
+}
+
+function bulkChangesBackdropClick(event){
+  if(event.target&&event.target.id==='bulkChangesModal'){
+    closeBulkChangesModal();
+  }
+}
+
+function setBulkModalNow(inputId){
+  const el=document.getElementById(inputId);
+  if(el)el.value=nowClockValue();
+}
+
+
+function applyBulk(){
+  if(!state.selected.size){alert('Selecciona al menos una persona.');return}
+  const teamValue=document.getElementById('bulkTeam').value;
+  const statusValue=document.getElementById('bulkStatus').value;
+  const reserveValue=document.getElementById('bulkReserve').value;
+  const pauseValue=document.getElementById('bulkPause').value;
+  const dietValue=document.getElementById('bulkDiet').value;
+  const bulkStart=document.getElementById('bulkActualStart').value;
+  const bulkEnd=document.getElementById('bulkActualEnd').value;
+  const scheduleMode=document.getElementById('bulkScheduleMode').value;
+
+  if(!teamValue&&!statusValue&&reserveValue===''&&!pauseValue&&!dietValue&&!bulkStart&&!bulkEnd&&scheduleMode!=='__PDF__'){
+    alert('Selecciona al menos un cambio para aplicar.');return;
+  }
+
+  const updates=[];
+  state.service.workers.forEach(w=>{
+    if(!state.selected.has(w.id))return;
+    const u={workerId:w.id};
+
+    if(teamValue&&!workHasNoTeams(w.trabajo)){
+      w.teamId=teamValue==='__CLEAR__'?'':teamValue;
+      const t=state.service.teams.find(x=>x.id===w.teamId);
+      w.scenarioId=t?t.scenarioId:'';
+      u.teamId=w.teamId;
+    }
+
+    if(statusValue){
+      applyStatusLocally(w,statusValue,u);
+    }
+
+    if(reserveValue!==''){
+      applyReserveStateLocally(w,reserveValue==='1',u);
+    }
+
+    if(pauseValue){
+      w.actualPause=pauseValue==='__PDF__'?'':pauseValue;
+      u.actualPause=w.actualPause;
+    }
+
+    if(dietValue){
+      w.actualDiet=dietValue==='__PDF__'?null:Number(dietValue);
+      u.actualDiet=w.actualDiet;
+    }
+
+    if(scheduleMode==='__PDF__'){
+      w.actualStart='';
+      w.actualEnd='';
+      u.actualStart='';
+      u.actualEnd='';
+    }else{
+      if(bulkStart){
+        w.actualStart=bulkStart;
+        u.actualStart=bulkStart;
+      }
+      if(bulkEnd){
+        w.actualEnd=bulkEnd;
+        u.actualEnd=bulkEnd;
+      }
+    }
+
+    recomputeWorkerMinutes(w);
+    updates.push(u);
+  });
+
+  state.selected.clear();
+  document.getElementById('bulkTeam').value='';
+  document.getElementById('bulkStatus').value='';
+  document.getElementById('bulkReserve').value='';
+  document.getElementById('bulkPause').value='';
+  document.getElementById('bulkDiet').value='';
+  document.getElementById('bulkActualStart').value='';
+  document.getElementById('bulkActualEnd').value='';
+  document.getElementById('bulkScheduleMode').value='';
+  closeBulkChangesModal();
+  renderPersonnel();
+  updateSelectedCounter();
+
+  // renderPersonnel ya usa los datos locales modificados,
+  // por lo que los indicadores se ven antes de que termine el guardado.
+  renderStats();
+  updateGroupSummaries();
+  renderOperationalAlerts();
+
+  saveWorkerUpdates(updates);
+}
+
+
+function reserveTeamForService(){
+  return (state.service?.teams||[]).find(t=>normalize(t.name)==='RESERVA')||null;
+}
+
+function applyReserveStateLocally(w,isReserve,update){
+  const reserve=Boolean(isReserve);
+  w.isReserve=reserve;
+  update.isReserve=reserve;
+
+  if(workHasNoTeams(w.trabajo))return;
+
+  const reserveTeam=reserveTeamForService();
+  if(!reserveTeam)return;
+
+  if(reserve){
+    w.teamId=reserveTeam.id;
+    w.scenarioId=reserveTeam.scenarioId||'';
+    update.teamId=w.teamId;
+  }else if(w.teamId===reserveTeam.id){
+    w.teamId='';
+    w.scenarioId='';
+    update.teamId='';
+  }
+}
+
+function clockPlusMinutes(value,minutes){
+  if(!isValidClock(value))return'';
+  const total=(clockToMinutes(value)+Number(minutes||0)+1440*10)%1440;
+  const h=Math.floor(total/60);
+  const m=total%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function changeWorkerTeam(id,teamId){
+  const w=state.service.workers.find(x=>x.id===id);if(!w)return;
+
+  w.teamId=teamId;
+  const t=state.service.teams.find(x=>x.id===teamId);
+  w.scenarioId=t?t.scenarioId:'';
+
+  refreshWorkerRow(id);
+  updateGroupSummary(w.trabajo||'SIN TIPO');
+  renderOperationalAlerts();
+
+  saveWorkerUpdates([{workerId:id,teamId}]);
+}
+
+function changeWorkerStatus(id,status){
+  const w=state.service.workers.find(x=>x.id===id);if(!w)return;
+
+  const update={workerId:id};
+  applyStatusLocally(w,status,update);
+
+  // Todo esto ocurre localmente e inmediatamente.
+  refreshWorkerRow(id);
+  renderStats();
+
+  const trabajo=w.trabajo||'SIN TIPO';
+
+  // Primero actualizamos SOLO el indicador del equipo: prácticamente instantáneo.
+  updateStaffingChipFast(trabajo,w.teamId);
+
+  // Después el resto de resumen del bloque.
+  updateGroupSummary(trabajo);
+  renderOperationalAlerts();
+
+  // El servidor guarda después; no bloquea el indicador.
+  saveWorkerUpdates([update]);
+}
+
+function refreshWorkerRow(id){
+  const row=document.querySelector(`[data-worker-row="${cssEscape(id)}"]`);
+  const w=state.service.workers.find(x=>x.id===id);
+  if(!row||!w)return;
+  row.outerHTML=workerRowHtml(w);
+  const teamSelect=document.querySelector(`[data-team-worker="${cssEscape(id)}"]`);
+  const statusSelect=document.querySelector(`[data-status-worker="${cssEscape(id)}"]`);
+  if(teamSelect)teamSelect.value=w.teamId||'';
+  if(statusSelect)statusSelect.value=w.status||'PENDIENTE';
+}
+
+
+function updateStaffingChipFast(trabajo,teamId){
+  if(!teamId||!state.service)return;
+
+  const details=[...document.querySelectorAll('.work-group')]
+    .find(el=>(el.getAttribute('data-work-group')||'')===trabajo);
+
+  if(!details)return;
+
+  const team=state.service.teams.find(t=>t.id===teamId);
+  if(!team)return;
+
+  const rows=state.service.workers.filter(w=>
+    (w.serviceDate||'SIN FECHA')===state.activeDay &&
+    (w.trabajo||'SIN TIPO')===trabajo &&
+    w.included &&
+    w.teamId===teamId
+  );
+
+  const assigned=rows.length;
+  const present=rows.filter(w=>w.status==='PRESENTE').length;
+  const req=requirementsForWork(trabajo).find(r=>r.teamId===teamId);
+  const required=req?Number(req.requiredCount||0):0;
+
+  const chip=details.querySelector(`[data-staffing-team="${cssEscape(teamId)}"]`);
+
+  if(chip){
+    let cls='neutral';
+    if(required){
+      if(present>=required)cls='ok';
+      else if(assigned>=required)cls='warn';
+      else cls='bad';
+    }
+
+    chip.className='staffing-chip team-clickable '+cls;
+    chip.innerHTML=
+      `<span class="team-chip-dot" style="background:${escapeAttr(team.colorHex||'#bdbdbd')}"></span>`+
+      `<strong>${escapeHtml(team.name)}</strong>`+
+      `<span>${assigned}</span>`+
+      `<span class="team-chip-present">${present} ✓</span>`+
+      (required?`<span class="team-chip-needed">/${required}</span>`:'');
+  }
+}
+
+function updateGroupSummary(trabajo){
+  const details=[...document.querySelectorAll('.work-group')]
+    .find(el=>(el.getAttribute('data-work-group')||'')===trabajo);
+
+  if(!details||!state.service)return;
+
+  const rows=state.service.workers.filter(w=>
+    (w.serviceDate||'SIN FECHA')===state.activeDay &&
+    (w.trabajo||'SIN TIPO')===trabajo
+  );
+
+  const includedRows=rows.filter(w=>w.included);
+  const present=includedRows.filter(w=>w.status==='PRESENTE').length;
+  const contacted=includedRows.filter(w=>w.status==='CONTACTADO').length;
+  const absent=includedRows.filter(w=>w.status==='NO PRESENTADO').length;
+  const reserves=includedRows.filter(w=>w.isReserve).length;
+  const coordinators=includedRows.filter(w=>w.isCoordinator);
+
+  const meta=details.querySelector('.work-group-meta');
+  if(meta){
+    meta.innerHTML=
+      `<span class="meta-dot">●</span> ${includedRows.length}`+
+      `<span class="meta-ok">✓ ${present}</span>`+
+      (absent?`<span class="meta-bad">× ${absent}</span>`:'')+
+      (reserves?`<span>R ${reserves}</span>`:'')+
+      (coordinators.length
+        ? `<span class="coord-summary">CS · ${escapeHtml(coordinators.map(w=>w.personal).join(', '))}</span>`
+        : '');
+  }
+
+  // Recalcula Necesarios / Asignados / Presentes SIN reconstruir la tabla.
+  const staffing=staffingSummaryForWork(trabajo,includedRows);
+  const currentStaffing=details.querySelector('.staffing-summary');
+
+  if(currentStaffing){
+    const holder=document.createElement('div');
+    holder.innerHTML=staffing.html;
+    const replacement=holder.firstElementChild;
+    if(replacement)currentStaffing.replaceWith(replacement);
+  }
+
+  // Actualiza también LISTO / ASIGNADO / FALTA PERSONAL.
+  const title=details.querySelector('.work-group-title');
+  let badge=title?title.querySelector('.readiness-badge'):null;
+
+  if(staffing.readiness){
+    if(!badge&&title){
+      badge=document.createElement('span');
+      const actions=title.querySelector('.group-bulk-actions');
+      title.insertBefore(badge,actions||title.querySelector('.work-group-arrow')||null);
+    }
+
+    if(badge){
+      badge.className='readiness-badge '+staffing.readiness.cls;
+      badge.textContent=staffing.readiness.label;
+    }
+  }else if(badge){
+    badge.remove();
+  }
+
+  updateGroupSelectionButton(trabajo);
+}
+
+function updateGroupSummaries(){
+  document.querySelectorAll('.work-group').forEach(details=>{
+    const trabajo=details.getAttribute('data-work-group')||'';
+    if(trabajo)updateGroupSummary(trabajo);
+  });
+}
+
+
+
+
+function renderAudit(){
+  const host=document.getElementById('auditList');
+  if(!host||!state.service)return;
+  const audit=state.service.audit||[];
+
+  if(!audit.length){
+    host.innerHTML='<div class="empty" style="padding:12px">Todavía no hay cambios registrados.</div>';
+    return;
+  }
+
+  host.innerHTML=audit.map(ev=>`
+    <div class="audit-row">
+      <span>${escapeHtml(formatDateTimeLocal(ev.createdAt))}</span>
+      <strong>${escapeHtml(auditEventLabel(ev.type))}</strong>
+      <span>${escapeHtml(auditDetailsText(ev.details))}</span>
+    </div>`).join('');
+}
+
+function refreshAudit(){
+  if(!state.service)return;
+  backend.run
+    .withSuccessHandler(audit=>{
+      state.service.audit=audit||[];
+      renderAudit();
+    })
+    .withFailureHandler(err=>alert(errorMessage(err)))
+    .getServiceAudit(state.service.code);
+}
+
+function auditEventLabel(type){
+  const map={
+    PDF_REIMPORT:'PDF ACTUALIZADO',
+    WORKER_UPDATE:'CAMBIO PERSONAL',
+    INCIDENT_CREATE:'INCIDENCIA CREADA',
+    INCIDENT_UPDATE:'INCIDENCIA EDITADA',
+    INCIDENT_DELETE:'INCIDENCIA ELIMINADA',
+    SERVICE_CLOSE:'SERVICIO CERRADO',
+    SERVICE_REOPEN:'SERVICIO REABIERTO'
+  };
+  return map[type]||String(type||'CAMBIO').replace(/_/g,' ');
+}
+
+function auditDetailsText(value){
+  if(!value)return'';
+  try{
+    const obj=typeof value==='string'?JSON.parse(value):value;
+    if(obj.added!==undefined||obj.removed!==undefined){
+      return `${obj.matched||0} conservados · ${obj.added||0} nuevos · ${obj.removed||0} eliminados · ${obj.scheduleChanged||0} horarios cambiados`;
+    }
+    if(obj.updatedWorkers!==undefined){
+      return `${obj.updatedWorkers} trabajador${obj.updatedWorkers===1?'':'es'} modificados`;
+    }
+    if(obj.category){
+      return `${obj.category} · ${obj.severity||''} · ${obj.status||''}`;
+    }
+    if(obj.pdfUrl)return'PDF final generado';
+    return Object.entries(obj).map(([k,v])=>`${k}: ${v}`).join(' · ');
+  }catch(e){
+    return String(value);
+  }
+}
+
+function formatDateTimeLocal(value){
+  if(!value)return'';
+  const d=new Date(value);
+  return isNaN(d.getTime())?String(value):d.toLocaleString('es-ES');
+}
+
+
+/* INCIDENCIAS / ALERTAS / HISTORIAL / CIERRE */
+
+function renderIncidents(){
+  if(!state.service)return;
+
+  // Defensive de-duplication for incidents already duplicated by older builds.
+  const seenIncidentIds=new Set();
+  const incidents=(state.service.incidents||[])
+    .filter(i=>{
+      const id=String(i.id||'');
+      if(id&&seenIncidentIds.has(id))return false;
+      if(id)seenIncidentIds.add(id);
+      return !state.activeDay||i.serviceDate===state.activeDay;
+    });
+
+  document.getElementById('incidentSummary').textContent=
+    incidents.length
+      ? `${incidents.length} incidencia${incidents.length===1?'':'s'} en el día seleccionado`
+      : 'Sin incidencias en el día seleccionado.';
+
+  const host=document.getElementById('incidentsList');
+  if(!incidents.length){
+    host.innerHTML='<div class="empty" style="padding:12px">No hay incidencias registradas.</div>';
+    return;
+  }
+
+  host.innerHTML=incidents.map(i=>{
+    const general=!i.workerId;
+    const categoryChange=i.category==='CAMBIO CATEGORIA'&&i.newCategory;
+    const subject=general
+      ? `GENERAL${i.trabajo&&i.trabajo!=='GENERAL'?' · '+i.trabajo:''}`
+      : i.personal;
+
+    return `
+      <div class="incident-card ${escapeAttr(i.severity)}">
+        <div class="incident-meta">
+          <strong>${escapeHtml(subject)}</strong>
+          ${!general?`<span>${escapeHtml(i.trabajo||'')}</span>`:''}
+          <span>${escapeHtml(incidentCategoryLabel(i.category))}</span>
+          <span>${escapeHtml(i.severity)}</span>
+          <span>${escapeHtml(i.status)}</span>
+        </div>
+
+        ${categoryChange
+          ? `<div class="category-change-line">
+              <strong>${escapeHtml(i.oldCategory||'—')}</strong>
+              <span>→</span>
+              <strong>${escapeHtml(i.newCategory)}</strong>
+            </div>`
+          : ''}
+
+        <div>${escapeHtml(i.description)}</div>
+
+        ${i.actionTaken
+          ? `<div class="hint"><strong>Actuación:</strong> ${escapeHtml(i.actionTaken)}</div>`
+          : ''}
+
+        <div class="incident-actions">
+          ${state.service.closed?'':`
+            <button class="secondary mini-btn" onclick="editIncident('${escapeAttr(i.id)}')">Editar</button>
+            <button class="danger mini-btn" onclick="removeIncident('${escapeAttr(i.id)}')">Eliminar</button>
+          `}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function incidentCategoryLabel(value){
+  if(value==='CAMBIO CATEGORIA')return 'Cambio de categoría';
+  return value||'OTRO';
+}
+
+function activeDayWorkTypes(){
+  return [...new Set(
+    state.service.workers
+      .filter(w=>w.included&&(!state.activeDay||w.serviceDate===state.activeDay))
+      .map(w=>w.trabajo)
+      .filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b,'es'));
+}
+
+function openIncidentModal(workerId='',presetCategory=''){
+  if(!state.service||state.service.closed)return;
+
+  state.incidentEditingId='';
+
+  const workers=state.service.workers
+    .filter(w=>w.included&&(!state.activeDay||w.serviceDate===state.activeDay))
+    .sort((a,b)=>a.personal.localeCompare(b.personal,'es'));
+
+  const workerSelect=document.getElementById('incidentWorker');
+  workerSelect.innerHTML=workers.map(w=>
+    `<option value="${escapeAttr(w.id)}">${escapeHtml(w.personal)} · ${escapeHtml(w.especialidad||'')} · ${escapeHtml(w.trabajo)}</option>`
+  ).join('');
+
+  const workSelect=document.getElementById('incidentWork');
+  workSelect.innerHTML=
+    '<option value="GENERAL">General del día</option>'+
+    activeDayWorkTypes().map(work=>
+      `<option value="${escapeAttr(work)}">${escapeHtml(work)}</option>`
+    ).join('');
+
+  document.getElementById('incidentScope').value=workerId?'WORKER':'GENERAL';
+
+  if(workerId)workerSelect.value=workerId;
+
+  document.getElementById('incidentCategory').value=
+    presetCategory==='CAMBIO_CATEGORIA'
+      ? 'CAMBIO CATEGORIA'
+      : 'RETRASO';
+
+  document.getElementById('incidentSeverity').value='LEVE';
+  document.getElementById('incidentDescription').value='';
+  document.getElementById('incidentAction').value='';
+  document.getElementById('incidentStatus').value='ABIERTA';
+  document.getElementById('incidentNewCategory').value='';
+
+  updateIncidentModalFields();
+  document.getElementById('incidentModal').classList.remove('hidden');
+}
+
+function updateIncidentModalFields(){
+  const scope=document.getElementById('incidentScope').value;
+  const isWorker=scope==='WORKER';
+
+  document.getElementById('incidentWorkerWrap').classList.toggle('hidden',!isWorker);
+  document.getElementById('incidentWorkWrap').classList.toggle('hidden',isWorker);
+
+  const category=document.getElementById('incidentCategory').value;
+
+  // Un cambio de categoría siempre pertenece a un trabajador.
+  if(!isWorker&&category==='CAMBIO CATEGORIA'){
+    document.getElementById('incidentCategory').value='OTRO';
+  }
+
+  const finalCategory=document.getElementById('incidentCategory').value;
+  const showCategoryChange=isWorker&&finalCategory==='CAMBIO CATEGORIA';
+
+  document.getElementById('incidentCategoryChangeWrap')
+    .classList.toggle('hidden',!showCategoryChange);
+
+  if(showCategoryChange){
+    const workerId=document.getElementById('incidentWorker').value;
+    const w=state.service.workers.find(x=>x.id===workerId);
+    document.getElementById('incidentOldCategory').value=w?.especialidad||'';
+  }
+}
+
+function editIncident(id){
+  const i=(state.service.incidents||[]).find(x=>x.id===id);
+  if(!i)return;
+
+  openIncidentModal(i.workerId||'');
+  state.incidentEditingId=id;
+
+  document.getElementById('incidentScope').value=i.workerId?'WORKER':'GENERAL';
+
+  if(i.workerId){
+    document.getElementById('incidentWorker').value=i.workerId;
+  }else{
+    document.getElementById('incidentWork').value=i.trabajo||'GENERAL';
+  }
+
+  document.getElementById('incidentCategory').value=i.category||'OTRO';
+  document.getElementById('incidentSeverity').value=i.severity||'LEVE';
+  document.getElementById('incidentDescription').value=i.description||'';
+  document.getElementById('incidentAction').value=i.actionTaken||'';
+  document.getElementById('incidentStatus').value=i.status||'ABIERTA';
+  document.getElementById('incidentOldCategory').value=i.oldCategory||'';
+  document.getElementById('incidentNewCategory').value=i.newCategory||'';
+
+  updateIncidentModalFields();
+
+  if(i.category==='CAMBIO CATEGORIA'){
+    document.getElementById('incidentOldCategory').value=i.oldCategory||'';
+    document.getElementById('incidentNewCategory').value=i.newCategory||'';
+  }
+}
+
+function closeIncidentModal(){
+  document.getElementById('incidentModal').classList.add('hidden');
+  state.incidentEditingId='';
+}
+
+function incidentBackdropClick(event){
+  if(event.target&&event.target.id==='incidentModal')closeIncidentModal();
+}
+
+function saveIncidentModal(){
+  const scope=document.getElementById('incidentScope').value;
+  const isWorker=scope==='WORKER';
+  const workerId=isWorker?document.getElementById('incidentWorker').value:'';
+  const worker=isWorker
+    ? state.service.workers.find(w=>w.id===workerId)
+    : null;
+
+  const category=document.getElementById('incidentCategory').value;
+  const newCategory=document.getElementById('incidentNewCategory').value.trim();
+
+  const payload={
+    incidentId:state.incidentEditingId||'',
+    workerId,
+    serviceDate:state.activeDay,
+    trabajo:isWorker
+      ? (worker?.trabajo||'')
+      : document.getElementById('incidentWork').value,
+    category,
+    severity:document.getElementById('incidentSeverity').value,
+    newCategory,
+    description:document.getElementById('incidentDescription').value.trim(),
+    actionTaken:document.getElementById('incidentAction').value.trim(),
+    status:document.getElementById('incidentStatus').value
+  };
+
+  if(!payload.description){
+    alert('Describe la incidencia.');
+    return;
+  }
+
+  if(category==='CAMBIO CATEGORIA'){
+    if(!worker){
+      alert('Selecciona un trabajador para cambiar su categoría.');
+      return;
+    }
+    if(!newCategory){
+      alert('Indica la nueva categoría.');
+      return;
+    }
+  }
+
+  const editingId=state.incidentEditingId||'';
+  const originalIncident=editingId
+    ? {...(state.service.incidents||[]).find(i=>i.id===editingId)}
+    : null;
+
+  const previousSpecialty=worker?.especialidad||'';
+
+  // Use the final Firestore ID immediately.
+  // This avoids: optimistic TMP + realtime INC = duplicate cards.
+  const optimisticId=editingId||firebaseId('INC');
+  payload.incidentId=optimisticId;
+
+  const optimisticIncident={
+    id:optimisticId,
+    workerId:workerId||'',
+    personal:worker?worker.personal:'GENERAL',
+    serviceDate:state.activeDay,
+    trabajo:payload.trabajo||'GENERAL',
+    createdAt:originalIncident?.createdAt||new Date().toISOString(),
+    category,
+    severity:payload.severity,
+    oldCategory:category==='CAMBIO CATEGORIA'
+      ? (originalIncident?.oldCategory||previousSpecialty)
+      : '',
+    newCategory:category==='CAMBIO CATEGORIA'?newCategory:'',
+    description:payload.description,
+    actionTaken:payload.actionTaken,
+    status:payload.status
+  };
+
+  if(category==='CAMBIO CATEGORIA'&&worker){
+    worker.especialidad=newCategory;
+  }
+
+  if(editingId){
+    const index=state.service.incidents.findIndex(i=>i.id===editingId);
+    if(index>=0)state.service.incidents[index]=optimisticIncident;
+  }else{
+    state.service.incidents.unshift(optimisticIncident);
+  }
+
+  closeIncidentModal();
+
+  // La interfaz responde inmediatamente; Sheets guarda en segundo plano.
+  renderIncidents();
+  renderPersonnel();
+  renderOperationalAlerts();
+  setSaveState('Guardando incidencia…','saving');
+
+  backend.run
+    .withSuccessHandler(result=>{
+      if(result?.incident){
+        const realId=String(result.incident.id||optimisticId);
+
+        // Remove any accidental duplicate with the same final id,
+        // then keep one canonical incident.
+        const canonical=[];
+        let inserted=false;
+
+        (state.service.incidents||[]).forEach(i=>{
+          if(String(i.id)===realId){
+            if(!inserted){
+              canonical.push(result.incident);
+              inserted=true;
+            }
+          }else{
+            canonical.push(i);
+          }
+        });
+
+        if(!inserted)canonical.unshift(result.incident);
+        state.service.incidents=canonical;
+      }
+
+      if(result?.worker){
+        const localWorker=state.service.workers.find(w=>w.id===result.worker.id);
+        if(localWorker&&result.worker.especialidad){
+          localWorker.especialidad=result.worker.especialidad;
+        }
+      }
+
+      renderIncidents();
+      renderPersonnel();
+      renderOperationalAlerts();
+      setSaveState('Guardado','saved');
+    })
+    .withFailureHandler(err=>{
+      if(editingId&&originalIncident){
+        const index=state.service.incidents.findIndex(i=>i.id===optimisticId);
+        if(index>=0)state.service.incidents[index]=originalIncident;
+      }else{
+        state.service.incidents=state.service.incidents.filter(i=>i.id!==optimisticId);
+      }
+
+      if(worker)worker.especialidad=previousSpecialty;
+
+      renderIncidents();
+      renderPersonnel();
+      renderOperationalAlerts();
+      alert(errorMessage(err));
+      setSaveState('Error','error');
+    })
+    .saveIncident(state.service.code,payload);
+}
+
+function removeIncident(id){
+  if(!confirm('¿Eliminar esta incidencia?'))return;
+
+  const incident=(state.service.incidents||[]).find(i=>i.id===id);
+  if(!incident)return;
+
+  const oldIndex=state.service.incidents.findIndex(i=>i.id===id);
+
+  // Desaparece inmediatamente de pantalla.
+  state.service.incidents=state.service.incidents.filter(i=>i.id!==id);
+  renderIncidents();
+  renderPersonnel();
+  renderOperationalAlerts();
+  setSaveState('Eliminando incidencia…','saving');
+
+  backend.run
+    .withSuccessHandler(()=>{
+      setSaveState('Incidencia eliminada','saved');
+    })
+    .withFailureHandler(err=>{
+      // Si falla Sheets, recuperamos la incidencia en su posición aproximada.
+      state.service.incidents.splice(
+        Math.max(0,Math.min(oldIndex,state.service.incidents.length)),
+        0,
+        incident
+      );
+      renderIncidents();
+      renderPersonnel();
+      renderOperationalAlerts();
+      setSaveState('Error','error');
+      alert(errorMessage(err));
+    })
+    .deleteIncident(state.service.code,id);
+}
+
+
+function operationalWorkTypesForDay(){
+  if(!state.service)return[];
+
+  const works=[...new Set(
+    state.service.workers
+      .filter(w=>
+        (w.serviceDate||'SIN FECHA')===state.activeDay &&
+        w.included
+      )
+      .map(w=>w.trabajo||'SIN TIPO')
+  )];
+
+  return orderedWorkTypes(works)
+    .filter(work=>!isWorkTypeHidden(work));
+}
+
+
+function operationalTimesForCurrentWork(){
+  if(!state.service || state.operationalWorkFilter==='ALL')return[];
+
+  const times=[...new Set(
+    state.service.workers
+      .filter(w=>
+        (w.serviceDate||'SIN FECHA')===state.activeDay &&
+        w.included &&
+        normalize(w.trabajo||'SIN TIPO')===normalize(state.operationalWorkFilter)
+      )
+      .map(w=>workerEntryTime(w))
+  )];
+
+  return times.sort((a,b)=>{
+    if(a==='SIN HORA')return 1;
+    if(b==='SIN HORA')return -1;
+    return clockToMinutes(a)-clockToMinutes(b);
+  });
+}
+
+function renderOperationalTimeFilters(){
+  const host=document.getElementById('operationalTimeFilters');
+  if(!host)return;
+
+  const times=operationalTimesForCurrentWork();
+
+  if(state.operationalWorkFilter==='ALL' || !times.length){
+    state.operationalTimeFilter='ALL';
+    host.innerHTML='';
+    host.classList.add('hidden-v1210');
+    updateScopeSelectButton();
+    return;
+  }
+
+  host.classList.remove('hidden-v1210');
+
+  if(
+    state.operationalTimeFilter!=='ALL' &&
+    !times.includes(state.operationalTimeFilter)
+  ){
+    state.operationalTimeFilter='ALL';
+  }
+
+  host.innerHTML=['ALL',...times].map(time=>{
+    const active=state.operationalTimeFilter===time;

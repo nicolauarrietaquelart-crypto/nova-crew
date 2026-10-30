@@ -1,0 +1,1000 @@
+      if(Array.isArray(root.teams))state.service.teams=root.teams;
+      if(Array.isArray(root.requirements))state.service.requirements=root.requirements;
+      if(Array.isArray(root.audit))state.service.audit=root.audit;
+
+      const nameEl=document.getElementById('serviceName');
+      const dateEl=document.getElementById('serviceDate');
+      const venueEl=document.getElementById('venue');
+
+      if(nameEl&&document.activeElement!==nameEl)nameEl.value=state.service.serviceName||'';
+      if(dateEl&&document.activeElement!==dateEl)dateEl.value=state.service.serviceDate||'';
+      if(venueEl&&document.activeElement!==venueEl)venueEl.value=state.service.venue||'';
+
+      const structureChanged=
+        oldScenarios!==JSON.stringify(state.service.scenarios||[]) ||
+        oldTeams!==JSON.stringify(state.service.teams||[]);
+
+      const requirementsChanged=
+        oldRequirements!==JSON.stringify(state.service.requirements||[]);
+
+      const workPrefsChanged=
+        oldWorkOrder!==JSON.stringify(state.service.workOrder||[]) ||
+        oldHiddenWorkTypes!==JSON.stringify(state.service.hiddenWorkTypes||[]);
+
+      if(structureChanged){
+        renderScenarios();
+        updateTeamSelects();
+        renderPersonnel(true);
+      }else if(workPrefsChanged){
+        renderPersonnel(true);
+        renderOperationalWorkFilters();
+      }else if(requirementsChanged){
+        // Only the staffing chips/summaries need refreshing.
+        document.querySelectorAll('.work-group').forEach(group=>{
+          const work=group.getAttribute('data-work-group');
+          if(work)updateGroupSummary(work);
+        });
+        scheduleOperationalRefresh();
+      }
+
+      if(oldClosed!==state.service.closed)applyClosedState();
+    },
+    err=>console.error('[Firebase service listener]',firebaseErrorMessage(err))
+  );
+
+  const workersUnsub=fs.onSnapshot(
+    fs.collection(db,'services',code,'workers'),
+    snap=>{
+      if(!state.service||String(state.service.code)!==code)return;
+
+      if(firstWorkersSnapshot){
+        firstWorkersSnapshot=false;
+        // loadService() already populated the same collection.
+        return;
+      }
+
+      snap.docChanges().forEach(change=>{
+        const id=change.doc.id;
+
+        if(change.type==='removed'){
+          const previous=removeRealtimeWorker(id);
+          if(previous){
+            renderPersonnel(true);
+            renderStats();
+            scheduleOperationalRefresh();
+          }
+          return;
+        }
+
+        const worker=normalizeFirebaseWorker({id,...change.doc.data()});
+        const previous=upsertRealtimeWorker(worker);
+
+        // Ignore a listener echo if all visible/operational values are unchanged.
+        if(previous && JSON.stringify(previous)===JSON.stringify(worker))return;
+
+        refreshWorkerFromRealtime(worker,previous);
+      });
+    },
+    err=>console.error('[Firebase workers listener]',firebaseErrorMessage(err))
+  );
+
+  const incidentsUnsub=fs.onSnapshot(
+    fs.collection(db,'services',code,'incidents'),
+    snap=>{
+      if(!state.service||String(state.service.code)!==code)return;
+
+      if(firstIncidentsSnapshot){
+        firstIncidentsSnapshot=false;
+        return;
+      }
+
+      let changed=false;
+      const affectedWorkers=new Set();
+
+      snap.docChanges().forEach(change=>{
+        const id=change.doc.id;
+        const rows=state.service.incidents||[];
+        const idx=rows.findIndex(i=>String(i.id)===String(id));
+
+        if(change.type==='removed'){
+          if(idx>=0){
+            affectedWorkers.add(String(rows[idx].workerId||''));
+            rows.splice(idx,1);
+            changed=true;
+          }
+          return;
+        }
+
+        const incident=normalizeFirebaseIncident({id,...change.doc.data()});
+        if(idx>=0)rows[idx]=incident;
+        else rows.push(incident);
+
+        affectedWorkers.add(String(incident.workerId||''));
+        changed=true;
+      });
+
+      if(changed){
+        const unique=new Map();
+        (state.service.incidents||[]).forEach(i=>{
+          unique.set(String(i.id),i);
+        });
+        state.service.incidents=[...unique.values()];
+
+        state.service.incidents.sort(
+          (a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))
+        );
+        renderIncidents();
+        affectedWorkers.forEach(refreshIncidentWorkerBadge);
+      }
+    },
+    err=>console.error('[Firebase incidents listener]',firebaseErrorMessage(err))
+  );
+
+  firebaseRealtimeUnsubs=[serviceUnsub,workersUnsub,incidentsUnsub];
+}
+
+async function firebaseLoadService(code){
+  const service=await readServiceFromFirebase(String(code));
+  if(!service)throw new Error('No existe ese servicio en la demo.');
+  return service;
+}
+
+async function firebaseGenerateNewService(){
+  const r=await window.CREW_CLOUDFLARE_REQUEST({kind:'create'});
+  if(!r?.ok)throw new Error(r?.error||'No se ha creado el servicio');
+  return readServiceFromFirebase(r.code);
+}
+async function firebaseDuplicateServiceSetup(code){
+  const prior=await readServiceFromFirebase(String(code));
+  if(!prior)throw new Error('No se encuentra el servicio de origen.');
+  const next=await firebaseGenerateNewService();
+  const {db,fs}=await ensureFirebase();
+  await fs.setDoc(fs.doc(db,'services',next.code),{
+    serviceName:prior.serviceName,serviceDate:prior.serviceDate,venue:prior.venue,pdfName:'',
+    workOrder:prior.workOrder,hiddenWorkTypes:prior.hiddenWorkTypes,
+    scenarios:prior.scenarios,teams:prior.teams,requirements:prior.requirements,
+    updatedAt:new Date().toISOString()
+  },{merge:true});
+  return readServiceFromFirebase(next.code);
+}
+
+async function firebaseSaveServiceMeta(code,meta){
+  const {db,fs}=await ensureFirebase();
+
+  await fs.setDoc(
+    fs.doc(db,'services',code),
+    sanitizeFirestore({
+      serviceName:String(meta.serviceName||''),
+      serviceDate:String(meta.serviceDate||''),
+      venue:String(meta.venue||''),
+      pdfName:String(meta.pdfName||''),
+      workOrder:Array.from(meta.workOrder||[],String),
+      hiddenWorkTypes:Array.from(meta.hiddenWorkTypes||[],String),
+      updatedAt:new Date().toISOString()
+    }),
+    {merge:true}
+  );
+
+  return {ok:true};
+}
+
+async function firebaseSaveStructure(code,scenarios,teams){
+  const {db,fs}=await ensureFirebase();
+
+  await fs.setDoc(
+    fs.doc(db,'services',code),
+    {
+      scenarios:Array.from(scenarios||[],s=>sanitizeFirestore(s)),
+      teams:Array.from(teams||[],t=>sanitizeFirestore(t)),
+      updatedAt:new Date().toISOString()
+    },
+    {merge:true}
+  );
+
+
+  return {
+    ...state.service,
+    scenarios:scenarios||[],
+    teams:teams||[]
+  };
+}
+
+function firebaseId(prefix){
+  return prefix+'_'+Date.now().toString(36).toUpperCase()+'_'+
+    Math.random().toString(36).slice(2,7).toUpperCase();
+}
+
+async function firebaseAddScenario(code,name){
+  const scenario={
+    id:firebaseId('S'),
+    name:String(name||'ESCENARIO').trim()||'ESCENARIO',
+    sortOrder:(state.service?.scenarios?.length||0)+1
+  };
+
+  const defs=[
+    ['CREW HEAD','', '#BDBDBD',true],
+    ['FORKLIFTER','', '#BDBDBD',true],
+    ['GENERAL','NARANJA','#F58220',false],
+    ['LUCES','VERDE','#43A047',false],
+    ['AUDIO','AMARILLO','#FDD835',false],
+    ['VIDEO','ROSA','#D81B60',false],
+    ['RESERVA','GRIS','#6B7280',false]
+  ];
+
+  const scenarios=[...(state.service?.scenarios||[]),scenario];
+
+  const teams=[
+    ...(state.service?.teams||[]),
+    ...defs.map((d,i)=>({
+      id:firebaseId('T'),
+      scenarioId:scenario.id,
+      name:d[0],
+      colorName:d[1],
+      colorHex:d[2],
+      noVest:d[3],
+      sortOrder:(state.service?.teams?.length||0)+i+1
+    }))
+  ];
+
+  return firebaseSaveStructure(code,scenarios,teams);
+}
+
+async function firebaseSaveWorkerChanges(code,updates){
+  const {db,fs}=await ensureFirebase();
+  const ops=[];
+
+  (updates||[]).forEach(update=>{
+    if(!update||!update.workerId)return;
+    const id=String(update.workerId);
+    const local=state.service?.workers?.find(w=>String(w.id)===id);
+    const patch={updatedAt:new Date().toISOString()};
+
+    [
+      'status','notes','included','isReserve','especialidad',
+      'actualStart','actualEnd','actualPause','actualDiet',
+      'ratingUniformidad','ratingActitud','ratingPuntualidad'
+    ].forEach(key=>{
+      if(Object.prototype.hasOwnProperty.call(update,key)){
+        patch[key]=update[key];
+      }
+    });
+
+    if(Object.prototype.hasOwnProperty.call(update,'teamId')){
+      patch.teamId=String(update.teamId||'');
+      const team=(state.service?.teams||[]).find(t=>t.id===patch.teamId);
+      patch.scenarioId=team?String(team.scenarioId||''):'';
+    }
+
+    if(
+      Object.prototype.hasOwnProperty.call(update,'status') &&
+      update.status==='PRESENTE' &&
+      local?.arrivalAt
+    ){
+      patch.arrivalAt=local.arrivalAt;
+    }
+
+    ops.push({
+      type:'set',
+      ref:fs.doc(db,'services',code,'workers',id),
+      data:patch,
+      merge:true
+    });
+  });
+
+  await commitFirestoreOps(ops);
+
+  return {ok:true,updated:ops.length};
+}
+
+async function firebaseSaveRequirements(code,serviceDate,trabajo,requirements,noTeams){
+  const {db,fs}=await ensureFirebase();
+
+  const previous=Array.isArray(state.service?.requirements)
+    ? state.service.requirements
+    : [];
+
+  const kept=previous.filter(r=>!(
+    String(r.serviceDate||'')===String(serviceDate||'') &&
+    normalize(r.trabajo)===normalize(trabajo)
+  ));
+
+  const updatedAt=new Date().toISOString();
+
+  const saved=noTeams
+    ? [{
+        serviceDate,
+        trabajo,
+        teamId:NO_TEAMS_REQUIREMENT_TEAM_ID,
+        requiredCount:0,
+        updatedAt
+      }]
+    : (requirements||[])
+        .filter(r=>r&&r.teamId&&Number(r.requiredCount||0)>0)
+        .map(r=>({
+          serviceDate,
+          trabajo,
+          teamId:String(r.teamId),
+          requiredCount:Math.max(0,Math.floor(Number(r.requiredCount||0))),
+          updatedAt
+        }));
+
+  const next=kept.concat(saved);
+
+  await fs.setDoc(
+    fs.doc(db,'services',code),
+    {requirements:Array.from(next||[],r=>sanitizeFirestore(r)),updatedAt},
+    {merge:true}
+  );
+
+
+  return {ok:true,saved,noTeams:Boolean(noTeams)};
+}
+
+async function firebaseSaveIncident(code,payload){
+  const {db,fs}=await ensureFirebase();
+
+  const editingId=String(payload.incidentId||'');
+  const id=editingId||firebaseId('INC');
+  const current=(state.service?.incidents||[]).find(i=>String(i.id)===id);
+  const worker=(state.service?.workers||[]).find(
+    w=>String(w.id)===String(payload.workerId||'')
+  );
+
+  const category=String(payload.category||'OTRO');
+  const newCategory=String(payload.newCategory||'').trim();
+  const oldCategory=category==='CAMBIO CATEGORIA'
+    ? String(current?.oldCategory||worker?.especialidad||'')
+    : '';
+
+  const incident={
+    id,
+    workerId:worker?String(worker.id):'',
+    personal:worker?String(worker.personal||''):'GENERAL',
+    serviceDate:worker?String(worker.serviceDate||''):String(payload.serviceDate||''),
+    trabajo:worker?String(worker.trabajo||''):String(payload.trabajo||'GENERAL'),
+    createdAt:current?.createdAt||new Date().toISOString(),
+    category,
+    severity:String(payload.severity||'LEVE'),
+    oldCategory,
+    newCategory:category==='CAMBIO CATEGORIA'?newCategory:'',
+    description:String(payload.description||'').trim(),
+    actionTaken:String(payload.actionTaken||'').trim(),
+    status:String(payload.status||'ABIERTA')
+  };
+
+  if(!incident.description)throw new Error('Describe la incidencia.');
+
+  const batch=fs.writeBatch(db);
+  batch.set(
+    fs.doc(db,'services',code,'incidents',id),
+    sanitizeFirestore(incident),
+    {merge:true}
+  );
+
+  let returnedWorker=null;
+
+  if(category==='CAMBIO CATEGORIA'){
+    if(!worker)throw new Error('Selecciona un trabajador.');
+    if(!newCategory)throw new Error('Indica la nueva categoría.');
+
+    batch.set(
+      fs.doc(db,'services',code,'workers',String(worker.id)),
+      {especialidad:newCategory,updatedAt:new Date().toISOString()},
+      {merge:true}
+    );
+
+    returnedWorker={...worker,especialidad:newCategory};
+  }
+
+  await batch.commit();
+
+
+  return {ok:true,incident,worker:returnedWorker};
+}
+
+async function firebaseDeleteIncident(code,id){
+  const {db,fs}=await ensureFirebase();
+  await fs.deleteDoc(fs.doc(db,'services',code,'incidents',String(id)));
+  return {ok:true};
+}
+
+async function firebaseCloseService(code){
+  const {db,fs}=await ensureFirebase();
+  const closedAt=new Date().toISOString();
+
+  await fs.setDoc(
+    fs.doc(db,'services',code),
+    {
+      closed:true,
+      closedAt,
+      finalPdfId:'',
+      finalPdfUrl:'',
+      updatedAt:closedAt
+    },
+    {merge:true}
+  );
+
+  return {ok:true,closedAt,pdfUrl:''};
+}
+
+async function firebaseReopenService(code){
+  const {db,fs}=await ensureFirebase();
+  const updatedAt=new Date().toISOString();
+
+  await fs.setDoc(
+    fs.doc(db,'services',code),
+    {closed:false,closedAt:'',updatedAt},
+    {merge:true}
+  );
+
+
+  const service=await readServiceFromFirebase(code);
+  return {ok:true,service};
+}
+
+async function firebaseAddManualWorker(code,data){
+  const {db,fs}=await ensureFirebase();
+
+  const id=firebaseId('W');
+  const team=(state.service?.teams||[]).find(t=>t.id===String(data.teamId||''));
+  const existing=state.service?.workers||[];
+  const nextSort=existing.length
+    ? Math.max(...existing.map(w=>Number(w.sortOrder||0)))+1
+    : 1;
+
+  const worker=normalizeFirebaseWorker({
+    id,
+    serviceDate:String(data.serviceDate||''),
+    blockId:'MANUAL_'+id,
+    blockLabel:String(data.trabajo||'')+' · MANUAL',
+    trabajo:String(data.trabajo||''),
+    isReserve:Boolean(data.isReserve),
+    personal:String(data.personal||'').trim(),
+    especialidad:String(data.especialidad||'').trim(),
+    hLlam:String(data.hLlam||data.inicio||''),
+    inicio:String(data.inicio||''),
+    fin:String(data.fin||''),
+    pausa:String(data.pausa||'00:00'),
+    nDieta:Number(data.nDieta||0),
+    isCoordinator:Boolean(data.isCoordinator),
+    actualStart:'',
+    actualEnd:'',
+    actualPause:'',
+    actualDiet:'',
+    movil:String(data.movil||'').trim(),
+    scenarioId:team?String(team.scenarioId||''):'',
+    teamId:team?String(team.id||''):'',
+    status:'PENDIENTE',
+    arrivalAt:'',
+    notes:'Añadido manualmente',
+    ratingUniformidad:0,
+    ratingActitud:0,
+    ratingPuntualidad:0,
+    included:true,
+    page:0,
+    pdfRow:0,
+    sortOrder:nextSort
+  });
+
+  if(!worker.personal)throw new Error('Indica el nombre del trabajador.');
+
+  await fs.setDoc(
+    fs.doc(db,'services',code,'workers',id),
+    sanitizeFirestore(worker),
+    {merge:false}
+  );
+
+  // A full mirror is intentionally deferred; normal UI is already saved.
+  return worker;
+}
+
+async function firebaseReplaceWorkersFromPdf(){
+  throw new Error('La importación PDF está deshabilitada: el personal de esta demo ya está integrado.');
+}
+async function firebaseGenerateClosedPdf(code){
+  // Avoid claiming an uploaded/generated PDF where none exists.
+  window.print();
+  return {pdfId:'',pdfUrl:'',notice:'Utiliza la impresión del navegador para guardar una copia en PDF.'};
+}
+async function dispatchBackend(method,args){
+  switch(String(method)){
+    case 'loadService':
+      return firebaseLoadService(...args);
+
+    case 'generateNewService':
+      return firebaseGenerateNewService();
+
+    case 'duplicateServiceSetup':
+      return firebaseDuplicateServiceSetup(...args);
+
+    case 'saveServiceMeta':
+      return firebaseSaveServiceMeta(...args);
+
+    case 'saveScenariosAndTeams':
+      return firebaseSaveStructure(...args);
+
+    case 'addScenario':
+      return firebaseAddScenario(...args);
+
+    case 'saveWorkerChanges':
+      return firebaseSaveWorkerChanges(...args);
+
+    case 'saveTeamRequirements':
+      return firebaseSaveRequirements(...args);
+
+    case 'saveIncident':
+      return firebaseSaveIncident(...args);
+
+    case 'deleteIncident':
+      return firebaseDeleteIncident(...args);
+
+    case 'closeService':
+      return firebaseCloseService(...args);
+
+    case 'reopenService':
+      return firebaseReopenService(...args);
+
+    case 'addManualWorker':
+      return firebaseAddManualWorker(...args);
+
+    case 'replaceWorkersFromPdf':
+      return firebaseReplaceWorkersFromPdf(...args);
+
+    case 'generateClosedServicePdf':
+      return firebaseGenerateClosedPdf(...args);
+
+    case 'getWorkerHistory': {
+      const worker=state.service?.workers?.find(w=>String(w.id)===String(args[1]));
+      const relevant=state.service?.incidents?.filter(i=>i.workerId===worker?.id)||[];
+      return {movil:worker?.movil||'',services:worker?1:0,present:worker?.status==='PRESENTE'?1:0,
+        noShow:worker?.status==='NO PRESENTADO'?1:0,incidents:relevant.length,
+        averageRating:'',totalActualMinutes:0,items:[],history:[],workTypes:[]};
+    }
+
+    default:
+      return callAppsScript(method,args);
+  }
+}
+
+const backend={
+  get run(){
+    let successHandler=()=>{};
+    let failureHandler=err=>console.error(err);
+
+    let proxy=null;
+
+    proxy=new Proxy({},{
+      get(_target,prop){
+        if(prop==='withSuccessHandler'){
+          return fn=>{
+            successHandler=typeof fn==='function'?fn:()=>{};
+            return proxy;
+          };
+        }
+
+        if(prop==='withFailureHandler'){
+          return fn=>{
+            failureHandler=typeof fn==='function'?fn:failureHandler;
+            return proxy;
+          };
+        }
+
+        if(typeof prop==='symbol')return undefined;
+
+        return (...args)=>{
+          Promise.resolve()
+            .then(()=>dispatchBackend(String(prop),args))
+            .then(result=>successHandler(result))
+            .catch(err=>failureHandler(new Error(firebaseErrorMessage(err))));
+
+          return proxy;
+        };
+      }
+    });
+
+    return proxy;
+  }
+};
+
+let pdfJsLoadingPromise = null;
+function ensurePdfJs(){
+  if(window.pdfjsLib){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    return Promise.resolve(window.pdfjsLib);
+  }
+  if(pdfJsLoadingPromise)return pdfJsLoadingPromise;
+
+  pdfJsLoadingPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.async=true;
+    script.onload=()=>{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    script.onerror=()=>reject(new Error('No se ha podido cargar el lector de PDF.'));
+    document.head.appendChild(script);
+  });
+
+  return pdfJsLoadingPromise;
+}
+
+const pdfInput = document.getElementById('pdfInput');
+const pdfDropZones = [
+  document.getElementById('dropZone'),
+  document.getElementById('initialPdfDropZone')
+].filter(Boolean);
+
+pdfInput.addEventListener('change', async () => {
+  const file = pdfInput.files && pdfInput.files[0];
+  if (file) await importPdf(file);
+});
+
+pdfDropZones.forEach(zone=>{
+  ['dragenter','dragover'].forEach(evt=>zone.addEventListener(evt,e=>{
+    e.preventDefault();
+    zone.classList.add('drag');
+  }));
+
+  ['dragleave','drop'].forEach(evt=>zone.addEventListener(evt,e=>{
+    e.preventDefault();
+    zone.classList.remove('drag');
+  }));
+
+  zone.addEventListener('drop',async e=>{
+    const file=e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(!file)return;
+
+    if(!file.name.toLowerCase().endsWith('.pdf')){
+      showPdfStatus('El archivo debe ser un PDF.','error');
+      return;
+    }
+
+    await importPdf(file);
+  });
+});
+
+
+
+function requestDuplicateService(){
+  if(!state.service)return;
+
+  const msg=
+    'Se creará un servicio nuevo con los mismos escenarios, equipos, colores y recinto.\\n\\n'+
+    'No se copiará el personal ni las asistencias. ¿Continuar?';
+
+  if(!confirm(msg))return;
+
+  setSaveState('Duplicando estructura…','saving');
+
+  backend.run
+    .withSuccessHandler(service=>{
+      openServiceData(service);
+      setSaveState('Estructura duplicada','saved');
+    })
+    .withFailureHandler(err=>{
+      alert(errorMessage(err));
+      setSaveState('Error','error');
+    })
+    .duplicateServiceSetup(state.service.code);
+}
+
+
+/* SERVICIOS */
+function createNewService(){
+  const btn=document.getElementById('newServiceBtn');
+  btn.disabled=true;btn.textContent='Generando código…';
+  showBox('startStatus','Creando servicio…','info');
+
+  backend.run
+    .withSuccessHandler(service=>{
+      btn.disabled=false;btn.textContent='Generar nuevo código de servicio';
+
+      service.serviceName='';
+      service.serviceDate='';
+      service.venue='';
+      service.pdfName='';
+      service.workOrder=[];
+      service.hiddenWorkTypes=[];
+      service.workers=[];
+      service.incidents=[];
+
+      openServiceData(service);
+    })
+    .withFailureHandler(err=>{
+      btn.disabled=false;btn.textContent='Generar nuevo código de servicio';
+      showBox('startStatus',errorMessage(err),'error');
+    })
+    .generateNewService();
+}
+
+
+
+function parkIntegratedSections(){
+  const parking=document.getElementById('integratedSectionParking');
+  if(!parking)return;
+  ['incidentsBoardSection','scenariosTeamsSection'].forEach(id=>{
+    const node=document.getElementById(id);
+    if(node && node.parentElement!==parking && !node.classList.contains('integrated-section-visible-v129')){
+      parking.appendChild(node);
+    }
+  });
+}
+
+function openIntegratedSectionModal(modalId,sectionId,bodyId){
+  const modal=document.getElementById(modalId);
+  const body=document.getElementById(bodyId);
+  const section=document.getElementById(sectionId);
+  if(!modal||!body||!section)return;
+
+  body.innerHTML='';
+  section.classList.add('integrated-section-visible-v129');
+  body.appendChild(section);
+  modal.classList.remove('hidden');
+
+  if(sectionId==='incidentsBoardSection'){
+    renderIncidents();
+  }
+  if(sectionId==='scenariosTeamsSection'){
+    renderScenarios();
+  }
+}
+
+function closeIntegratedSectionModal(modalId,sectionId){
+  const modal=document.getElementById(modalId);
+  const section=document.getElementById(sectionId);
+  const parking=document.getElementById('integratedSectionParking');
+  if(section && parking){
+    section.classList.remove('integrated-section-visible-v129');
+    parking.appendChild(section);
+  }
+  if(modal)modal.classList.add('hidden');
+}
+
+function integratedSectionBackdropClick(event,modalId,sectionId){
+  if(event.target&&event.target.id===modalId){
+    closeIntegratedSectionModal(modalId,sectionId);
+  }
+}
+
+function openIncidentsBoardModal(){
+  openIntegratedSectionModal('incidentsBoardModal','incidentsBoardSection','incidentsBoardModalBody');
+}
+
+function openScenariosTeamsModal(){
+  openIntegratedSectionModal('scenariosTeamsModal','scenariosTeamsSection','scenariosTeamsModalBody');
+}
+
+
+
+/* v11.2.34 — compact, collapsible mobile operational panel. */
+function syncMobileOperationalToggleV11234(){
+  const toggle=document.getElementById('mobileOperationalToggleV11234');
+  if(!toggle)return;
+  const visible=Boolean(state.service) && window.matchMedia('(max-width: 900px)').matches;
+  toggle.hidden=!visible;
+  if(!visible)setMobileOperationalPanelV11234(false);
+}
+
+function setMobileOperationalPanelV11234(open){
+  const drawer=document.getElementById('mobileOperationalDrawerV11234');
+  const toggle=document.getElementById('mobileOperationalToggleV11234');
+  if(!drawer || !toggle)return;
+  const allowed=Boolean(state.service) && window.matchMedia('(max-width: 900px)').matches;
+  const expanded=Boolean(open)&&allowed;
+  drawer.classList.toggle('mobile-ops-expanded-v11234',expanded);
+  drawer.setAttribute('aria-hidden',String(!expanded));
+  toggle.setAttribute('aria-expanded',String(expanded));
+  toggle.setAttribute('aria-label',expanded?'Ocultar control operativo':'Desplegar control operativo');
+  toggle.title=expanded?'Ocultar control operativo':'Desplegar control operativo';
+  if(!expanded){
+    drawer.classList.remove('mobile-ops-more-open-v11234');
+    const more=document.getElementById('mobileOperationalMoreV11234');
+    if(more)more.setAttribute('aria-expanded','false');
+  }else{
+    requestAnimationFrame(()=>{
+      if(typeof updateOperationalWorkNextButton==='function')updateOperationalWorkNextButton();
+    });
+  }
+}
+
+function mobileOperationalPanelIsOpenV11235(){
+  return Boolean(document.getElementById('mobileOperationalDrawerV11234')
+    ?.classList.contains('mobile-ops-expanded-v11234'));
+}
+
+function toggleMobileOperationalPanelV11234(){
+  const drawer=document.getElementById('mobileOperationalDrawerV11234');
+  if(!drawer)return;
+  const wasOpen=mobileOperationalPanelIsOpenV11235();
+  setMobileOperationalPanelV11234(!wasOpen);
+  // Navigate only when the user deliberately closes the panel.
+  if(wasOpen && state.operationalWorkFilter!=='ALL'){
+    focusOperationalWorkBlock(state.operationalWorkFilter,state.operationalTimeFilter);
+  }
+}
+
+function toggleMobileOperationalMoreV11234(){
+  const drawer=document.getElementById('mobileOperationalDrawerV11234');
+  const more=document.getElementById('mobileOperationalMoreV11234');
+  if(!drawer || !more)return;
+  const open=drawer.classList.toggle('mobile-ops-more-open-v11234');
+  more.setAttribute('aria-expanded',String(open));
+}
+
+// The mobile control panel closes only via its banner arrow.
+
+window.addEventListener('resize',syncMobileOperationalToggleV11234,{passive:true});
+
+function mountPersonnelSidebarPortal(){
+  syncPersonnelSidebarPlacement();
+}
+
+
+function syncPersonnelSidebarPlacement(){
+  const sidebar=document.querySelector('.personnel-sidebar-v121');
+  const mobileDrawer=document.getElementById('mobileOperationalDrawerV11234');
+  if(!sidebar)return;
+
+  const isMobile=window.matchMedia('(max-width: 900px)').matches;
+
+  if(isMobile){
+    sidebar.classList.remove('personnel-sidebar-portal-v1215');
+    if(mobileDrawer && sidebar.parentElement!==mobileDrawer){
+      mobileDrawer.appendChild(sidebar);
+    }
+  }else{
+    setMobileOperationalPanelV11234(false);
+    if(sidebar.parentElement!==document.body){
+      document.body.appendChild(sidebar);
+    }
+    sidebar.classList.add('personnel-sidebar-portal-v1215');
+  }
+}
+
+function restorePersonnelSidebarHome(){
+  const sidebar=document.querySelector('.personnel-sidebar-v121');
+  const home=document.getElementById('personnelSidebarHome');
+  const layout=document.querySelector('.personnel-layout-v121');
+  if(!sidebar || !layout)return;
+
+  sidebar.classList.remove('personnel-sidebar-portal-v1215');
+
+  if(home && home.parentElement===layout){
+    home.insertAdjacentElement('afterend',sidebar);
+  }else{
+    layout.insertBefore(sidebar,layout.firstChild);
+  }
+}
+
+function updateControlSidebarTop(){
+  // v11.2.15: sidebar is portaled to body and fixed by CSS.
+}
+
+function updateFloatingCrewHeaderV11233(){
+  const banner=document.querySelector('body > header');
+  if(!banner)return;
+  banner.classList.toggle('crew-header-floating-v11233',window.scrollY>36);
+}
+
+let crewHeaderScrollPendingV11233=false;
+window.addEventListener('scroll',()=>{
+  if(crewHeaderScrollPendingV11233)return;
+  crewHeaderScrollPendingV11233=true;
+  requestAnimationFrame(()=>{
+    crewHeaderScrollPendingV11233=false;
+    updateFloatingCrewHeaderV11233();
+  });
+},{passive:true});
+window.addEventListener('load',updateFloatingCrewHeaderV11233);
+updateFloatingCrewHeaderV11233();
+
+window.addEventListener('scroll',()=>{
+  if(document.body.classList.contains('control-sidebar-open')){
+    updateControlSidebarTop();
+  }
+},{passive:true});
+
+window.addEventListener('resize',()=>{
+  if(document.body.classList.contains('control-sidebar-open')){
+    syncPersonnelSidebarPlacement();
+    updateControlSidebarTop();
+    updateSidebarToggleButton();
+  }
+});
+
+function openExistingService(){
+  const code=document.getElementById('serviceCodeInput').value.trim();
+  if(!/^\d{6}$/.test(code)){
+    showBox('startStatus','Introduce un código de 6 cifras.','error');return;
+  }
+  showBox('startStatus','Abriendo servicio…','info');
+  backend.run
+    .withSuccessHandler(openServiceData)
+    .withFailureHandler(err=>showBox('startStatus',errorMessage(err),'error'))
+    .loadService(code);
+}
+
+function updateSidebarToggleButton(){
+  const btn=document.getElementById('sidebarCollapseBtn');
+  const glyph=document.getElementById('sidebarCollapseGlyph');
+  const edgeBtn=document.getElementById('sidebarEdgeToggleBtn');
+  const edgeGlyph=document.getElementById('sidebarEdgeToggleGlyph');
+  const isMobile=window.matchMedia('(max-width: 900px)').matches;
+  if(isMobile){
+    if(btn)btn.style.display='none';
+    if(edgeBtn)edgeBtn.style.display='none';
+    document.body.classList.remove('control-sidebar-collapsed');
+    return;
+  }
+  const collapsed=document.body.classList.contains('control-sidebar-collapsed');
+  if(btn&&glyph){
+    btn.style.display=collapsed?'none':'inline-flex';
+    glyph.textContent='‹‹';
+    btn.title='Ocultar panel';
+    btn.setAttribute('aria-label','Ocultar panel');
+  }
+  if(edgeBtn&&edgeGlyph){
+    edgeBtn.style.display=collapsed?'inline-flex':'none';
+    edgeGlyph.textContent='›';
+    edgeBtn.title='Mostrar panel';
+    edgeBtn.setAttribute('aria-label','Mostrar panel');
+  }
+}
+
+function toggleOperationalSidebar(){
+  if(window.matchMedia('(max-width: 900px)').matches)return;
+  document.body.classList.toggle('control-sidebar-collapsed');
+  updateSidebarToggleButton();
+}
+
+
+function updatePdfPlacementUI(){
+  const hasPdf=Boolean(String(state.service?.pdfName||'').trim());
+  const initial=document.getElementById('initialPdfUploadPanel');
+  const sidebar=document.getElementById('sidebarPdfManager');
+
+  if(initial)initial.classList.toggle('hidden',hasPdf);
+  if(sidebar)sidebar.classList.toggle('hidden',!hasPdf);
+}
+
+function clearPdfSidebarStatus(){
+  const el=document.getElementById('pdfStatus');
+  if(!el)return;
+  el.className='status-box sidebar-pdf-status-v11227';
+  el.innerHTML='';
+}
+
+function sidebarPdfStatusHtml(content){
+  return `
+    <button type="button"
+      class="pdf-status-close-v11231"
+      onclick="clearPdfSidebarStatus()"
+      title="Ocultar notificación"
+      aria-label="Ocultar notificación">×</button>
+    <div class="pdf-status-content-v11231">${content}</div>
+  `;
+}
+
+function showPdfStatus(message,type='info'){
+  showBoxHtml(
+    'pdfStatus',
+    sidebarPdfStatusHtml(escapeHtml(message)),
+    type
+  );
+  showBox('initialPdfStatus',message,type);
+}
+
+function showPdfStatusHtml(message,type='ok'){
+  showBoxHtml(
+    'pdfStatus',
+    sidebarPdfStatusHtml(message),
+    type
+  );
+  showBoxHtml('initialPdfStatus',message,type);
+}
+
+function openServiceData(service){
+  document.body.classList.add('control-sidebar-open');
+  updateControlSidebarTop();
+  const previousDay=state.activeDay;

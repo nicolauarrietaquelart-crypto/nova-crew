@@ -1,0 +1,1000 @@
+      tbody[data-work-team-body] tr[data-worker-row]{
+        padding:12px!important;
+        overflow:hidden!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected{
+        border:2px solid #ff7a14!important;
+        box-shadow:
+          0 0 0 2px rgba(255,122,20,.10),
+          0 8px 22px rgba(25,30,38,.055)!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected td,
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected td.mobile-status{
+        box-shadow:none!important;
+        background:transparent!important;
+      }
+
+      td.mobile-schedule{
+        padding:9px 11px!important;
+        margin:0!important;
+        overflow:visible!important;
+      }
+
+      td.mobile-schedule > *,
+      td.mobile-schedule{
+        text-indent:0!important;
+      }
+
+      td.mobile-phone,
+      td.mobile-pause,
+      td.mobile-diet,
+      td.mobile-rating,
+      td.mobile-vest{
+        padding-left:0!important;
+        padding-right:0!important;
+      }
+
+      .worker-open,
+      .role,
+      .coordinator-badge,
+      .reserve-badge,
+      .vest,
+      .ops-chip{
+        line-height:1.2!important;
+      }
+    }
+
+    /* Extra glass depth, still only on major surfaces */
+    .personnel-sidebar-v121{
+      background:
+        linear-gradient(145deg,rgba(255,255,255,.82),rgba(234,239,246,.60))!important;
+      border:1px solid rgba(255,255,255,.96)!important;
+      box-shadow:
+        0 24px 70px rgba(22,28,36,.16),
+        inset 0 1px 0 rgba(255,255,255,.98),
+        inset 0 -1px 0 rgba(255,255,255,.38)!important;
+      backdrop-filter:blur(34px) saturate(180%)!important;
+      -webkit-backdrop-filter:blur(34px) saturate(180%)!important;
+    }
+
+  
+    /* =========================================================
+       v11.2.16 · FIXED APP HEADER
+       ========================================================= */
+    :root{
+      --crew-header-h:104px;
+    }
+
+    body{
+      padding-top:var(--crew-header-h)!important;
+    }
+
+    header{
+      position:fixed!important;
+      top:0!important;
+      left:0!important;
+      right:0!important;
+      width:100%!important;
+      height:var(--crew-header-h)!important;
+      z-index:1300!important;
+      margin:0!important;
+    }
+
+    header .header-inner{
+      height:100%!important;
+    }
+
+    @media(min-width:901px){
+      .personnel-sidebar-v121.personnel-sidebar-portal-v1215{
+        top:calc(var(--crew-header-h) + 14px)!important;
+        max-height:calc(100vh - var(--crew-header-h) - 28px)!important;
+      }
+
+      .work-group,
+      .work-group > summary,
+      [data-shift-summary]{
+        scroll-margin-top:calc(var(--crew-header-h) + 12px)!important;
+      }
+    }
+
+    @media(max-width:700px){
+      :root{
+        --crew-header-h:68px;
+      }
+
+      header{
+        height:var(--crew-header-h)!important;
+        padding-top:8px!important;
+        padding-bottom:8px!important;
+      }
+
+      .service-top{
+        top:var(--crew-header-h)!important;
+      }
+    }
+
+    /* =========================================================
+       v11.2.16 · MOBILE TEXT MUST NEVER CLIP
+       ========================================================= */
+    @media(max-width:700px){
+      tbody[data-work-team-body] tr[data-worker-row]{
+        padding:13px!important;
+      }
+
+      td.mobile-schedule{
+        grid-column:1/3!important;
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+        padding:10px 14px 10px 18px!important;
+        margin:0!important;
+        overflow:visible!important;
+        clip-path:none!important;
+        text-indent:0!important;
+        box-sizing:border-box!important;
+      }
+
+      td.mobile-schedule::before,
+      td.mobile-schedule::after{
+        display:none!important;
+        content:none!important;
+      }
+
+      td.mobile-schedule .schedule-real,
+      td.mobile-schedule .hours-chip{
+        display:block!important;
+        width:auto!important;
+        max-width:100%!important;
+        margin-left:0!important;
+        padding-left:0!important;
+        text-indent:0!important;
+        overflow:visible!important;
+        white-space:normal!important;
+        line-height:1.25!important;
+      }
+
+      td.mobile-schedule .hours-chip{
+        padding-top:2px!important;
+      }
+
+      /* Selection outline stays outside content; no inset orange line. */
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected{
+        border:2px solid #ff7a14!important;
+        box-shadow:0 0 0 2px rgba(255,122,20,.12),0 8px 22px rgba(25,30,38,.055)!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected td,
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected td.mobile-status{
+        box-shadow:none!important;
+      }
+    }
+
+  
+    /* =========================================================
+       v11.2.17 · PERFORMANCE MODE
+       Same visual language, substantially less GPU work.
+       ========================================================= */
+
+    html{
+      scroll-behavior:auto!important;
+    }
+
+    *,
+    *::before,
+    *::after{
+      transition:none!important;
+      animation:none!important;
+    }
+
+    /* Fixed header: static translucent black, low-cost blur only. */
+    header{
+      backdrop-filter:blur(8px) saturate(115%)!important;
+      -webkit-backdrop-filter:blur(8px) saturate(115%)!important;
+      box-shadow:0 4px 14px rgba(0,0,0,.10)!important;
+    }
+
+    /* Sidebar keeps glass feel, but much lighter GPU load. */
+    .personnel-sidebar-v121{
+      background:rgba(247,249,252,.93)!important;
+      backdrop-filter:blur(10px) saturate(120%)!important;
+      -webkit-backdrop-filter:blur(10px) saturate(120%)!important;
+      box-shadow:0 10px 28px rgba(22,28,36,.10)!important;
+    }
+
+    /* Main cards: transparency only, NO backdrop blur. */
+    .card,
+    .service-top,
+    .closed-banner,
+    .work-group,
+    .upload,
+    .status-box,
+    .staffing-summary,
+    .work-team-filter-wrap{
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      background:rgba(255,255,255,.88)!important;
+      box-shadow:0 4px 14px rgba(25,30,38,.045)!important;
+    }
+
+    .work-group{
+      background:rgba(255,255,255,.91)!important;
+    }
+
+    .work-group-head{
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      background:#111!important;
+    }
+
+    /* Rows: plain translucent fills only. */
+    tbody tr:not(.shift-divider-row) td{
+      background:rgba(255,255,255,.92)!important;
+    }
+
+    tbody tr:not(.shift-divider-row):hover td{
+      background:rgba(255,248,241,.96)!important;
+    }
+
+    .shift-divider-row td,
+    .shift-divider-btn{
+      background:rgba(246,247,249,.96)!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+    }
+
+    /* Inputs/selects: no expensive inner shadows. */
+    input,
+    select,
+    textarea,
+    .file-button,
+    .secondary{
+      box-shadow:none!important;
+      background:rgba(255,255,255,.96)!important;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus{
+      box-shadow:0 0 0 2px rgba(255,122,20,.10)!important;
+    }
+
+    /* Modals: keep a small amount of blur, but far less than before. */
+    .modal{
+      backdrop-filter:blur(4px)!important;
+      -webkit-backdrop-filter:blur(4px)!important;
+      background:rgba(18,22,28,.26)!important;
+    }
+
+    .modal-card,
+    .integrated-modal-card-v129,
+    .bulk-changes-modal-v125{
+      backdrop-filter:blur(8px) saturate(115%)!important;
+      -webkit-backdrop-filter:blur(8px) saturate(115%)!important;
+      box-shadow:0 14px 38px rgba(0,0,0,.16)!important;
+      background:rgba(250,251,253,.96)!important;
+    }
+
+    /* Start screen: glass look without 30px blur. */
+    #startScreen.login-card{
+      backdrop-filter:blur(8px) saturate(115%)!important;
+      -webkit-backdrop-filter:blur(8px) saturate(115%)!important;
+      box-shadow:0 14px 38px rgba(22,28,36,.10)!important;
+      background:rgba(255,255,255,.94)!important;
+    }
+
+    /* Kill decorative focus pulse completely. */
+    .glass-focus-v1211{
+      animation:none!important;
+      box-shadow:none!important;
+    }
+
+    /* No transform effects on buttons/cards. */
+    button:hover,
+    button:active,
+    .metric-button-v1210:hover,
+    .operational-work-chip-v122:hover{
+      transform:none!important;
+    }
+
+    /* Mobile: absolutely no backdrop filters. */
+    @media(max-width:700px){
+      header,
+      .personnel-sidebar-v121,
+      .card,
+      .service-top,
+      .closed-banner,
+      .modal,
+      .modal-card,
+      #startScreen.login-card{
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+      }
+
+      .personnel-sidebar-v121{
+        background:#f7f8fa!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row]{
+        background:#fff!important;
+        box-shadow:0 3px 10px rgba(25,30,38,.04)!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected{
+        background:#fffaf5!important;
+        box-shadow:0 0 0 2px rgba(255,122,20,.12)!important;
+      }
+    }
+
+  
+    /* =========================================================
+       v11.2.19 · REMOVE CIRCULAR TEXT CLIPPING
+       ========================================================= */
+
+    .modal{
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      background:rgba(18,22,28,.34)!important;
+    }
+
+    tr[data-worker-row].worker-row-selected{
+      box-shadow:0 0 0 2px rgba(255,122,20,.14)!important;
+    }
+
+    tr[data-worker-row].worker-row-selected td,
+    tr[data-worker-row].worker-row-selected td.mobile-status{
+      box-shadow:none!important;
+    }
+
+    @media(max-width:700px){
+      td.mobile-schedule{
+        position:relative!important;
+        z-index:2!important;
+        display:block!important;
+        grid-column:1/3!important;
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+        margin:0!important;
+        padding:10px 14px!important;
+        background:rgba(255,255,255,.58)!important;
+        border:0!important;
+        border-radius:0!important;
+        overflow:visible!important;
+        clip:auto!important;
+        clip-path:none!important;
+        mask:none!important;
+        -webkit-mask:none!important;
+        filter:none!important;
+        transform:none!important;
+        text-indent:0!important;
+        white-space:normal!important;
+        box-sizing:border-box!important;
+      }
+
+      td.mobile-schedule::before,
+      td.mobile-schedule::after{
+        display:none!important;
+        content:none!important;
+        width:0!important;
+        height:0!important;
+        background:none!important;
+        border:0!important;
+        box-shadow:none!important;
+      }
+
+      td.mobile-schedule .schedule-planned,
+      td.mobile-schedule .schedule-real,
+      td.mobile-schedule .hours-chip{
+        position:relative!important;
+        z-index:3!important;
+        display:block!important;
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+        margin:0!important;
+        padding:0 0 0 10px!important;
+        border:0!important;
+        border-radius:0!important;
+        background:transparent!important;
+        overflow:visible!important;
+        clip:auto!important;
+        clip-path:none!important;
+        mask:none!important;
+        -webkit-mask:none!important;
+        filter:none!important;
+        transform:none!important;
+        text-indent:0!important;
+        white-space:normal!important;
+        box-sizing:border-box!important;
+      }
+
+      td.mobile-schedule .schedule-planned{
+        font-size:11px!important;
+        line-height:1.35!important;
+        color:#222!important;
+        font-weight:500!important;
+      }
+
+      td.mobile-schedule .schedule-real{
+        margin-top:3px!important;
+        font-size:10px!important;
+        line-height:1.35!important;
+        font-weight:850!important;
+      }
+
+      td.mobile-schedule .hours-chip{
+        margin-top:3px!important;
+        font-size:10px!important;
+        line-height:1.35!important;
+        font-weight:850!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row]{
+        overflow:visible!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row] td:not(.mobile-schedule){
+        max-width:100%!important;
+      }
+
+      tbody[data-work-team-body] tr[data-worker-row].worker-row-selected{
+        border:2px solid #ff7a14!important;
+        box-shadow:0 0 0 2px rgba(255,122,20,.12)!important;
+      }
+    }
+
+  
+    /* =========================================================
+       v11.2.20 · MODALS BELOW FIXED HEADER + CONTROL CONTRAST
+       ========================================================= */
+
+    /*
+      The app header is fixed. Every modal now starts BELOW it,
+      instead of being rendered underneath the banner.
+    */
+    .modal{
+      position:fixed!important;
+      inset:var(--crew-header-h,104px) 0 0 0!important;
+      width:100%!important;
+      height:auto!important;
+      max-height:calc(100vh - var(--crew-header-h,104px))!important;
+      z-index:2200!important;
+      padding:14px!important;
+      align-items:center!important;
+      justify-content:center!important;
+      overflow:auto!important;
+    }
+
+    .modal-card{
+      max-height:calc(100vh - var(--crew-header-h,104px) - 28px)!important;
+      overflow:auto!important;
+    }
+
+    /*
+      Integrated / wide modals inherit the same safe height.
+    */
+    .integrated-modal-card-v129,
+    .bulk-changes-modal-v125,
+    .team-members-card{
+      max-height:calc(100vh - var(--crew-header-h,104px) - 28px)!important;
+    }
+
+    /*
+      Control-view button must always have readable contrast.
+      Glass styles must not override these states.
+    */
+    #controlViewBtn{
+      background:rgba(255,255,255,.94)!important;
+      color:#111!important;
+      border:1px solid rgba(0,0,0,.10)!important;
+      box-shadow:none!important;
+    }
+
+    #controlViewBtn svg{
+      stroke:#111!important;
+    }
+
+    #controlViewBtn.on,
+    body.control-mode #controlViewBtn{
+      background:#111!important;
+      color:#fff!important;
+      border:2px solid #ff7a14!important;
+      box-shadow:0 0 0 2px rgba(255,122,20,.10)!important;
+    }
+
+    #controlViewBtn.on svg,
+    body.control-mode #controlViewBtn svg{
+      stroke:#fff!important;
+    }
+
+    #controlViewBtn.on span,
+    body.control-mode #controlViewBtn span{
+      color:#fff!important;
+    }
+
+    /*
+      Keep the rest of the top action buttons readable in Control mode.
+    */
+    body.control-mode .service-actions .secondary:not(#controlViewBtn){
+      background:rgba(255,255,255,.94)!important;
+      color:#111!important;
+      border-color:rgba(0,0,0,.10)!important;
+    }
+
+    body.control-mode .service-actions .secondary:not(#controlViewBtn) svg{
+      stroke:#111!important;
+    }
+
+    @media(max-width:700px){
+      .modal{
+        inset:var(--crew-header-h,68px) 0 0 0!important;
+        max-height:calc(100vh - var(--crew-header-h,68px))!important;
+        padding:7px!important;
+        align-items:flex-end!important;
+      }
+
+      .modal-card,
+      .integrated-modal-card-v129,
+      .bulk-changes-modal-v125,
+      .team-members-card{
+        max-height:calc(100vh - var(--crew-header-h,68px) - 12px)!important;
+      }
+    }
+
+  
+    /* =========================================================
+       v11.2.21 · MOBILE ORDER + SERVICE HEADER
+       CREW CONTROL -> CONTROL OPERATIVO -> SERVICE HEADER
+       ========================================================= */
+    @media(max-width:900px){
+      #mobileOperationalHome{
+        display:block!important;
+        width:100%!important;
+        margin:0 0 8px!important;
+      }
+
+      #mobileOperationalHome .personnel-sidebar-v121{
+        position:static!important;
+        width:100%!important;
+        max-width:none!important;
+        max-height:none!important;
+        overflow:visible!important;
+        margin:0!important;
+        z-index:auto!important;
+      }
+
+      .personnel-layout-v121{
+        display:block!important;
+      }
+
+      /* Since sidebar lives above the service header on mobile,
+         personnel layout only contains the main list. */
+      .personnel-main-v121{
+        width:100%!important;
+        max-width:100%!important;
+      }
+    }
+
+    @media(max-width:700px){
+      /*
+       * Service header: two clean rows.
+       * Row 1: code + copy.
+       * Row 2: saved state + action icons.
+       */
+      .service-top{
+        position:static!important;
+        top:auto!important;
+        z-index:auto!important;
+
+        display:grid!important;
+        grid-template-columns:1fr!important;
+        gap:7px!important;
+
+        margin:0 0 8px!important;
+        padding:8px!important;
+
+        border-radius:14px!important;
+        background:rgba(255,255,255,.95)!important;
+        border:1px solid rgba(0,0,0,.07)!important;
+        box-shadow:0 3px 12px rgba(20,24,32,.045)!important;
+        backdrop-filter:none!important;
+        -webkit-backdrop-filter:none!important;
+      }
+
+      .service-code{
+        width:100%!important;
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) 36px!important;
+        gap:6px!important;
+        align-items:center!important;
+      }
+
+      .service-code>span:first-child{
+        display:none!important;
+      }
+
+      .code-pill{
+        width:100%!important;
+        min-width:0!important;
+        max-width:100%!important;
+        min-height:38px!important;
+
+        display:flex!important;
+        align-items:center!important;
+        justify-content:flex-start!important;
+
+        padding:7px 11px!important;
+        border-radius:10px!important;
+
+        font-size:18px!important;
+        line-height:1!important;
+        letter-spacing:.10em!important;
+        white-space:nowrap!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+      }
+
+      .compact-code-btn{
+        width:36px!important;
+        min-width:36px!important;
+        height:36px!important;
+        min-height:36px!important;
+        padding:0!important;
+        border-radius:10px!important;
+      }
+
+      .service-top>.service-actions{
+        width:100%!important;
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) repeat(4,36px)!important;
+        gap:6px!important;
+        align-items:center!important;
+      }
+
+      .service-top>.service-actions .save-state{
+        grid-column:1!important;
+        display:flex!important;
+        align-items:center!important;
+        min-width:0!important;
+        padding-left:4px!important;
+        font-size:10px!important;
+        font-weight:850!important;
+        white-space:nowrap!important;
+      }
+
+      .service-top>.service-actions .icon-btn,
+      .service-top>.service-actions .close-service-btn{
+        width:36px!important;
+        min-width:36px!important;
+        max-width:36px!important;
+        height:36px!important;
+        min-height:36px!important;
+        padding:0!important;
+        border-radius:10px!important;
+      }
+
+      .service-top>.service-actions .icon-btn span,
+      .service-top>.service-actions .close-service-btn span{
+        display:none!important;
+      }
+
+      .service-top>.service-actions svg{
+        width:17px!important;
+        height:17px!important;
+      }
+
+      /* Control operativo at the top should not inherit desktop fixed offsets. */
+      #mobileOperationalHome .personnel-sidebar-title-v121{
+        margin-top:0!important;
+      }
+
+      /* Keep the mobile top stack close to the fixed CREW CONTROL banner. */
+      #appScreen{
+        padding-top:0!important;
+      }
+    }
+
+  
+    /* =========================================================
+       v11.2.22 · COMPACT GLASS POLISH
+       - header menos alto
+       - más liquid glass sin lag fuerte
+       - tarjetas móvil más compactas
+       - pausa / dieta / chaleco en misma fila móvil
+       - línea naranja lateral en selección
+       - sidebar escritorio más estrecha
+       - selector de bloque simplificado
+       ========================================================= */
+
+    :root{
+      --crew-header-h:86px!important;
+    }
+
+    body{
+      background:
+        radial-gradient(1200px 420px at 12% -5%, rgba(245,130,32,.12), transparent 55%),
+        linear-gradient(180deg,#f6f7f9 0%, #f2f4f7 100%)!important;
+    }
+
+    header{
+      padding:10px 16px!important;
+      border-bottom:4px solid var(--orange)!important;
+      background:
+        linear-gradient(180deg, rgba(10,11,15,.94), rgba(14,15,20,.92))!important;
+      box-shadow:
+        0 6px 18px rgba(0,0,0,.10),
+        inset 0 1px 0 rgba(255,255,255,.07)!important;
+      backdrop-filter:blur(10px) saturate(120%)!important;
+      -webkit-backdrop-filter:blur(10px) saturate(120%)!important;
+    }
+
+    .brand{
+      gap:12px!important;
+    }
+
+    .demo-mark{
+      width:58px!important;
+      height:58px!important;
+      border-radius:18px!important;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04))!important;
+      border:1px solid rgba(245,130,32,.45)!important;
+      box-shadow:
+        0 0 0 3px rgba(245,130,32,.09),
+        inset 0 1px 0 rgba(255,255,255,.12)!important;
+      color:#fff!important;
+    }
+
+    header h1{
+      font-size:21px!important;
+      line-height:1.02!important;
+      letter-spacing:.03em!important;
+      color:#fff!important;
+    }
+
+    header .subtitle{
+      margin-top:3px!important;
+      font-size:12px!important;
+      color:rgba(255,255,255,.82)!important;
+    }
+
+    .card,
+    .service-top,
+    .work-group,
+    .upload,
+    .closed-banner,
+    .status-box,
+    .work-team-filter-wrap{
+      background:
+        linear-gradient(155deg, rgba(255,255,255,.88), rgba(249,250,252,.76))!important;
+      border:1px solid rgba(255,255,255,.92)!important;
+      box-shadow:
+        0 10px 28px rgba(22,28,36,.06),
+        inset 0 1px 0 rgba(255,255,255,.92)!important;
+    }
+
+    /* Row selected: visible left orange line on desktop + mobile */
+    tr[data-worker-row].worker-row-selected{
+      box-shadow:
+        inset 4px 0 0 var(--orange),
+        0 0 0 1px rgba(245,130,32,.20)!important;
+      border-color:rgba(245,130,32,.45)!important;
+      background:
+        linear-gradient(90deg, rgba(255,122,20,.08) 0 14px, rgba(255,255,255,.92) 14px)!important;
+    }
+
+    tr[data-worker-row].worker-row-selected td{
+      background:transparent!important;
+    }
+
+    /* Smaller fixed left sidebar on desktop */
+    @media(min-width:1181px){
+      body.control-sidebar-open main.wrap{
+        width:calc(100% - 372px)!important;
+        margin-left:356px!important;
+      }
+
+      .personnel-sidebar-v121.personnel-sidebar-portal-v1215{
+        left:14px!important;
+        width:324px!important;
+        max-width:324px!important;
+        top:calc(var(--crew-header-h) + 10px)!important;
+        max-height:calc(100vh - var(--crew-header-h) - 20px)!important;
+        border-radius:24px!important;
+      }
+    }
+
+    @media(min-width:901px) and (max-width:1180px){
+      body.control-sidebar-open main.wrap{
+        width:calc(100% - 330px)!important;
+        margin-left:318px!important;
+      }
+
+      .personnel-sidebar-v121.personnel-sidebar-portal-v1215{
+        left:10px!important;
+        width:292px!important;
+        max-width:292px!important;
+        top:calc(var(--crew-header-h) + 10px)!important;
+        max-height:calc(100vh - var(--crew-header-h) - 20px)!important;
+        border-radius:22px!important;
+      }
+    }
+
+    .personnel-sidebar-v121{
+      background:
+        linear-gradient(155deg, rgba(255,255,255,.84), rgba(242,246,251,.70))!important;
+      border:1px solid rgba(255,255,255,.92)!important;
+      box-shadow:
+        0 16px 42px rgba(22,28,36,.10),
+        inset 0 1px 0 rgba(255,255,255,.96)!important;
+      backdrop-filter:blur(9px) saturate(122%)!important;
+      -webkit-backdrop-filter:blur(9px) saturate(122%)!important;
+    }
+
+    .personnel-sidebar-v121 .section-title h2{
+      font-size:18px!important;
+    }
+
+    .sidebar-operational-head-v122{
+      margin-bottom:6px!important;
+    }
+
+    .sidebar-operational-head-v122 span:first-child{
+      font-size:12px!important;
+      letter-spacing:.06em!important;
+    }
+
+    /* Less vertical weight in Control operativo */
+    .operational-work-filters-v122{
+      gap:6px!important;
+    }
+
+    .operational-work-chip-v122{
+      padding:5px 9px!important;
+      min-height:34px!important;
+      border-radius:14px!important;
+      font-size:8.8px!important;
+      letter-spacing:.01em!important;
+    }
+
+    .operational-time-filters-v1210{
+      gap:6px!important;
+      padding-top:2px!important;
+    }
+
+    .operational-time-chip-v1210{
+      min-height:34px!important;
+      padding:5px 9px!important;
+      border-radius:14px!important;
+      font-size:9px!important;
+    }
+
+    .sidebar-operational-v122 .dashboard-metric.simple-v127{
+      padding:10px 10px!important;
+      border-radius:18px!important;
+      min-height:auto!important;
+    }
+
+    .sidebar-operational-v122 .dashboard-metric.simple-v127 strong{
+      font-size:16px!important;
+    }
+
+    .sidebar-operational-v122 .dashboard-metric.simple-v127 span{
+      margin-top:2px!important;
+      font-size:10px!important;
+    }
+
+    .toolbar.personnel-sidebar-toolbar-v121{
+      gap:8px!important;
+    }
+
+    /* Simplify block selector button to avoid clipped grey chunk */
+    .shift-select-left-v1211{
+      overflow:visible!important;
+      min-width:84px!important;
+      width:84px!important;
+      max-width:84px!important;
+      padding:0 9px!important;
+      border-radius:14px!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:flex-start!important;
+      gap:8px!important;
+      background:rgba(255,255,255,.88)!important;
+      border:1px solid rgba(0,0,0,.08)!important;
+    }
+
+    .shift-select-check-v1211{
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      width:18px!important;
+      min-width:18px!important;
+      height:18px!important;
+      border-radius:5px!important;
+      border:1.5px solid rgba(0,0,0,.28)!important;
+      background:#fff!important;
+      font-size:11px!important;
+      line-height:1!important;
+      color:#111!important;
+    }
+
+    .shift-select-v121.active .shift-select-check-v1211{
+      background:var(--orange)!important;
+      border-color:var(--orange)!important;
+      color:#111!important;
+    }
+
+    .shift-select-v121 .shift-selected-count-v121{
+      margin-left:auto!important;
+      padding:0!important;
+      border-radius:0!important;
+      background:transparent!important;
+      color:#666!important;
+      font-size:11px!important;
+      line-height:1!important;
+      font-weight:850!important;
+    }
+
+    .shift-select-v121.active .shift-selected-count-v121{
+      color:#fff!important;
+      background:transparent!important;
+    }
+
+    /* MOBILE */
+    @media(max-width:700px){
+      :root{
+        --crew-header-h:60px!important;
+      }
+
+      body{
+        background:
+          radial-gradient(720px 260px at 12% -4%, rgba(245,130,32,.13), transparent 52%),
+          linear-gradient(180deg,#f7f8fa 0%, #f3f5f8 100%)!important;
+      }
+
+      header{
+        padding:8px 14px!important;
+      }
+
+      .wrap{
+        width:min(100%, calc(100% - 16px))!important;
+      }
+
+      .brand{
+        gap:10px!important;
+      }
+
+      .demo-mark{
+        width:42px!important;
+        height:42px!important;
+        border-radius:14px!important;
+      }
+
+      header h1{
+        font-size:15px!important;
+      }
+
+      header .subtitle{
+        font-size:10px!important;
+      }
+
+      main{
+        padding-top:8px!important;
+      }
+
+      .personnel-sidebar-v121{
+        border-radius:20px!important;
+        padding:12px!important;
+        background:
+          linear-gradient(155deg, rgba(255,255,255,.82), rgba(244,247,251,.72))!important;
+        backdrop-filter:blur(8px) saturate(118%)!important;
+        -webkit-backdrop-filter:blur(8px) saturate(118%)!important;
+      }
+
+      .personnel-sidebar-v121 .section-title{
+        margin-bottom:6px!important;
+      }
+
+      .personnel-sidebar-v121 .section-title h2{

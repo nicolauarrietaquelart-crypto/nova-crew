@@ -1,0 +1,1000 @@
+  state.service=service;
+  state.service.workOrder=Array.isArray(state.service.workOrder)?state.service.workOrder.map(String):[];
+  state.service.hiddenWorkTypes=Array.isArray(state.service.hiddenWorkTypes)?state.service.hiddenWorkTypes.map(String):[];
+  state.selected.clear();
+  state.operationalWorkFilter='ALL';
+  state.operationalTimeFilter='ALL';
+  state.expandedWorkGroups=new Set();
+
+  const hiddenBar=document.getElementById('hiddenWorkTypesBar');
+  if(hiddenBar){
+    hiddenBar.innerHTML='';
+    hiddenBar.classList.remove('show');
+  }
+
+  const workFilters=document.getElementById('operationalWorkFilters');
+  const timeFilters=document.getElementById('operationalTimeFilters');
+  if(workFilters)workFilters.innerHTML='';
+  if(timeFilters)timeFilters.innerHTML='';
+
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('appScreen').classList.remove('hidden');
+  mountPersonnelSidebarPortal();
+  setMobileOperationalPanelV11234(false);
+  syncMobileOperationalToggleV11234();
+  updateSidebarToggleButton();
+
+  document.getElementById('serviceCodeBadge').textContent=service.code;
+  document.getElementById('serviceName').value=service.serviceName||'';
+  document.getElementById('serviceDate').value=service.serviceDate||'';
+  document.getElementById('venue').value=service.venue||'';
+  document.getElementById('pdfFileName').textContent=
+    service.pdfName?service.pdfName:'Sin PDF';
+  updatePdfPlacementUI();
+
+  const days=getDays();
+  state.activeDay = days.includes(previousDay) ? previousDay : (days[0] || '');
+
+  renderScenarios();
+  parkIntegratedSections();
+  updateTeamSelects();
+  renderPersonnel();
+  applyClosedState();
+  setSaveState('Guardado','saved');
+  // Audit isn't needed for first paint. Schedule after core personnel render.
+  const openedServiceCode=String(service.code);
+  requestAnimationFrame(()=>{
+    if(String(state.service?.code||'')===openedServiceCode)renderAudit();
+  });
+
+  startFirebaseRealtime(service.code).catch(err=>{
+    console.error('[Firebase realtime]',firebaseErrorMessage(err));
+  });
+}
+
+function closeService(){
+  if(state.workerSaveInFlight||Object.keys(state.pendingWorkerUpdates||{}).length){
+    setSaveState('Guardando antes de salir…','saving');
+    flushPendingWorkerSaves(()=>finalizeCloseServiceView());
+    return;
+  }
+
+  finalizeCloseServiceView();
+}
+
+function finalizeCloseServiceView(){
+  setMobileOperationalPanelV11234(false);
+  restorePersonnelSidebarHome();
+  document.body.classList.remove('control-sidebar-open');
+  stopFirebaseRealtime();
+  state.service=null;
+  state.activeDay='';
+  state.selected.clear();
+  state.pendingWorkerUpdates={};
+  document.getElementById('serviceCodeInput').value='';
+  document.getElementById('appScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  syncMobileOperationalToggleV11234();
+}
+
+function copyServiceCode(){
+  if(!state.service)return;
+  navigator.clipboard.writeText(state.service.code)
+    .then(()=>setSaveState('Código copiado','saved')).catch(()=>{});
+}
+
+/* AUTOGUARDADO */
+function scheduleMetaSave(){
+  if(!state.service||state.service.closed)return;
+  clearTimeout(state.metaTimer);
+  setSaveState('Guardando…','saving');
+
+  state.metaTimer=setTimeout(()=>{
+    const meta={
+      serviceName:document.getElementById('serviceName').value.trim(),
+      serviceDate:document.getElementById('serviceDate').value.trim(),
+      venue:document.getElementById('venue').value.trim(),
+      pdfName:state.service.pdfName||'',
+      workOrder:Array.from(state.service.workOrder||[],String),
+      hiddenWorkTypes:Array.from(state.service.hiddenWorkTypes||[],String)
+    };
+    backend.run
+      .withSuccessHandler(()=>{
+        Object.assign(state.service,meta);setSaveState('Guardado','saved');
+      })
+      .withFailureHandler(err=>{console.error(err);setSaveState('Error al guardar','error')})
+      .saveServiceMeta(state.service.code,meta);
+  },600);
+}
+
+function scheduleStructureSave(){
+  if(!state.service||state.service.closed)return;
+  clearTimeout(state.structureTimer);
+  setSaveState('Guardando escenarios…','saving');
+
+  state.structureTimer=setTimeout(()=>{
+    backend.run
+      .withSuccessHandler(service=>{
+        const active=state.activeDay;
+        state.service=service;
+        state.activeDay=active;
+        renderScenarios();updateTeamSelects();renderPersonnel();
+        setSaveState('Guardado','saved');
+      })
+      .withFailureHandler(err=>{console.error(err);setSaveState('Error al guardar','error')})
+      .saveScenariosAndTeams(state.service.code,state.service.scenarios,state.service.teams);
+  },500);
+}
+
+function saveWorkerUpdates(updates){
+  if(!state.service||state.service.closed||!updates.length)return;
+
+  updates.forEach(update=>{
+    if(!update||!update.workerId)return;
+
+    const id=String(update.workerId);
+    state.pendingWorkerUpdates[id]={
+      ...(state.pendingWorkerUpdates[id]||{workerId:id}),
+      ...update,
+      workerId:id
+    };
+  });
+
+  setSaveState('Guardando…','saving');
+  clearTimeout(state.workerSaveTimer);
+  state.workerSaveTimer=setTimeout(()=>flushPendingWorkerSaves(),220);
+}
+
+function flushPendingWorkerSaves(callback){
+  if(typeof callback==='function'){
+    state.workerSaveCallbacks.push(callback);
+  }
+
+  if(state.workerSaveInFlight)return;
+
+  const batch=Object.values(state.pendingWorkerUpdates);
+
+  if(!batch.length){
+    runWorkerSaveCallbacks();
+    return;
+  }
+
+  if(!state.service||state.service.closed){
+    state.pendingWorkerUpdates={};
+    runWorkerSaveCallbacks();
+    return;
+  }
+
+  const serviceCode=state.service.code;
+  state.pendingWorkerUpdates={};
+  state.workerSaveInFlight=true;
+  clearTimeout(state.workerSaveTimer);
+
+  backend.run
+    .withSuccessHandler(()=>{
+      state.workerSaveInFlight=false;
+
+      if(Object.keys(state.pendingWorkerUpdates).length){
+        flushPendingWorkerSaves();
+        return;
+      }
+
+      setSaveState('Guardado','saved');
+      runWorkerSaveCallbacks();
+    })
+    .withFailureHandler(err=>{
+      console.error(err);
+
+      // Reincorporamos el lote para no perder cambios locales.
+      batch.forEach(update=>{
+        const id=String(update.workerId);
+        state.pendingWorkerUpdates[id]={
+          ...update,
+          ...(state.pendingWorkerUpdates[id]||{})
+        };
+      });
+
+      state.workerSaveInFlight=false;
+      setSaveState('Error al guardar','error');
+      state.workerSaveCallbacks=[];
+    })
+    .saveWorkerChanges(serviceCode,batch);
+}
+
+function runWorkerSaveCallbacks(){
+  const callbacks=state.workerSaveCallbacks.splice(0);
+  callbacks.forEach(fn=>{
+    try{fn()}catch(err){console.error(err)}
+  });
+}
+
+function setSaveState(text,cls){
+  const el=document.getElementById('saveState');
+  el.textContent=text;el.className='save-state '+cls;
+}
+
+/* ESCENARIOS */
+function renderScenarios(){
+  if(!state.service)return;
+  const host=document.getElementById('scenarioList');
+
+  host.innerHTML=state.service.scenarios.map((scenario,scenarioIndex)=>{
+    const teams=state.service.teams.filter(t=>t.scenarioId===scenario.id);
+
+    return `
+      <div class="scenario-card">
+        <div class="scenario-head">
+          <input type="text" value="${escapeAttr(scenario.name)}"
+            oninput="renameScenario('${escapeAttr(scenario.id)}',this.value)">
+          ${scenarioIndex===0
+            ? '<span class="hint" style="margin:0">Principal</span>'
+            : `<button class="danger" onclick="removeScenario('${escapeAttr(scenario.id)}')">Eliminar escenario</button>`}
+        </div>
+        <div class="scenario-body">
+          <div id="teams_${escapeAttr(scenario.id)}">
+            ${teams.map(team=>teamRowHtml(team)).join('')}
+          </div>
+          <div class="scenario-actions">
+            <button class="secondary" onclick="addTeam('${escapeAttr(scenario.id)}')">+ Añadir equipo</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function teamRowHtml(team){
+  return `
+    <div class="team-row">
+      <input type="text" value="${escapeAttr(team.name)}" placeholder="Equipo"
+        oninput="updateTeam('${escapeAttr(team.id)}','name',this.value)">
+      <input type="text" value="${escapeAttr(team.colorName)}" placeholder="Color"
+        oninput="updateTeam('${escapeAttr(team.id)}','colorName',this.value)">
+      <input type="color" value="${escapeAttr(team.colorHex||'#BDBDBD')}"
+        onchange="handleTeamColorChange('${escapeAttr(team.id)}',this.value)"
+        title="Color libre">
+      <button type="button" class="palette-trigger"
+        onclick="openTeamColorPalette(event,'${escapeAttr(team.id)}',this)"
+        title="Colores rápidos">
+        <span class="palette-trigger-swatch"
+          style="background:${escapeAttr(team.colorHex||'#BDBDBD')}"></span>
+      </button>
+      <label class="check-label">
+        <input type="checkbox" ${team.noVest?'checked':''}
+          onchange="updateTeam('${escapeAttr(team.id)}','noVest',this.checked)">
+        Sin chaleco
+      </label>
+      <button class="danger" onclick="removeTeam('${escapeAttr(team.id)}')">×</button>
+    </div>`;
+}
+
+
+
+const TEAM_COLOR_PRESETS=[
+  // Neutros
+  {name:'NEGRO',hex:'#111111'},
+  {name:'GRIS MUY OSCURO',hex:'#3F3F3F'},
+  {name:'GRIS OSCURO',hex:'#666666'},
+  {name:'GRIS',hex:'#8E8E8E'},
+  {name:'GRIS MEDIO',hex:'#B5B5B5'},
+  {name:'GRIS CLARO',hex:'#D6D6D6'},
+  {name:'GRIS MUY CLARO',hex:'#ECECEC'},
+  {name:'BLANCO',hex:'#FFFFFF'},
+  {name:'MARFIL',hex:'#FAFAF4'},
+
+  // Vivos
+  {name:'ROJO OSCURO',hex:'#A60D0D'},
+  {name:'ROJO',hex:'#E32626'},
+  {name:'ROJO VIVO',hex:'#FF3838'},
+  {name:'NARANJA',hex:'#F58220'},
+  {name:'AMARILLO',hex:'#FFD21C'},
+  {name:'LIMA',hex:'#7ED321'},
+  {name:'VERDE',hex:'#2EBB4E'},
+  {name:'TURQUESA',hex:'#14C7C7'},
+  {name:'CELESTE',hex:'#37C7F4'},
+
+  {name:'AZUL CLARO',hex:'#4DA3FF'},
+  {name:'AZUL',hex:'#2268E8'},
+  {name:'AZUL OSCURO',hex:'#163A8A'},
+  {name:'VIOLETA',hex:'#7B3FD1'},
+  {name:'MORADO',hex:'#9A30D5'},
+  {name:'FUCSIA',hex:'#D62DCE'},
+  {name:'ROSA',hex:'#F248A8'},
+  {name:'ROSA VIVO',hex:'#FF55BC'},
+  {name:'CORAL',hex:'#EF6C62'},
+
+  // Pasteles
+  {name:'ROSA PASTEL',hex:'#F6B8C5'},
+  {name:'SALMÓN',hex:'#F3A88F'},
+  {name:'MELOCOTÓN',hex:'#F6C28B'},
+  {name:'AMARILLO PASTEL',hex:'#F7DB91'},
+  {name:'VERDE PASTEL',hex:'#B7D89A'},
+  {name:'MENTA',hex:'#A7D9C6'},
+  {name:'CELESTE PASTEL',hex:'#A7D7E8'},
+  {name:'AZUL PASTEL',hex:'#A8C7EA'},
+  {name:'LILA PASTEL',hex:'#C2B1DC'},
+
+  // Oscuros
+  {name:'ROJO VINO',hex:'#7E1B16'},
+  {name:'GRANATE',hex:'#9A1F16'},
+  {name:'NARANJA OSCURO',hex:'#C75616'},
+  {name:'OCRE',hex:'#B9821C'},
+  {name:'VERDE OLIVA',hex:'#718D25'},
+  {name:'VERDE OSCURO',hex:'#247A3C'},
+  {name:'PETRÓLEO',hex:'#176D72'},
+  {name:'AZUL PETRÓLEO',hex:'#17628F'},
+  {name:'AZUL MARINO',hex:'#153B6F'},
+
+  {name:'MARRÓN OSCURO',hex:'#5D2A16'},
+  {name:'MARRÓN',hex:'#7B431B'},
+  {name:'COBRE',hex:'#A76413'},
+  {name:'MOSTAZA',hex:'#B98600'},
+  {name:'VERDE BOSQUE',hex:'#315D2D'},
+  {name:'AZUL PROFUNDO',hex:'#114D82'},
+  {name:'ÍNDIGO',hex:'#273F91'},
+  {name:'MORADO OSCURO',hex:'#4A287B'},
+  {name:'BURDEOS',hex:'#7A2854'}
+];
+
+let activeTeamColorId='';
+
+function isLightPaletteColor(hex){
+  const rgb=hexToRgb(hex);
+  if(!rgb)return false;
+  return ((rgb.r*299)+(rgb.g*587)+(rgb.b*114))/1000>175;
+}
+
+function renderTeamColorPalette(){
+  const grid=document.getElementById('teamColorPaletteGrid');
+  if(!grid||!state.service)return;
+
+  const team=state.service.teams.find(t=>t.id===activeTeamColorId);
+  const current=String(team?.colorHex||'').toUpperCase();
+
+  grid.innerHTML=TEAM_COLOR_PRESETS.map(color=>`
+    <button type="button"
+      class="team-palette-color ${isLightPaletteColor(color.hex)?'light':''} ${current===color.hex.toUpperCase()?'selected':''}"
+      style="background:${escapeAttr(color.hex)}"
+      title="${escapeAttr(color.name)}"
+      onclick="chooseTeamPresetColor('${escapeAttr(color.hex)}','${escapeJsString(color.name)}')">
+    </button>
+  `).join('');
+}
+
+function openTeamColorPalette(event,teamId,button){
+  event.preventDefault();
+  event.stopPropagation();
+
+  activeTeamColorId=teamId;
+  renderTeamColorPalette();
+
+  const pop=document.getElementById('teamColorPalette');
+  if(!pop)return;
+
+  pop.classList.remove('hidden');
+
+  const rect=button.getBoundingClientRect();
+  const width=Math.min(300,window.innerWidth-20);
+  pop.style.width=width+'px';
+
+  let left=rect.left+(rect.width/2)-(width/2);
+  left=Math.max(10,Math.min(left,window.innerWidth-width-10));
+
+  // Altura aproximada para decidir si abrir arriba o abajo.
+  const estimatedHeight=245;
+  let top=rect.bottom+7;
+
+  if(top+estimatedHeight>window.innerHeight-10){
+    top=Math.max(10,rect.top-estimatedHeight-7);
+  }
+
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+}
+
+function closeTeamColorPalette(){
+  const pop=document.getElementById('teamColorPalette');
+  if(pop)pop.classList.add('hidden');
+  activeTeamColorId='';
+}
+
+function chooseTeamPresetColor(hex,name){
+  if(!state.service||!activeTeamColorId)return;
+
+  const team=state.service.teams.find(t=>t.id===activeTeamColorId);
+  if(!team)return;
+
+  team.colorHex=String(hex||'#BDBDBD').toUpperCase();
+  team.colorName=name||nearestSpanishColorName(team.colorHex);
+
+  closeTeamColorPalette();
+  renderScenarios();
+  updateTeamSelects();
+  renderPersonnel();
+  scheduleStructureSave();
+}
+
+function resetTeamColorPalette(){
+  chooseTeamPresetColor('#BDBDBD','GRIS');
+}
+
+
+function handleTeamColorChange(teamId, hex){
+  const team=state.service.teams.find(t=>t.id===teamId);
+  if(!team)return;
+
+  team.colorHex=String(hex||'#BDBDBD').toUpperCase();
+  team.colorName=nearestSpanishColorName(team.colorHex);
+
+  closeTeamColorPalette();
+  renderScenarios();
+  updateTeamSelects();
+  renderPersonnel();
+  scheduleStructureSave();
+}
+
+function nearestSpanishColorName(hex){
+  const rgb=hexToRgb(hex);
+  if(!rgb)return'COLOR';
+
+  const palette=[
+    ['NEGRO','#111111'],
+    ['BLANCO','#FFFFFF'],
+    ['GRIS','#9E9E9E'],
+    ['ROJO','#E53935'],
+    ['ROJO OSCURO','#8E0000'],
+    ['NARANJA','#F58220'],
+    ['AMARILLO','#FDD835'],
+    ['LIMA','#8BC34A'],
+    ['VERDE','#43A047'],
+    ['VERDE OSCURO','#1B5E20'],
+    ['TURQUESA','#00AFA0'],
+    ['CELESTE','#29B6F6'],
+    ['AZUL','#1E88E5'],
+    ['AZUL OSCURO','#173F8A'],
+    ['MORADO','#8E24AA'],
+    ['VIOLETA','#673AB7'],
+    ['ROSA','#D81B60'],
+    ['FUCSIA','#E91E63'],
+    ['MARRÓN','#795548'],
+    ['BEIGE','#D7CCC8']
+  ];
+
+  let best='COLOR',bestDistance=Infinity;
+
+  palette.forEach(([name,paletteHex])=>{
+    const p=hexToRgb(paletteHex);
+    const distance=
+      Math.pow(rgb.r-p.r,2)+
+      Math.pow(rgb.g-p.g,2)+
+      Math.pow(rgb.b-p.b,2);
+
+    if(distance<bestDistance){
+      bestDistance=distance;
+      best=name;
+    }
+  });
+
+  return best;
+}
+
+function hexToRgb(hex){
+  const m=String(hex||'').match(/^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/);
+  if(!m)return null;
+  return{
+    r:parseInt(m[1],16),
+    g:parseInt(m[2],16),
+    b:parseInt(m[3],16)
+  };
+}
+
+function addScenario(){
+  if(!state.service)return;
+  const next=state.service.scenarios.length+1;
+  setSaveState('Creando escenario…','saving');
+
+  backend.run
+    .withSuccessHandler(service=>{
+      state.service=service;
+      renderScenarios();updateTeamSelects();renderPersonnel();
+      setSaveState('Guardado','saved');
+    })
+    .withFailureHandler(err=>{alert(errorMessage(err));setSaveState('Error','error')})
+    .addScenario(state.service.code,'ESCENARIO '+next);
+}
+
+function renameScenario(id,value){
+  const s=state.service.scenarios.find(x=>x.id===id);
+  if(!s)return;s.name=value;
+  updateTeamSelects();renderPersonnel();scheduleStructureSave();
+}
+
+function removeScenario(id){
+  if(state.service.scenarios.length<=1){
+    alert('Debe quedar al menos un escenario.');return;
+  }
+  if(!confirm('¿Eliminar este escenario y sus equipos?'))return;
+
+  const teamIds=new Set(state.service.teams.filter(t=>t.scenarioId===id).map(t=>t.id));
+  const updates=[];
+
+  state.service.workers.forEach(w=>{
+    if(teamIds.has(w.teamId)){
+      w.teamId='';w.scenarioId='';
+      updates.push({workerId:w.id,teamId:''});
+    }
+  });
+
+  state.service.scenarios=state.service.scenarios.filter(s=>s.id!==id);
+  state.service.teams=state.service.teams.filter(t=>t.scenarioId!==id);
+
+  renderScenarios();updateTeamSelects();renderPersonnel();
+  scheduleStructureSave();
+  if(updates.length)saveWorkerUpdates(updates);
+}
+
+function addTeam(scenarioId){
+  state.service.teams.push({
+    id:'T_CUSTOM_'+Date.now()+'_'+(state.nextTeamSeq++),
+    scenarioId,
+    name:'NUEVO EQUIPO',
+    colorName:'NARANJA',
+    colorHex:'#F58220',
+    noVest:false,
+    sortOrder:state.service.teams.filter(t=>t.scenarioId===scenarioId).length+1
+  });
+  renderScenarios();updateTeamSelects();renderPersonnel();scheduleStructureSave();
+}
+
+function updateTeam(id,field,value){
+  const t=state.service.teams.find(x=>x.id===id);
+  if(!t)return;
+  t[field]=field==='noVest'?Boolean(value):value;
+  updateTeamSelects();renderPersonnel();scheduleStructureSave();
+}
+
+function removeTeam(id){
+  if(!confirm('¿Eliminar este equipo?'))return;
+  const updates=[];
+  state.service.workers.forEach(w=>{
+    if(w.teamId===id){
+      w.teamId='';w.scenarioId='';
+      updates.push({workerId:w.id,teamId:''});
+    }
+  });
+  state.service.teams=state.service.teams.filter(t=>t.id!==id);
+  renderScenarios();updateTeamSelects();renderPersonnel();scheduleStructureSave();
+  if(updates.length)saveWorkerUpdates(updates);
+}
+
+function updateTeamSelects(){
+  if(!state.service)return;
+  const bulk=document.getElementById('bulkTeam');
+  let html='<option value="">Asignar equipo…</option><option value="__CLEAR__">Quitar equipo</option>';
+
+  state.service.scenarios.forEach(s=>{
+    const teams=state.service.teams.filter(t=>t.scenarioId===s.id);
+    if(!teams.length)return;
+    html+=`<optgroup label="${escapeAttr(s.name)}">`;
+    teams.forEach(t=>html+=`<option value="${escapeAttr(t.id)}">${escapeHtml(t.name)}</option>`);
+    html+='</optgroup>';
+  });
+
+  bulk.innerHTML=html;
+}
+
+/* PDF */
+async function importPdf(file){
+  if(!state.service)return;
+  if(state.service.workers.length){
+    const ok=confirm('Este servicio ya tiene personal. ¿Volver a importar el PDF? Se conservarán estados y equipos de las filas que coincidan.');
+    if(!ok)return;
+  }
+
+  document.getElementById('pdfFileName').textContent=file.name;
+  showPdfStatus('Leyendo fechas, turnos y personal…','info');
+
+  try{
+    await ensurePdfJs();
+    const parsed=await parsePennyWisePdf(file);
+    if(!parsed.workers.length)throw new Error('No se ha encontrado personal con nombre en el PDF.');
+    parsed.meta.pdfName=file.name;
+
+    showPdfStatus(`Detectados ${parsed.workers.length} registros en ${new Set(parsed.workers.map(w=>w.serviceDate)).size} día(s). Guardando…`,'info');
+
+    backend.run
+      .withSuccessHandler(result=>{
+        const service=result.service;
+        const s=result.summary||{};
+        openServiceData(service);
+        const changedNames=(s.changedNames||[]).length
+          ? `<div class="hint" style="margin-top:8px"><strong>Horarios modificados:</strong> ${escapeHtml((s.changedNames||[]).join(', '))}</div>`
+          : '';
+        const details=`
+          <div><strong>PDF actualizado.</strong></div>
+          <div class="import-summary">
+            <span class="import-chip">${s.matched||0} conservados</span>
+            <span class="import-chip">${s.added||0} nuevos</span>
+            <span class="import-chip">${s.removed||0} eliminados</span>
+            <span class="import-chip">${s.scheduleChanged||0} horarios cambiados</span>
+            <span class="import-chip">${s.pauseChanged||0} pausas cambiadas</span>
+            <span class="import-chip">${s.dietChanged||0} dietas cambiadas</span>
+            <span class="import-chip">${s.coordinatorChanged||0} cambios CS</span>
+            <span class="import-chip">${s.movedToReserve||0} reservas</span>
+          </div>${changedNames}`;
+        showPdfStatusHtml(details,'ok');
+      })
+      .withFailureHandler(err=>showPdfStatus(errorMessage(err),'error'))
+      .replaceWorkersFromPdf(state.service.code,parsed);
+
+  }catch(err){
+    console.error(err);showPdfStatus(errorMessage(err),'error');
+  }
+}
+
+async function parsePennyWisePdf(file){
+  const data=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data}).promise;
+
+  const workers=[],blocks=[],blockById={};
+  const meta={reference:'',serviceDate:'',venue:''};
+
+  let currentBlock=null,currentServiceDate='',blockSeq=0;
+
+  for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
+    const page=await pdf.getPage(pageNumber);
+    const viewport=page.getViewport({scale:1});
+    const width=viewport.width;
+    const content=await page.getTextContent();
+
+    const items=content.items.filter(i=>String(i.str||'').trim()).map(i=>({
+      text:String(i.str||'').trim(),
+      x:Number(i.transform[4]||0),
+      y:Number(i.transform[5]||0),
+      w:Number(i.width||0)
+    }));
+
+    const lines=groupItemsIntoLines(items);
+    const pageLayout=detectPdfColumnLayout(lines,width);
+
+    for(const lineItems of lines){
+      const lineText=lineItems.slice().sort((a,b)=>a.x-b.x)
+        .map(i=>i.text).join(' ').replace(/\s+/g,' ').trim();
+      const upper=normalize(lineText);
+
+      // Cada FECHA SERVICIO actualiza el día vigente para los bloques siguientes.
+      if(upper.includes('FECHA SERVICIO:')){
+        const match=lineText.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if(match){
+          currentServiceDate=match[1];
+          if(!meta.serviceDate)meta.serviceDate=currentServiceDate;
+        }
+      }
+
+      if(pageNumber===1){
+        if(!meta.reference&&upper.includes('REFERENCIA:')){
+          meta.reference=extractBetween(lineText,'REFERENCIA:',['MÓVIL:','MOVIL:','CONTACTO:']);
+        }
+        if(!meta.venue&&upper.includes('RECINTO:')){
+          meta.venue=extractBetween(lineText,'RECINTO:',['DIRECCIÓN:','DIRECCION:','TELÉFONO:','TELEFONO:']);
+        }
+      }
+
+      if(upper.includes('TRABAJO:')){
+        const rawWorkName=lineText.replace(/^.*?TRABAJO:\s*/i,'').trim();
+        if(rawWorkName){
+          const isReserve=/\+\s*$/.test(rawWorkName);
+          const workName=rawWorkName.replace(/\+\s*$/,'').replace(/\s+/g,' ').trim();
+          blockSeq++;
+          currentBlock={
+            id:'B'+blockSeq,
+            trabajo:workName,
+            rawTrabajo:rawWorkName,
+            isReserve:isReserve,
+            serviceDate:currentServiceDate||meta.serviceDate||'',
+            firstStart:''
+          };
+          blocks.push(currentBlock);blockById[currentBlock.id]=currentBlock;
+        }
+        continue;
+      }
+
+      const rowNumberItem=findPdfRowNumber(lineItems,width,pageLayout);
+      if(!rowNumberItem)continue;
+
+      let personal=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'personal')
+        : columnText(lineItems,width,.06,.24);
+
+      let especialidad=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'especialidad')
+        : columnText(lineItems,width,.24,.43);
+
+      if(!currentBlock){
+        blockSeq++;
+        currentBlock={
+          id:'B'+blockSeq,
+          trabajo:'SIN BLOQUE',
+          rawTrabajo:'SIN BLOQUE',
+          isReserve:false,
+          serviceDate:currentServiceDate||meta.serviceDate||'',
+          firstStart:''
+        };
+        blocks.push(currentBlock);blockById[currentBlock.id]=currentBlock;
+      }
+
+      const shiftTimes=extractAllRowTimes(lineItems);
+
+      let hLlam=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'hLlam')
+        : '';
+
+      let inicio=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'inicio')
+        : '';
+
+      let fin=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'fin')
+        : '';
+
+      let pausaRaw=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'pausa')
+        : '';
+
+      let dietaRaw=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'dieta')
+        : '';
+
+      // Compatibilidad con la plantilla histórica Penny Wise.
+      if(!hLlam)hLlam=shiftTimes[0] || columnText(lineItems,width,.425,.495);
+      if(!inicio)inicio=shiftTimes[1] || columnText(lineItems,width,.475,.555);
+      if(!fin)fin=shiftTimes[2] || columnText(lineItems,width,.525,.610);
+      if(!pausaRaw)pausaRaw=shiftTimes[3] || '00:00';
+      if(!dietaRaw)dietaRaw=shiftTimes[4] || '0';
+
+      let csMarker=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'cs')
+        : columnText(lineItems,width,.680,.710);
+
+      let telefono=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'telefono')
+        : columnText(lineItems,width,.765,.815);
+
+      let movil=pageLayout
+        ? columnTextByPdfLayout(lineItems,pageLayout,'movil')
+        : columnText(lineItems,width,.815,.88);
+
+      // Fallback para plantillas donde las columnas se han movido por completo.
+      // Síntoma típico: PERSONAL contiene "07:45 08:00 14:00".
+      if(looksLikeShiftBundle(personal)){
+        const repaired=repairShiftedPdfWorkerRow(lineItems,{
+          personal,
+          especialidad,
+          hLlam,
+          inicio,
+          fin,
+          pausaRaw,
+          dietaRaw,
+          telefono,
+          movil
+        });
+
+        personal=repaired.personal;
+        especialidad=repaired.especialidad;
+        hLlam=repaired.hLlam;
+        inicio=repaired.inicio;
+        fin=repaired.fin;
+        pausaRaw=repaired.pausaRaw;
+        dietaRaw=repaired.dietaRaw;
+        telefono=repaired.telefono;
+        movil=repaired.movil;
+        csMarker=repaired.csMarker||csMarker;
+      }
+
+      if(!personal||['NOMBRE','PERSONAL'].includes(normalize(personal)))continue;
+
+      const pausa=normalizePdfPauseValue(pausaRaw);
+      const nDieta=normalizeDietFromPdf(dietaRaw);
+      const isCoordinator=/\bX\b/i.test(csMarker)||/\bCS\b/i.test(especialidad);
+
+      const rowNum=Number(rowNumberItem.text);
+      const workerId=`D${dateId(currentBlock.serviceDate)}_P${pageNumber}_R${rowNum}_${currentBlock.id}`;
+
+      const worker={
+        id:workerId,page:pageNumber,pdfRow:rowNum,
+        serviceDate:currentBlock.serviceDate||meta.serviceDate||'',
+        blockId:currentBlock.id,trabajo:currentBlock.trabajo,
+        isReserve:Boolean(currentBlock.isReserve),
+        personal:cleanName(personal),especialidad:especialidad.trim(),
+        hLlam:normalizeTime(hLlam),inicio:normalizeTime(inicio),fin:normalizeTime(fin),
+        pausa:normalizeTime(pausa),
+        nDieta:nDieta,
+        isCoordinator:isCoordinator,
+        movil:normalizePhone(movil||telefono)
+      };
+
+      workers.push(worker);
+      if(!currentBlock.firstStart&&worker.inicio)currentBlock.firstStart=worker.inicio;
+    }
+  }
+
+  blocks.forEach(b=>{
+    b.label=(b.trabajo+(b.firstStart?' '+b.firstStart:'')).trim();
+  });
+  workers.forEach(w=>{
+    const b=blockById[w.blockId];
+    w.blockLabel=b?b.label:w.trabajo;
+  });
+
+  return {meta,workers};
+}
+
+
+function pdfHeaderKey(value){
+  const v=normalize(String(value||''))
+    .replace(/[.:]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+
+  if(!v)return'';
+
+  if(/^(N|NO|Nº|N°|NUM|NUMERO)$/.test(v))return'row';
+  if(/\b(PERSONAL|NOMBRE|NOMBRES|TRABAJADOR)\b/.test(v))return'personal';
+  if(/\b(ESPECIALIDAD|CATEGORIA|CATEGORIA PROFESIONAL)\b/.test(v))return'especialidad';
+  if(/\bLLAM\b|\bLLAMADA\b/.test(v))return'hLlam';
+  if(/^INICIO$|HORA INICIO/.test(v))return'inicio';
+  if(/^FIN$|HORA FIN/.test(v))return'fin';
+  if(/\bPAUSA\b/.test(v))return'pausa';
+  if(/\bDIETA\b/.test(v))return'dieta';
+  if(/^CS$|COORDINADOR/.test(v))return'cs';
+  if(/\bMOVIL\b/.test(v))return'movil';
+  if(/\bTELEFONO\b|^TEL$/.test(v))return'telefono';
+
+  return'';
+}
+
+function detectPdfColumnLayout(lines,width){
+  let best=null;
+
+  for(const lineItems of lines){
+    const items=lineItems.slice().sort((a,b)=>a.x-b.x);
+    const found={};
+
+    // PDF.js a veces separa "N. DIETA" o "H. LLAM." en varios items.
+    for(let i=0;i<items.length;i++){
+      for(let size=1;size<=3&&i+size<=items.length;size++){
+        const chunk=items.slice(i,i+size);
+        const text=chunk.map(x=>x.text).join(' ');
+        const key=pdfHeaderKey(text);
+
+        if(key&&!found[key]){
+          found[key]={
+            key,
+            x:Math.min(...chunk.map(x=>x.x)),
+            endX:Math.max(...chunk.map(x=>x.x+Number(x.w||0))),
+            text
+          };
+        }
+      }
+    }
+
+    const keys=Object.keys(found);
+    const timeKeys=['hLlam','inicio','fin','pausa','dieta']
+      .filter(k=>found[k]).length;
+
+    const score=
+      keys.length+
+      (found.personal?3:0)+
+      (found.especialidad?2:0)+
+      (timeKeys>=2?3:0);
+
+    if(
+      score>=7 &&
+      (found.personal||found.especialidad) &&
+      timeKeys>=2 &&
+      (!best||score>best.score)
+    ){
+      best={score,found};
+    }
+  }
+
+  if(!best)return null;
+
+  const columns=Object.values(best.found)
+    .sort((a,b)=>a.x-b.x);
+
+  const bounds={};
+
+  columns.forEach((col,index)=>{
+    const previous=columns[index-1];
+    const next=columns[index+1];
+
+    const min=previous
+      ? (previous.x+col.x)/2
+      : Math.max(0,col.x-width*.035);
+
+    const max=next
+      ? (col.x+next.x)/2
+      : width+1;
+
+    bounds[col.key]={min,max,x:col.x};
+  });
+
+  return {
+    columns,
+    bounds,
+    keys:Object.keys(best.found)
+  };
+}
+
+function columnTextByPdfLayout(items,layout,key){
+  const bound=layout?.bounds?.[key];
+  if(!bound)return'';
+
+  return items
+    .filter(i=>i.x>=bound.min&&i.x<bound.max)
+    .sort((a,b)=>a.x-b.x)
+    .map(i=>i.text)
+    .join(' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function findPdfRowNumber(items,width,layout){
+  const sorted=items.slice().sort((a,b)=>a.x-b.x);
+
+  if(layout?.bounds?.row){
+    const b=layout.bounds.row;
+    const found=sorted.find(i=>
+      i.x>=Math.max(0,b.min-width*.02) &&
+      i.x<b.max &&
+      /^\d{1,3}$/.test(String(i.text||'').trim())
+    );
+    if(found)return found;
+  }
+
+  // Las plantillas antiguas siempre llevan el nº de fila al extremo izquierdo.
+  return sorted.find(i=>
+    i.x<width*.065 &&
+    /^\d{1,3}$/.test(String(i.text||'').trim())
+  )||null;
+}
+
+function extractAllRowTimes(items){
+  return items
+    .slice()
+    .sort((a,b)=>a.x-b.x)
+    .map(i=>String(i.text||'').trim())
+    .filter(text=>/^\d{1,2}[:.,]\d{2}$/.test(text))
+    .map(normalizeTime);
+}
+
+function looksLikeShiftBundle(value){
+  const times=String(value||'')
+    .match(/\b\d{1,2}[:.,]\d{2}\b/g)||[];
+  return times.length>=2;
+}
+
+function normalizePdfPauseValue(value){
+  const raw=String(value||'').trim();
+
+  if(!raw)return'00:00';
+  if(/^(0|0[.,]0|0:00|00:00)$/.test(raw))return'00:00';
+
+  const normalized=normalizeTime(raw);
+  if(/^\d{2}:\d{2}$/.test(normalized))return normalized;
+
+  const numeric=Number(raw.replace(',','.'));
+  if(Number.isFinite(numeric)&&numeric>=0){
+    const minutes=Math.round(numeric*60);
+    return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
+  }
+
+  return'00:00';
+}
+
+function personLikePdfText(value){
+  const raw=String(value||'')
+    .replace(/^\s*\d+(?::\d+)?\s+/,'')
+    .replace(/\s+/g,' ')
+    .trim();
+

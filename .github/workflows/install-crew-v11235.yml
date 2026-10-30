@@ -1,0 +1,52 @@
+name: Install Crew Control v11.2.35 (Cloudflare)
+on:
+  push:
+    paths:
+      - '.crew-transfer/v11235/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Reconstruct validated Crew Control 11.2.35
+        run: |
+          python3 - <<'PY'
+          import hashlib,re,subprocess,tempfile
+          from pathlib import Path
+          pieces=sorted(Path('.crew-transfer/v11235').glob('part-*.txt'))
+          assert len(pieces)==15, f'Expected 15 chunks, found {len(pieces)}'
+          html=b''.join(p.read_bytes() for p in pieces)
+          expected='37de64cf5768189643874ff1a7c6d6508282e807268538e6a58939f4921f8ba9'
+          assert hashlib.sha256(html).hexdigest()==expected,'Crew Control SHA256 mismatch'
+          assert b'Crew Control v11.2.35' in html,'Crew Control version mismatch'
+          assert b'CREW_CLOUDFLARE_FS' in html,'Cloudflare adapter missing'
+          assert b'firebaseConfig' not in html and b'firebasejs' not in html,'Firebase dependency detected'
+          assert b'COORDINADOR ' in html,'SFX coordinator marker missing'
+          source=html.decode('utf-8')
+          scripts=re.findall(r'<script(?:\\s+[^>]*)?>(.*?)</script>',source,re.S|re.I)
+          for i,code in enumerate(scripts):
+            p=Path('/tmp')/f'nova-crew-check-{i}.js'
+            p.write_text(code,encoding='utf-8')
+            subprocess.run(['node','--check',str(p)],check=True)
+          Path('public/crew-control-full.html').write_bytes(html)
+          print('Crew Control 11.2.35 installed; scripts:',len(scripts),'bytes:',len(html))
+          PY
+      - name: Commit updated Crew Control module
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/crew-control-full.html
+          if git diff --cached --quiet; then
+            echo "No changes to Crew Control."
+          else
+            git commit -m "Install Crew Control v11.2.35 with Cloudflare"
+            git push origin HEAD:main
+          fi
