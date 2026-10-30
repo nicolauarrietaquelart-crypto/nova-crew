@@ -8,46 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/styles.css?v=20261031-modal-clean-r16">
-  <!-- Theme controller loads before the application and never depends on login/API. -->
+  <link rel="stylesheet" href="/assets/styles.css?v=20261031-light-only-docicons-r17">
   <script>
-  (() => {
-    'use strict';
-    const root = document.documentElement;
-    const key = 'nova-crew-theme-v1';
-    const moon = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>';
-    const sun = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
-    function syncButton() {
-      const btn = document.getElementById('novaThemeToggle');
-      if (!btn) return;
-      const dark = root.dataset.novaTheme === 'dark';
-      btn.setAttribute('aria-pressed', String(dark));
-      btn.setAttribute('aria-label', dark ? 'Activar modo claro' : 'Activar modo oscuro');
-      btn.title = dark ? 'Activar modo claro' : 'Activar modo oscuro';
-      btn.innerHTML = dark ? sun : moon;
-    }
-    function apply(mode, persist) {
-      const value = mode === 'dark' ? 'dark' : 'light';
-      root.dataset.novaTheme = value;
-      root.classList.toggle('nova-dark', value === 'dark');
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.content = value === 'dark' ? '#171b22' : '#101014';
-      if (persist) { try { localStorage.setItem(key, value); } catch (error) {} }
-      syncButton();
-      document.dispatchEvent(new CustomEvent('nova-theme-changed', {detail: {mode: value}}));
-    }
-    let initial = 'light';
-    try { initial = localStorage.getItem(key) === 'dark' ? 'dark' : 'light'; } catch (error) {}
-    apply(initial, false);
-    document.addEventListener('DOMContentLoaded', syncButton);
-    document.addEventListener('click', event => {
-      const button = event.target.closest?.('#novaThemeToggle');
-      if (!button) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      apply(root.dataset.novaTheme === 'dark' ? 'light' : 'dark', true);
-    }, true);
-  })();
+    document.documentElement.dataset.novaTheme='light';
+    document.documentElement.classList.remove('nova-dark');
+    try { localStorage.removeItem('nova-crew-theme-v1'); } catch (_) {}
   </script>
 
 </head>
@@ -108,7 +73,7 @@
           <div><small id="breadcrumb">Área de empleado / Inicio</small><h2 id="pageTitle">Buenos días</h2></div>
         </div>
         <div class="topbar-actions">
-          <button id="novaQrQuick" class="icon-btn nova-qr-quick" type="button" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR"><svg class="nova-toolbar-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg></button><button id="novaThemeToggle" class="icon-btn" type="button" aria-label="Activar modo oscuro" title="Cambiar tema" aria-pressed="false"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg></button><button id="notificationsBtn" class="icon-btn v15-bell" type="button" aria-label="Notificaciones y servicios disponibles" title="Notificaciones y servicios disponibles"><svg class="nova-toolbar-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span id="v15BellDot"></span></button>
+          <button id="novaQrQuick" class="icon-btn nova-qr-quick" type="button" title="Mostrar mi QR / Escanear QR" aria-label="Fichaje QR"><svg class="nova-toolbar-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg></button><button id="notificationsBtn" class="icon-btn v15-bell" type="button" aria-label="Notificaciones y servicios disponibles" title="Notificaciones y servicios disponibles"><svg class="nova-toolbar-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span id="v15BellDot"></span></button>
           <button id="messagesBtn" class="icon-btn" type="button" aria-label="Enviar mensaje" title="Mensajes"><svg class="nova-toolbar-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></button>
           <div class="v15-profile-wrap"><button type="button" id="v15ProfileToggle" class="profile-chip" aria-haspopup="menu" aria-expanded="false"><span class="avatar">PF</span><span><strong>Pau Ferrer</strong></span><em>⌄</em></button><div id="v15ProfileMenu" class="v15-profile-menu glass hidden" role="menu"><button type="button" data-v15-profile="open">Ver mi perfil</button><button type="button" data-v15-profile="logout">Cerrar sesión</button></div></div>
         </div>
@@ -304,7 +269,7 @@
 
   <div id="toast" class="toast"><b id="toastTitle">Listo</b><span id="toastText">Acción completada.</span></div>
   <script src="/assets/api-client.js?v=20261031-sync-r5"></script>
-  <script src="/assets/portal.js?v=20261031-coord-r6"></script>
+  <script src="/assets/portal.js?v=20261031-doc-icons-r17"></script>
   <script src="/assets/extras.js?v=20261031-service-actions-r14"></script>
   <script src="/assets/qr-encoder.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
