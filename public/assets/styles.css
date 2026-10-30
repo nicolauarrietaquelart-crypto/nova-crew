@@ -1586,3 +1586,46 @@ html[data-nova-theme="dark"] .availability-day-card.has-hours :is(b,em,span,smal
 html[data-nova-theme="dark"] :is(.btn.primary,.primary):not(.v10-status){
  color:#191d24!important
 }
+
+
+/* Modal cleanup: one rounded panel, no secondary rectangular frames around content. */
+#demoModal .crew-modal-card,
+#novaQrOverlay .nova-qr-modal{
+ border-radius:22px!important;overflow:auto!important;
+ background-clip:padding-box!important;
+}
+#demoModal :is(.v15-modal-stack,.v15-modal-kv,.kv,.basic-modal-grid,.nova-three-ratings),
+#novaQrOverlay :is(.nova-qr-content,.nova-qr-form,.nova-qr-choices){
+ outline:0!important;box-shadow:none!important;
+}
+#demoModal .v15-modal-stack,
+#demoModal .v15-modal-kv,
+#demoModal .kv{
+ border:0!important;
+}
+#demoModal .v15-modal-service-box{
+ border-radius:17px!important;overflow:hidden!important;
+ box-shadow:none!important;
+}
+#demoModal .v15-modal-service-box::before,
+#demoModal .v15-modal-service-box::after,
+#demoModal .v15-modal-kv::before,
+#demoModal .v15-modal-kv::after,
+#demoModal .crew-modal-card::before,
+#demoModal .crew-modal-card::after{
+ content:none!important;display:none!important
+}
+html[data-nova-theme="dark"] #demoModal :is(.v15-modal-stack,.v15-modal-kv,.kv){
+ background:transparent!important;background-image:none!important
+}
+html[data-nova-theme="dark"] #demoModal .v15-modal-service-box{
+ background:#354356!important;border:1px solid #5a6b7e!important
+}
+html[data-nova-theme="dark"] #demoModal .crew-modal-card{
+ border:1px solid #536175!important;
+ box-shadow:0 28px 68px rgba(0,0,0,.52)!important
+}
+html[data-nova-theme="dark"] #novaQrOverlay .nova-qr-modal{
+ background:#293542!important;color:#f4f7fb!important;
+ border:1px solid #536175!important
+}
