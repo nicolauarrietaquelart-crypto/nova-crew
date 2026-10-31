@@ -123,6 +123,7 @@ async function load(s,keep=false){
   if(active?.id!==s.id)return;
   if(!res.ok)throw Error(res.error||'Error al cargar personal');
   workers=res.workers||[];incidents=res.incidents||[];
+  liveCoordSnapshot=JSON.stringify({workers:res.workers,incidents:res.incidents});
   if(account()==='demo'){
    const p=typeof portalProfile!=='undefined'?portalProfile:null;
    if(p?.name){const own=workers.find(w=>w.id==='demo');if(own)own.name=p.name}
@@ -258,6 +259,26 @@ document.addEventListener('input',e=>{
  query=e.target.value;const position=e.target.selectionStart;render();
  const node=el('novaUnifiedSearch');node?.focus();try{node?.setSelectionRange(position,position)}catch{}
 });
+// Keep normal coordination in sync with the shared Crew Control roster.
+let liveCoordSnapshot='',liveCoordBusy=false;
+setInterval(async()=>{
+ if(!active||busy||liveCoordBusy||document.hidden)return;
+ if(!el('page-worker-coordination')?.classList.contains('active'))return;
+ if(document.querySelector('#novaUnifiedSearch:focus,[id^="novaEdit"]:focus'))return;
+ liveCoordBusy=true;
+ try{
+   const id=active.id;
+   const r=await window.NOVA_API.smallCoord(id,'get');
+   if(!r.ok||active?.id!==id)return;
+   const next=JSON.stringify({workers:r.workers,incidents:r.incidents});
+   if(next!==liveCoordSnapshot){
+     liveCoordSnapshot=next;
+     workers=r.workers||[];incidents=r.incidents||[];
+     render();
+   }
+ }catch(error){console.warn('Sincronización de coordinación:',error)}
+ finally{liveCoordBusy=false}
+},4500);
 const oldBasic=window.renderWorkerCoord;
 window.renderWorkerCoord=function(s){
  if(!['svc1','svc2','svc6','svc7'].includes(s?.id))return oldBasic(s);
