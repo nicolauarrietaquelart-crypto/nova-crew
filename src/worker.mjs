@@ -85,12 +85,8 @@ export function createDemoApi(storage) {
         if(request.method!=='POST')return bad('Método no permitido.',405);
         const prefixes=['attendance/','ticket/','active/','small-team/','small-incidents/','crew-full/','crew-owner/','confirmation/','profile/','shift/','interest/'];
         for(const prefix of prefixes){
-          let cursor;
-          do{
-            const items=await storage.list({prefix,limit:100,cursor});
-            for(const key of items.keys())await storage.delete(key);
-            cursor=items.cursor;
-          }while(cursor);
+          const items=await storage.list({prefix});
+          for(const key of items.keys())await storage.delete(key);
         }
         return json({ok:true,reset:true});
       }
