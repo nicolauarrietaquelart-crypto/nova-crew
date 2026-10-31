@@ -125,6 +125,26 @@ export async function handleSmallCoord(storage,actor,body){
       await storage.put(key,doc);
     }
   }
+  // Reconcile the coordinator roster with the employee's actual demo assignments.
+  // Older persisted rosters predate this link, so repair them on read as well.
+  if((code==='svc1'||code==='svc2')&&Array.isArray(doc.workers)&&!doc.workers.some(w=>w.id==='demo')){
+    const shift=code==='svc2'?{start:'08:00',end:'18:00',role:'FORKLIFTER'}:{start:'16:00',end:'23:30',role:'HAND B'};
+    const existingClock=await storage.get('attendance/'+code+'/demo');
+    doc.workers.push({id:'demo',name:'Pau Ferrer Soler',phone:'670 555 221',
+      role:shift.role,...{start:shift.start,end:shift.end},status:existingClock?.status==='PRESENTE'?'PRESENTE':'PENDIENTE',
+      pause:'00:00',diet:code==='svc2'?'Sí':'No',
+      ratingUniformidad:0,ratingActitud:0,ratingPuntualidad:0});
+    await storage.put(key,doc);
+  }
+  // QR attendance is authoritative and must be visible even after reloading another device.
+  if(code!=='svc7'&&Array.isArray(doc.workers)){
+    let changed=false;
+    for(const w of doc.workers){
+      const att=await storage.get('attendance/'+code+'/'+w.id);
+      if(att?.status==='PRESENTE'&&w.status!=='PRESENTE'){w.status='PRESENTE';w.qrScannedAt=att.time;changed=true;}
+    }
+    if(changed)await storage.put(key,doc);
+  }
   const mapped=()=>{
     if(code!=='svc7')return doc.workers.map(w=>({...w,
       ratingUniformidad:Number(w.ratingUniformidad??0),
