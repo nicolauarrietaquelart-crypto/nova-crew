@@ -25,7 +25,7 @@
       account=data.user;session=data.session;
       return data;
     },
-    logout:()=>{account='';session='';},
+    logout:async()=>{try{if(session)await request('resetDemo',{});}finally{account='';session='';}},
     me:()=>request('me'),
     roster:()=>request('roster'),
     confirmations:()=>request('confirmations'),
