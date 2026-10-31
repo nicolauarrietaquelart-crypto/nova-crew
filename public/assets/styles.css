@@ -1789,3 +1789,7 @@ button,input,select,textarea{font-family:inherit!important}
 #workerCoordDetail .nova-coord-metrics [data-attendance-metric="PRESENTE"] b{color:#188153!important}
 #workerCoordDetail .nova-coord-metrics [data-attendance-metric="CONTACTADO"] b{color:#d8761c!important}
 #workerCoordDetail .nova-coord-metrics [data-attendance-metric="NO PRESENTADO"] b{color:#bd3e46!important}
+
+/* Tutorial pictograms: crisp SVGs matching the document icon system. */
+.tutorial-card .tutorial-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#fff3e9;color:#d96b20;border:1px solid #f2dbc8}
+.tutorial-card .tutorial-icon svg{display:block;width:25px;height:25px;flex:none}
