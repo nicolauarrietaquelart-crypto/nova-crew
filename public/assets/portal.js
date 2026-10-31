@@ -1269,7 +1269,7 @@ function toggleNotifications(force){const d=$('#notificationsDropdown');if(!d)re
 
   document.addEventListener('click',e=>{
     const nav=e.target.closest('[data-page]');if(nav)return navigate(nav.dataset.page);
-    const serv=e.target.closest('[data-open-service]');if(serv){const s=serviceById(serv.dataset.openService);renderServiceDetail(s);return navigate('service-detail')}
+    const serv=e.target.closest('[data-open-service]');if(serv){if(serv.hasAttribute('onclick'))return;return window.NOVA_OPEN_SERVICE(serv.dataset.openService)}
     const co=e.target.closest('[data-open-coordination]');if(co){const s=serviceById(co.dataset.openCoordination);if(s.privilege==='crew'){navigate('crew-control');renderCrewControl(s);return}renderWorkerCoord(s);return navigate('worker-coordination')}
     const basicEdit=e.target.closest('[data-basic-edit]');if(basicEdit)return editBasicWorker(basicEdit.dataset.basicEdit);
     const basicSelect=e.target.closest('[data-basic-select]');if(basicSelect){const id=basicSelect.dataset.basicSelect;if(basicSelect.checked)basicCoordState.selected.add(id);else basicCoordState.selected.delete(id);return renderBasicTeamRows()}
