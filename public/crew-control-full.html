@@ -7710,15 +7710,7 @@ const state = {
    Google Sheets: legacy import/PDF/history mirror
    ========================================================= */
 
-const FIREBASE_CONFIG={
-  apiKey:"AIzaSyAx_UmtJ_ep1Rb06YZy6Qh4TqfHs-xwFOw",
-  authDomain:"app-bolos-c1cd4.firebaseapp.com",
-  projectId:"app-bolos-c1cd4",
-  storageBucket:"app-bolos-c1cd4.firebasestorage.app",
-  messagingSenderId:"756101668757",
-  appId:"1:756101668757:web:01d7b9e45ccfce70aa209c"
-};
-
+const FIREBASE_CONFIG=null; // NOVA uses authenticated same-origin Cloudflare CrewStore.
 let firebaseCtx=null;
 let firebaseReadyPromise=null;
 let firebaseRealtimeUnsubs=[];
@@ -7726,23 +7718,7 @@ let firebaseRenderTimer=null;
 let firebaseRealtimeCode='';
 
 function callAppsScript(method,args){
-  args=Array.isArray(args)?args:[];
-  return new Promise((resolve,reject)=>{
-    try{
-      const runner=google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject);
-
-      if(typeof runner[method]!=='function'){
-        reject(new Error('Método de Apps Script no disponible: '+method));
-        return;
-      }
-
-      runner[method](...args);
-    }catch(err){
-      reject(err);
-    }
-  });
+  return Promise.reject(new Error('Esta función pertenece a Google Apps Script y no está disponible en Nova Crew: '+method));
 }
 
 function shadowAppsScript(method,args){
@@ -7755,25 +7731,10 @@ function shadowAppsScript(method,args){
 
 async function ensureFirebase(){
   if(firebaseCtx)return firebaseCtx;
-  if(firebaseReadyPromise)return firebaseReadyPromise;
-
-  firebaseReadyPromise=(async()=>{
-    const appSdk=await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js');
-    const fs=await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js');
-
-    const app=appSdk.initializeApp(FIREBASE_CONFIG);
-    const db=fs.getFirestore(app);
-
-    firebaseCtx={app,db,fs};
-    return firebaseCtx;
-  })();
-
-  try{
-    return await firebaseReadyPromise;
-  }catch(err){
-    firebaseReadyPromise=null;
-    throw err;
-  }
+  const fs=window.CREW_CLOUDFLARE_FS;
+  if(!fs)throw new Error('El adaptador de Crew Control para Nova Crew no se ha cargado.');
+  firebaseCtx={app:null,db:null,fs};
+  return firebaseCtx;
 }
 
 function firebaseErrorMessage(err){
@@ -8261,15 +8222,10 @@ async function startFirebaseRealtime(code){
 
 async function firebaseLoadService(code){
   try{
-    let service=await readServiceFromFirebase(code);
-
-    if(!service){
-      // First opening only: copy the existing 10.1.5 service from Sheets.
-      service=await callAppsScript('loadService',[code]);
-      await migrateServiceToFirebase(service);
-      service=await readServiceFromFirebase(code);
-    }
-
+    // La sesión de NOVA Crew es la única fuente de datos y permisos.
+    // No realizar importaciones silenciosas a Google Sheets ni Firebase.
+    const service=await readServiceFromFirebase(code);
+    if(!service)throw new Error('El servicio aún no está disponible en Nova Crew.');
     return service;
   }catch(err){
     throw new Error(firebaseErrorMessage(err));
