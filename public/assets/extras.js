@@ -134,7 +134,7 @@
 
   // Preservar las funciones v9 existentes, añadiendo módulos sin reescribirlas.
   const originalServices=renderServices, originalHome=renderHomeServices,originalDetail=renderServiceDetail,originalBasic=renderWorkerCoord,originalCrew=renderCrewControl;
-  renderServices=function(){originalServices();decorateServiceCards()};
+  renderServices=function(){originalServices();decorateServiceCards();renderPendingServicesBanner()};
   renderHomeServices=function(){originalHome();decorateServiceCards()};
   renderServiceDetail=function(s){originalDetail(s);const box=document.getElementById('serviceDetail');if(box)box.dataset.v10CurrentService=s.id;decorateServiceDetail()};
   renderWorkerCoord=function(s){originalBasic(s);enhanceCoord()};
