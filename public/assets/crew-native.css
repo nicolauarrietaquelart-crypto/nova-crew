@@ -1,0 +1,21 @@
+/* Native Crew Control integrated in NOVA, no embedded iframe */
+.nova-native-crew{position:fixed;inset:0;z-index:100001;background:#f3f5f8;color:#20252c;display:flex;flex-direction:column;font-family:inherit}
+.nc-head{display:flex;gap:12px;align-items:center;padding:14px 22px;background:#171c25;color:white;flex:none}
+.nc-head button{border:1px solid #ffffff35;background:#ffffff14;border-radius:10px;color:white;padding:11px;cursor:pointer}
+.nc-head .nc-titles{flex:1;min-width:0}.nc-head h2{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px 0}
+.nc-head small,.nc-head span{font-size:10px;color:#cbd1d8}
+.nc-body{overflow:auto;padding:20px;flex:1}
+.nc-top{display:flex;gap:14px;flex-wrap:wrap;align-items:end;margin-bottom:20px}
+#ncStats{display:flex;gap:8px;flex-wrap:wrap;margin-right:auto}
+#ncStats b{background:white;padding:12px 15px;border-radius:12px;border:1px solid #dde1e8;font-size:13px}
+.nc-top label{display:grid;gap:5px;font-size:11px;font-weight:700}
+.nc-top input,.nc-top select{padding:11px;border:1px solid #d5d9e1;border-radius:9px;background:white}
+.nc-team{border:1px solid #dde1e8;border-radius:15px;background:white;margin-bottom:16px;overflow:hidden}
+.nc-team h3{padding:15px 17px;margin:0;background:#f9fafc;font-size:14px;display:flex;gap:10px}
+.nc-team h3 span{color:#f58220}.nc-table-wrap{overflow:auto}
+.nc-team table{border-collapse:collapse;min-width:850px;width:100%;font-size:12px}
+.nc-team th,.nc-team td{text-align:left;border-top:1px solid #e9edf2;padding:10px 12px}
+.nc-team td small{display:block;color:#7a8492;margin-top:3px}
+.nc-team td input,.nc-team td select{max-width:145px;width:100%;padding:9px 5px;border:1px solid #dde1e8;border-radius:8px;background:white;color:#20252c}
+.nc-team td button{background:#f58220;border:0;border-radius:9px;padding:10px 13px;font-weight:700;cursor:pointer}
+@media(max-width:700px){.nc-head{padding:10px;gap:7px}.nc-head h2{font-size:13px}.nc-head button{padding:8px}.nc-body{padding:10px}.nc-top{display:grid;grid-template-columns:1fr 1fr}.nc-top #ncStats{grid-column:1/-1}.nc-top label input{min-width:0;width:100%}}
