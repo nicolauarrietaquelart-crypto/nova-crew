@@ -197,7 +197,7 @@ test('Alvaro and Pau use identical scoped coordination API and cannot cross edit
  const pau=await login(api,'demo','crew2026');
  const logistica=await call(api,'smallCoord',{session:alvaro.session,body:{serviceId:'svc2',kind:'get'}});
  assert.equal(logistica.status,200);
- assert.equal(logistica.workers.length,7);
+ assert.equal(logistica.workers.length,8);assert.ok(logistica.workers.some(w=>w.id==='demo'&&w.name==='Pau Ferrer Soler'));
  assert.equal(logistica.workers.filter(w=>w.isCoordinator).length,1);
  assert.equal(logistica.workers.find(w=>w.isCoordinator).name,'Álvaro Costa');
  const pauSmall=await call(api,'smallCoord',{session:pau.session,body:{serviceId:'svc6',kind:'get'}});
