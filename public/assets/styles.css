@@ -1765,3 +1765,27 @@ button,input,select,textarea{font-family:inherit!important}
 #workerCoordDetail .nova-status-select[data-status="CONTACTADO"]{
  background:#fff0dd!important;border-color:#f2b56c!important;color:#9b500a!important
 }
+
+
+/* Semantic attendance colours across worker rows, edit dialog and metrics. */
+#workerCoordDetail .nova-status-select[data-status="PRESENTE"],
+#demoModal #novaEditStatus[data-status="PRESENTE"]{
+ background:#dcf5e7!important;color:#17633c!important;border:1px solid #80cda2!important
+}
+#workerCoordDetail .nova-status-select[data-status="CONTACTADO"],
+#demoModal #novaEditStatus[data-status="CONTACTADO"]{
+ background:#ffead0!important;color:#9d4c08!important;border:1px solid #edac60!important
+}
+#workerCoordDetail .nova-status-select[data-status="NO PRESENTADO"],
+#workerCoordDetail .nova-status-select[data-status="NO CONTACTADO"],
+#demoModal #novaEditStatus[data-status="NO PRESENTADO"],
+#demoModal #novaEditStatus[data-status="NO CONTACTADO"]{
+ background:#fce7e9!important;color:#992833!important;border:1px solid #e4a0a5!important
+}
+#workerCoordDetail .nova-status-select[data-status="PENDIENTE"],
+#demoModal #novaEditStatus[data-status="PENDIENTE"]{
+ background:#f1f3f6!important;color:#4b5563!important;border:1px solid #ced5df!important
+}
+#workerCoordDetail .nova-coord-metrics [data-attendance-metric="PRESENTE"] b{color:#188153!important}
+#workerCoordDetail .nova-coord-metrics [data-attendance-metric="CONTACTADO"] b{color:#d8761c!important}
+#workerCoordDetail .nova-coord-metrics [data-attendance-metric="NO PRESENTADO"] b{color:#bd3e46!important}
