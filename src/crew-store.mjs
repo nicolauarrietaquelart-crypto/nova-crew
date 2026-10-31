@@ -141,7 +141,7 @@ export async function handleSmallCoord(storage,actor,body){
     let changed=false;
     for(const w of doc.workers){
       const att=await storage.get('attendance/'+code+'/'+w.id);
-      if(att?.status==='PRESENTE'&&w.status!=='PRESENTE'){w.status='PRESENTE';w.qrScannedAt=att.time;changed=true;}
+      if(att?.status==='PRESENTE'&&w.status!=='PRESENTE'&&(!w.statusUpdatedAt||Date.parse(att.time)>Date.parse(w.statusUpdatedAt))){w.status='PRESENTE';w.qrScannedAt=att.time;changed=true;}
     }
     if(changed)await storage.put(key,doc);
   }
@@ -218,6 +218,7 @@ export async function handleSmallCoord(storage,actor,body){
         else if(field==='diet')w.diet=change.diet==='Sí'?'1':change.diet==='No'?'0':String(change.diet);
         else w[field]=String(change[field]).slice(0,200);
       }
+      if(change.status!==undefined)w.statusUpdatedAt=new Date().toISOString();
       updated={...w};
     }else{
       const allowed=['demo','fict-1','fict-2','fict-3'];
