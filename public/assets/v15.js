@@ -6,6 +6,7 @@ const $id=s=>document.getElementById(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STORAGE_KEY='nova_v15_demo_state';
 let shifts=[];
+const DEMO_URGENT_SHIFT={id:'nova-demo-urgent',name:'SERVICIO URGENTE · REFUERZO DE PERSONAL',date:'2026-11-01',time:'18:00–23:00',role:'HAND',venue:'Recinto de demostración',places:3,urgent:true,demo:true};
 let fetching=false;
 let lastAccount='';
 
@@ -65,14 +66,18 @@ function renderShifts(){
   target.innerHTML=list.length?list.map(shiftCardHtml).join(''):'<p class="v15-empty">No hay servicios disponibles en este momento.</p>';
 }
 async function fetchShifts(){
-  if(fetching||!window.NOVA_API?.account)return;
+  if(fetching)return;
+  if(!window.NOVA_API?.account){shifts=[{...DEMO_URGENT_SHIFT}];renderShifts();updateAlerts();window.NOVA_V16?.refresh?.();return;}
   fetching=true;
   try{
     const d=await window.NOVA_API.openShifts();
     if(d?.ok)shifts=(d.shifts||[]).map(s=>({...s,interest:null}));
+    if(!shifts.some(s=>s.urgent))shifts.unshift({...DEMO_URGENT_SHIFT});
     renderShifts();
-    updateAlerts();
+    updateAlerts();window.NOVA_V16?.refresh?.();
   }catch(e){
+    if(!shifts.some(s=>s.urgent))shifts.unshift({...DEMO_URGENT_SHIFT});
+    updateAlerts();window.NOVA_V16?.refresh?.();
     const target=$id('v15OpenShifts');
     if(target)target.textContent='No se han podido cargar los servicios disponibles.';
   }finally{fetching=false;}
@@ -168,6 +173,7 @@ function openInterestConfirmShift(s){
     $id('v15ConfirmFinal').onclick=async()=>{
       const b=$id('v15ConfirmFinal');b.disabled=true;b.textContent='Enviando…';
       try{
+        if(s.demo){mutateState(st=>{if(!st.accepted.includes(s.id))st.accepted.push(s.id)});closeDemoModal();renderShifts();updateAlerts();window.NOVA_V16?.refresh?.();toast('Demo','Disponibilidad registrada solo para la demostración.');return;}
         // Compartir la solicitud con el backend; nunca asigna automáticamente el servicio.
         await window.NOVA_API.expressInterest(s.id,false);
         mutateState(st=>{
@@ -218,10 +224,7 @@ function openShiftModal(id){
   },0);
 }
 
-function hideHomeAvailableSection(){
-  const section=document.querySelector('.v15-home-open-shifts');
-  if(section)section.style.display='none';
-}
+function hideHomeAvailableSection(){ /* La sección de servicios disponibles debe permanecer visible. */ }
 
 function handleNoticeAction(id){
   const notice=buildGenericNotices().find(n=>n.id===id);
