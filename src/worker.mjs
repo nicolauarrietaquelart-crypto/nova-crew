@@ -180,6 +180,18 @@ export function createDemoApi(storage) {
           await tx.put(key,{...ticket,used:true,usedBy:actor,usedAt:Date.now()});
           await tx.delete(`active/${worker}/${id}`);
           await tx.put(`attendance/${id}/${worker}`,record);
+          // Keep the actual roster in sync, so every browser sees PRESENTE after QR validation.
+          const rosterKey=['svc1','svc2','svc6'].includes(id)?`small-team/${id}`:`crew-full/${id}`;
+          const roster=await tx.get(rosterKey);
+          if(roster){
+            if(rosterKey.startsWith('small-team/')){
+              const person=roster.workers?.find(w=>w.id===worker);
+              if(person){person.status='PRESENTE';person.qrScannedAt=record.time;await tx.put(rosterKey,roster);}
+            }else{
+              const person=roster.workers?.[worker];
+              if(person){person.status='PRESENTE';person.arrivalAt=record.time;person.qrScannedAt=record.time;await tx.put(rosterKey,roster);}
+            }
+          }
           return {record};
         });
         return outcome.error?bad(outcome.error,outcome.status||400):json({ok:true,record:outcome.record});
