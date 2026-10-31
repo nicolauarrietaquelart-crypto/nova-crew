@@ -93,21 +93,27 @@
     document.querySelector('#serviceDetail .v10-service-extra')?.remove();
   }
   function renderPendingServicesBanner(){
-    const section=document.getElementById('page-services');
-    if(!section)return;
-    let banner=document.getElementById('novaPendingServicesBanner');
     const count=assignedServices().filter(service=>statusOf(service.id)==='PENDIENTE').length;
-    if(!count){banner?.remove();return;}
-    if(!banner){
-      banner=document.createElement('div');
-      banner.id='novaPendingServicesBanner';
-      banner.setAttribute('role','status');
-      banner.setAttribute('aria-live','polite');
-      banner.style.cssText='display:flex;align-items:center;gap:12px;margin:0 0 18px;padding:15px 18px;border:1px solid #f1b8bd;border-radius:14px;background:#fff0f1;color:#a11b29;font-weight:750;font-size:14px;line-height:1.5;';
-      const header=section.querySelector('.section-title-row');
-      if(header)header.before(banner);else section.prepend(banner);
-    }
-    banner.innerHTML='<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>TIENES '+count+' SERVICIO'+(count===1?'':'S')+' PENDIENTE'+(count===1?'':'S')+' POR CONFIRMAR</span>';
+    [
+      {section:document.getElementById('page-services'),id:'novaPendingServicesBanner',anchor:'.section-title-row'},
+      {section:document.getElementById('page-home'),id:'novaHomePendingServicesBanner',anchor:'#homeServices',after:true}
+    ].forEach(({section,id,anchor,after})=>{
+      if(!section)return;
+      let banner=document.getElementById(id);
+      if(!count){banner?.remove();return;}
+      if(!banner){
+        banner=document.createElement('div');
+        banner.id=id;
+        banner.setAttribute('role','status');
+        banner.setAttribute('aria-live','polite');
+        banner.style.cssText='display:flex;align-items:center;gap:12px;margin:16px 0 18px;padding:15px 18px;border:1px solid #f1b8bd;border-radius:14px;background:#fff0f1;color:#a11b29;font-weight:750;font-size:14px;line-height:1.5;cursor:pointer;';
+        banner.title='Ver servicios por confirmar';
+        banner.addEventListener('click',()=>navigate('services'));
+        const target=section.querySelector(anchor);
+        if(target){if(after)target.after(banner);else target.before(banner);}else section.prepend(banner);
+      }
+      banner.innerHTML='<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>TIENES '+count+' SERVICIO'+(count===1?'':'S')+' PENDIENTE'+(count===1?'':'S')+' POR CONFIRMAR</span>';
+    });
   }
   function refreshServiceDecorations(){decorateServiceCards();decorateServiceDetail();renderPendingServicesBanner()}
   let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
@@ -135,7 +141,7 @@
   // Preservar las funciones v9 existentes, añadiendo módulos sin reescribirlas.
   const originalServices=renderServices, originalHome=renderHomeServices,originalDetail=renderServiceDetail,originalBasic=renderWorkerCoord,originalCrew=renderCrewControl;
   renderServices=function(){originalServices();decorateServiceCards();renderPendingServicesBanner()};
-  renderHomeServices=function(){originalHome();decorateServiceCards()};
+  renderHomeServices=function(){originalHome();decorateServiceCards();renderPendingServicesBanner()};
   renderServiceDetail=function(s){originalDetail(s);const box=document.getElementById('serviceDetail');if(box)box.dataset.v10CurrentService=s.id;decorateServiceDetail()};
   renderWorkerCoord=function(s){originalBasic(s);enhanceCoord()};
   renderCrewControl=function(s){originalCrew(s);enhanceCrew()};
