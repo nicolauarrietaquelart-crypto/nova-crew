@@ -6844,6 +6844,41 @@ body{padding-top:88px!important}
  .cc-portal-actions .cc-portal-back::before{content:"←";font-size:22px!important;line-height:1!important;font-weight:800!important;color:#fff!important}
  #mobileOperationalToggleV11234{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;min-height:42px!important;padding:0!important;margin-left:auto!important}
 }
+/* v11.2.37 · Lightweight glass & responsive actions, without GPU-heavy row effects */
+    .work-hide-icon-v11237{
+      display:inline-flex!important;align-items:center!important;justify-content:center!important;
+      width:34px!important;height:34px!important;min-width:34px!important;
+      padding:0!important;border-radius:11px!important;
+      background:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.055))!important;
+      color:rgba(255,255,255,.9)!important;
+      border:1px solid rgba(255,255,255,.2)!important;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.09)!important;
+      transition:background-color .14s ease,border-color .14s ease,color .14s ease!important;
+      flex-shrink:0!important;
+      cursor:pointer!important;
+    }
+    .work-hide-icon-v11237 svg{width:19px!important;height:19px!important;display:block!important;pointer-events:none!important;}
+    .work-hide-icon-v11237:hover,.work-hide-icon-v11237:focus-visible{
+      color:#ff9a43!important;border-color:#ff7a14!important;
+      background:rgba(255,122,20,.14)!important;
+    }
+    .work-group > summary.work-group-head{
+      background-image:linear-gradient(135deg,#242327 0%,#101014 59%,#211b1a 100%)!important;
+      transition:background-color .14s ease,border-color .14s ease!important;
+    }
+    .work-group{transition:border-color .14s ease!important;}
+    .work-group .group-bulk-btn{transition:background-color .14s ease,border-color .14s ease!important;}
+    #personnelGroups{overflow-anchor:auto;}
+    @media (prefers-reduced-motion: reduce){
+      .work-group,.work-group > summary.work-group-head,.work-hide-icon-v11237,
+      .work-group .group-bulk-btn{transition:none!important;}
+    }
+    @media(max-width:900px){
+      .work-hide-icon-v11237{width:38px!important;height:38px!important;min-width:38px!important;}
+      .work-hide-icon-v11237 svg{width:20px!important;height:20px!important;}
+    }
+
+  
 </style>
 </head>
 <body>
