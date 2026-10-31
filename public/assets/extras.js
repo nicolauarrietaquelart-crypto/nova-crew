@@ -96,8 +96,8 @@
     const count=assignedServices().filter(service=>statusOf(service.id)==='PENDIENTE').length;
     [
       {section:document.getElementById('page-services'),id:'novaPendingServicesBanner',anchor:'.section-title-row'},
-      {section:document.getElementById('page-home'),id:'novaHomePendingServicesBanner',anchor:'#homeServices',after:true}
-    ].forEach(({section,id,anchor,after})=>{
+      {section:document.getElementById('page-home'),id:'novaHomePendingServicesBanner',anchor:'#novaHomePendingServicesSlot',inside:true}
+    ].forEach(({section,id,anchor,after,inside})=>{
       if(!section)return;
       let banner=document.getElementById(id);
       if(!count){banner?.remove();return;}
@@ -110,12 +110,14 @@
         banner.title='Ver servicios por confirmar';
         banner.addEventListener('click',()=>navigate('services'));
         const target=section.querySelector(anchor);
-        if(target){if(after)target.after(banner);else target.before(banner);}else section.prepend(banner);
+        if(target){if(inside)target.append(banner);else if(after)target.after(banner);else target.before(banner);}else section.prepend(banner);
       }
       banner.innerHTML='<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>TIENES '+count+' SERVICIO'+(count===1?'':'S')+' PENDIENTE'+(count===1?'':'S')+' POR CONFIRMAR</span>';
     });
   }
   function refreshServiceDecorations(){decorateServiceCards();decorateServiceDetail();renderPendingServicesBanner()}
+  window.addEventListener('nova-account-changed',renderPendingServicesBanner);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderPendingServicesBanner()});
   let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
   function calendarDay(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
   function renderCalendar(){
