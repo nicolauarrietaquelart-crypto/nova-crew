@@ -124,10 +124,37 @@
     if(show)show.onclick=renderWorker;
     if(scan)scan.onclick=renderScanner;
   }
+  // Isolated geolocation test: no backend record and no real shift assignment.
+  let geoTest=null;
+  function demoGeoClock(){
+    title.textContent='Servicio DEMO · Geolocalización';
+    root.innerHTML='<div class="nova-qr-form"><strong>PRUEBA GPS · Servicio en tu ubicación</strong><p class="nova-qr-hint">Inicio 10 minutos después de crearlo. Puedes probar la validación desde una hora antes. Esta prueba no genera fichajes laborales ni modifica servicios reales.</p><div id="demoGeoInfo" class="nova-qr-hint">Preparando servicio…</div><div class="nova-qr-actions"><button class="btn primary" id="demoGeoValidate" type="button" disabled>Probar fichaje</button><button class="btn light" id="demoGeoBack" type="button">Volver</button></div></div>';
+    el('demoGeoBack').onclick=renderChooser;
+    const info=el('demoGeoInfo'),button=el('demoGeoValidate');
+    const init=async()=>{
+      if(!navigator.geolocation){info.textContent='Geolocalización no disponible en este navegador.';return;}
+      try{
+        const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,maximumAge:0,timeout:15000}));
+        if(!geoTest)geoTest={coords:{lat:pos.coords.latitude,lng:pos.coords.longitude},startISO:new Date(Date.now()+600000).toISOString()};
+        info.textContent='Inicio: '+new Date(geoTest.startISO).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})+' · Radio permitido: 500 m · Precisión inicial: ±'+Math.round(pos.coords.accuracy)+' m.';
+        button.disabled=false;
+      }catch(err){info.textContent='No se pudo obtener la ubicación. Activa los permisos de localización precisa e inténtalo de nuevo. ('+(err.message||'Error GPS')+')';}
+    };
+    button.onclick=async()=>{
+      button.disabled=true;button.textContent='Validando ubicación…';
+      try{
+        const result=await verifiedSelfLocation(geoTest);
+        info.textContent='PRUEBA SUPERADA · Distancia: '+Math.round(result.distance)+' m · Precisión: ±'+Math.round(result.accuracy)+' m. El GPS cumple la validación local. No se ha registrado un fichaje real.';
+      }catch(err){info.textContent='Prueba no superada: '+err.message;}
+      finally{button.disabled=false;button.textContent='Probar fichaje'}
+    };
+    init();
+  }
   function renderChooser(){
     title.textContent='Control horario';
     const gps=issuableServices().filter(x=>!serviceHasCoordinator(x)||isOwnCoord(x));
-    root.innerHTML=`<p class="nova-qr-hint">Elige cómo quieres registrar la asistencia.</p><div class="nova-qr-choices"><button type="button" class="nova-qr-choice primary" id="qrChooseShow"><b class="nova-choice-vector"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v4m-6 2h4m2 0h1"/></svg></b><strong>Mostrar mi QR</strong><span>Genera tu código de asistencia.</span></button><button type="button" class="nova-qr-choice" id="qrChooseScan" ${scannableServices().length?'':'disabled'}><b class="nova-choice-vector"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V5h5m6 0h5v4M4 15v4h5m6 0h5v-4M4 12h16"/></svg></b><strong>Escanear QR</strong><span>Escanea el código de un trabajador de tu equipo.</span></button><button type="button" class="nova-qr-choice" id="qrChooseGps" ${gps.length?'':'disabled'}><b class="nova-choice-vector"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></b><strong>Fichar con geolocalización</strong><span>Sin coordinador o cuando eres el coordinador del servicio.</span></button></div>`;
+    root.innerHTML=`<p class="nova-qr-hint">Elige cómo quieres registrar la asistencia.</p><div class="nova-qr-choices"><button type="button" class="nova-qr-choice primary" id="qrChooseShow"><b class="nova-choice-vector"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v4m-6 2h4m2 0h1"/></svg></b><strong>Mostrar mi QR</strong><span>Genera tu código de asistencia.</span></button><button type="button" class="nova-qr-choice" id="qrChooseScan" ${scannableServices().length?'':'disabled'}><b class="nova-choice-vector"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V5h5m6 0h5v4M4 15v4h5m6 0h5v-4M4 12h16"/></svg></b><strong>Escanear QR</strong><span>Escanea el código de un trabajador de tu equipo.</span></button><button type="button" class="nova-qr-choice" id="qrChooseGps" ${gps.length?'':'disabled'}><b class="nova-choice-vector"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></b><strong>Fichar con geolocalización</strong><span>Sin coordinador o cuando eres el coordinador del servicio.</span></button><button type="button" class="nova-qr-choice" id="qrChooseDemoGeo"><strong>Servicio DEMO · GPS</strong><span>Inicio dentro de 10 minutos en tu ubicación. Prueba sin registrar un fichaje real.</span></button></div>`;
+    el('qrChooseDemoGeo').onclick=demoGeoClock;
     el('qrChooseShow').onclick=renderWorker;
     el('qrChooseScan').onclick=renderScanner;
     el('qrChooseGps').onclick=()=>{
