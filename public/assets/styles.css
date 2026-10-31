@@ -1793,3 +1793,25 @@ button,input,select,textarea{font-family:inherit!important}
 /* Tutorial pictograms: crisp SVGs matching the document icon system. */
 .tutorial-card .tutorial-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#fff3e9;color:#d96b20;border:1px solid #f2dbc8}
 .tutorial-card .tutorial-icon svg{display:block;width:25px;height:25px;flex:none}
+
+
+/* Mobile usability: clearer keyboard focus, reliable touch targets and no iOS input zoom. */
+@media (pointer:coarse){
+ .btn,.nav-btn,.icon-only,.back-btn,.nova-qr-choice,
+ .availability-day-card,.avail-hour,.tutorial-card button,
+ .documents-list button,.service-actions button{
+  min-height:44px;
+ }
+ input,select,textarea{font-size:max(16px,1em)}
+}
+:where(button,a,input,select,textarea,[tabindex]):focus-visible{
+ outline:3px solid #ff922f!important;
+ outline-offset:3px!important;
+}
+:where(button,a,input,select,textarea):disabled{
+ cursor:not-allowed;
+}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
