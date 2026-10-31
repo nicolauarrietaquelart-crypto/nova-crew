@@ -263,6 +263,13 @@ function updateCountdown(){
   $('#countdownStatus').textContent=diff>0?'Cuenta atrás hasta la hora de inicio':'';
 }
 
+window.NOVA_OPEN_SERVICE=function(id){
+  const service=serviceById(id);
+  if(!service){if(typeof toast==='function')toast('Servicio','No se ha encontrado la ficha del servicio.');return false;}
+  renderServiceDetail(service);
+  navigate('service-detail');
+  return false;
+};
 function renderHomeServices(){
   $('#homeServices').innerHTML=assignedServices().slice().sort((a,b)=>new Date(a.startISO)-new Date(b.startISO)).slice(0,3).map(s=>`
     <article class="glass card">
@@ -270,7 +277,7 @@ function renderHomeServices(){
       <h4>${s.name}</h4>
       <p class="muted">${s.time} · ${roleLabel(s)} · ${s.team}</p>${coordinatorContactV9(s)}
       <div class="inline-actions" style="margin-top:14px">
-        <button class="btn light" data-open-service="${s.id}">Ver servicio</button>
+        <button class="btn light" data-open-service="${s.id}" type="button" onclick="return window.NOVA_OPEN_SERVICE(this.dataset.openService)">Ver servicio</button>
       </div>
     </article>`).join('');
 }
@@ -291,7 +298,7 @@ function renderServices(){
         </div>
       </div>
       <div class="service-actions">
-        <button class="btn dark" data-open-service="${s.id}">Abrir ficha</button>
+        <button class="btn dark" data-open-service="${s.id}" type="button" onclick="return window.NOVA_OPEN_SERVICE(this.dataset.openService)">Abrir ficha</button>
         <button class="btn light nova-download-only" type="button" data-service-print="${s.id}" title="Descargar ficha del servicio" aria-label="Descargar ficha del servicio">${novaDownloadIcon}</button>
       </div>
     </article>`).join('');
