@@ -1863,3 +1863,24 @@ button,input,select,textarea{font-family:inherit!important}
   #portalTopbar .topbar-left{gap:3px!important}
   #portalTopbar .topbar-left #pageTitle{font-size:12px!important}
 }
+
+/* NOVA Crew — restrained motion polish, desktop and mobile. */
+:root{--nova-motion-ease:cubic-bezier(.22,1,.36,1)}
+#portalTopbar{transition:box-shadow .32s var(--nova-motion-ease),background-color .32s var(--nova-motion-ease)!important}
+#portalTopbar :is(.icon-btn,.icon-only,.profile-chip){
+  transition:background-color .22s ease,border-color .22s ease,color .22s ease,
+    box-shadow .25s ease,transform .25s var(--nova-motion-ease)!important;
+}
+@media (hover:hover) and (pointer:fine){
+  #portalTopbar :is(.icon-btn,.icon-only,.profile-chip):hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(20,26,39,.09)}
+}
+#portalTopbar :is(.icon-btn,.icon-only,.profile-chip):active{transform:scale(.95)}
+#portalTopbar :is(.icon-btn,.icon-only,.profile-chip):focus-visible{outline:2px solid #fb8425;outline-offset:3px}
+.page.active{animation:novaPageSmoothIn .3s var(--nova-motion-ease) both}
+@keyframes novaPageSmoothIn{from{opacity:.5;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+#v15AlertPanel:not(.hidden),#v15ProfileMenu:not(.hidden){animation:novaMenuSmoothIn .22s var(--nova-motion-ease) both;transform-origin:top right}
+@keyframes novaMenuSmoothIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media (prefers-reduced-motion:reduce){
+  #portalTopbar,#portalTopbar :is(.icon-btn,.icon-only,.profile-chip),.page.active,
+  #v15AlertPanel:not(.hidden),#v15ProfileMenu:not(.hidden){animation:none!important;transition:none!important;transform:none!important}
+}
