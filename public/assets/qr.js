@@ -325,7 +325,7 @@
   function applyAttendanceToCurrent(r){
     if(!r?.serviceId)return;
     if(r.serviceId===crewState?.service?.id && document.querySelector('#page-crew-control.page.active')){
-      let item=crewState.workers.find(x=>x.id===r.serviceId+'-qr-'+r.workerId||x.workerId===r.workerId);
+      let item=crewState.workers.find(x=>x.id===r.workerId||x.id===r.serviceId+'-qr-'+r.workerId||x.workerId===r.workerId);
       if(!item){
         item={id:r.serviceId+'-qr-'+r.workerId,workerId:r.workerId,name:r.workerName,phone:'670 555 221',role:r.category,team:r.team,workType:'LOAD IN',start:r.start,end:r.end,realStart:r.start,realEnd:r.end,pause:'00:00',diet:'No',status:'PRESENTE',rating:3,selected:false,incident:'',notes:''};
         crewState.workers.unshift(item);
@@ -335,7 +335,7 @@
       return;
     }
     if(r.serviceId!==basicCoordState?.service?.id)return;
-    let w=basicCoordState.workers.find(x=>x.id===r.serviceId+'-qr-'+r.workerId||x.workerId===r.workerId);
+    let w=basicCoordState.workers.find(x=>x.id===r.workerId||x.id===r.serviceId+'-qr-'+r.workerId||x.workerId===r.workerId);
     if(!w){w={id:r.serviceId+'-qr-'+r.workerId,workerId:r.workerId,name:r.workerName,phone:EMPLOYEE.phone||'670 555 221',role:r.category,team:r.team,start:r.start,end:r.end,pause:'00:00',diet:'No',status:'PRESENTE',rating:3,incidents:[]};basicCoordState.workers.unshift(w)}
     w.name=r.workerName;w.role=r.category;w.team=r.team;w.start=r.start;w.end=r.end;w.status=r.direction==='salida'?'SALIDA':'PRESENTE';w.qrScannedAt=r.time;
     if(typeof saveBasicCoord==='function')saveBasicCoord();
