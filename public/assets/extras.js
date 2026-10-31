@@ -92,15 +92,21 @@
     // Confirmation remains on the service cards; no duplicate notes / confirmation panel in the ficha.
     document.querySelector('#serviceDetail .v10-service-extra')?.remove();
   }
+  // Regla central de asignaciones: cualquier servicio PENDIENTE debe producir
+  // un aviso en Inicio y en Servicios, con la misma cifra para la cuenta activa.
+  function pendingAssignedServices(){
+    return assignedServices().filter(service=>statusOf(service.id)==='PENDIENTE');
+  }
   function renderPendingServicesBanner(){
-    const count=assignedServices().filter(service=>statusOf(service.id)==='PENDIENTE').length;
-    [
-      {section:document.getElementById('page-services'),id:'novaPendingServicesBanner',anchor:'.section-title-row'},
-      {section:document.getElementById('page-home'),id:'novaHomePendingServicesBanner',anchor:'#novaHomePendingServicesSlot',inside:true}
-    ].forEach(({section,id,anchor,after,inside})=>{
-      if(!section)return;
+    const count=pendingAssignedServices().length;
+    const placements=[
+      {id:'novaPendingServicesBanner',parent:document.getElementById('page-services'),before:document.querySelector('#page-services .section-title-row')},
+      {id:'novaHomePendingServicesBanner',parent:document.getElementById('novaHomePendingServicesSlot')}
+    ];
+    for(const {id,parent,before} of placements){
+      if(!parent)continue;
       let banner=document.getElementById(id);
-      if(!count){banner?.remove();return;}
+      if(!count){banner?.remove();continue;}
       if(!banner){
         banner=document.createElement('div');
         banner.id=id;
@@ -109,11 +115,13 @@
         banner.style.cssText='display:flex;align-items:center;gap:12px;margin:16px 0 18px;padding:15px 18px;border:1px solid #f1b8bd;border-radius:14px;background:#fff0f1;color:#a11b29;font-weight:750;font-size:14px;line-height:1.5;cursor:pointer;';
         banner.title='Ver servicios por confirmar';
         banner.addEventListener('click',()=>navigate('services'));
-        const target=section.querySelector(anchor);
-        if(target){if(inside)target.append(banner);else if(after)target.after(banner);else target.before(banner);}else section.prepend(banner);
       }
+      // Importante: mover también un aviso YA EXISTENTE. De lo contrario
+      // conserva su posición anterior debajo de las tarjetas.
+      if(before)parent.insertBefore(banner,before);
+      else if(banner.parentElement!==parent)parent.appendChild(banner);
       banner.innerHTML='<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18.5A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>TIENES '+count+' SERVICIO'+(count===1?'':'S')+' PENDIENTE'+(count===1?'':'S')+' POR CONFIRMAR</span>';
-    });
+    }
   }
   function refreshServiceDecorations(){decorateServiceCards();decorateServiceDetail();renderPendingServicesBanner()}
   window.addEventListener('nova-account-changed',renderPendingServicesBanner);
