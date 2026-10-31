@@ -40,7 +40,7 @@ function sortShifts(list){
 }
 function visibleShifts(){
   const state=readState();
-  return sortShifts(shifts.filter(s=>!state.accepted.includes(s.id)&&!state.dismissed.includes(s.id)));
+  return sortShifts(shifts.filter(s=>s.demo||(!state.accepted.includes(s.id)&&!state.dismissed.includes(s.id))));
 }
 function combinedAlertCount(){
   const st=readState();
@@ -72,7 +72,7 @@ async function fetchShifts(){
   try{
     const d=await window.NOVA_API.openShifts();
     if(d?.ok)shifts=(d.shifts||[]).map(s=>({...s,interest:null}));
-    if(!shifts.some(s=>s.urgent))shifts.unshift({...DEMO_URGENT_SHIFT});
+    if(!shifts.some(s=>s.id===DEMO_URGENT_SHIFT.id))shifts.unshift({...DEMO_URGENT_SHIFT});
     renderShifts();
     updateAlerts();window.NOVA_V16?.refresh?.();
   }catch(e){
@@ -173,7 +173,7 @@ function openInterestConfirmShift(s){
     $id('v15ConfirmFinal').onclick=async()=>{
       const b=$id('v15ConfirmFinal');b.disabled=true;b.textContent='Enviando…';
       try{
-        if(s.demo){mutateState(st=>{if(!st.accepted.includes(s.id))st.accepted.push(s.id)});closeDemoModal();renderShifts();updateAlerts();window.NOVA_V16?.refresh?.();toast('Demo','Disponibilidad registrada solo para la demostración.');return;}
+        if(s.demo){closeDemoModal();renderShifts();updateAlerts();window.NOVA_V16?.refresh?.();toast('Demo','Has aceptado el servicio ficticio. El aviso seguirá disponible para poder probarlo de nuevo.');return;}
         // Compartir la solicitud con el backend; nunca asigna automáticamente el servicio.
         await window.NOVA_API.expressInterest(s.id,false);
         mutateState(st=>{
@@ -297,6 +297,7 @@ function mountProfileMenu(){
 
     const disOpen=e.target.closest('[data-v15-dismiss-open]');
     if(disOpen){
+      if(disOpen.dataset.v15DismissOpen===DEMO_URGENT_SHIFT.id){toast('Servicio de demostración','Este aviso permanece visible para poder realizar pruebas.');return;}
       mutateState(st=>{if(!st.dismissed.includes(disOpen.dataset.v15DismissOpen))st.dismissed.push(disOpen.dataset.v15DismissOpen);});
       renderShifts();updateAlerts();return;
     }
