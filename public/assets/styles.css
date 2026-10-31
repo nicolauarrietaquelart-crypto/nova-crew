@@ -1825,3 +1825,41 @@ button,input,select,textarea{font-family:inherit!important}
  .nova-unified-layout .nova-coord-sidebar{position:static;width:100%;max-width:none}
  .nova-unified-main{min-width:0;width:100%}
 }
+
+/* Mobile header: single compact row including page title and all actions. */
+@media (max-width: 700px){
+  #portalTopbar.portal-topbar{
+    display:flex!important;flex-direction:row!important;align-items:center!important;
+    justify-content:space-between!important;flex-wrap:nowrap!important;
+    gap:5px!important;padding:9px 10px!important;min-height:56px!important;
+    grid-template-columns:none!important;
+  }
+  #portalTopbar .topbar-left{display:flex!important;align-items:center!important;gap:6px!important;
+    flex:1 1 auto!important;width:auto!important;min-width:0!important;}
+  #portalTopbar .topbar-left>div{min-width:0!important;flex:1 1 auto!important;}
+  #portalTopbar .topbar-left #breadcrumb{display:none!important;}
+  #portalTopbar .topbar-left #pageTitle{font-size:clamp(12px,3.1vw,17px)!important;
+    font-weight:750!important;line-height:1.15!important;white-space:nowrap!important;
+    overflow:hidden!important;text-overflow:ellipsis!important;margin:0!important;}
+  #portalTopbar .topbar-actions{display:flex!important;flex:0 0 auto!important;
+    width:auto!important;min-width:0!important;gap:4px!important;
+    align-items:center!important;justify-content:flex-end!important;flex-wrap:nowrap!important;}
+  #portalTopbar #mobileMenu,
+  #portalTopbar :is(#novaQrQuick,#notificationsBtn,#messagesBtn),
+  #portalTopbar .topbar-actions .profile-chip{
+    box-sizing:border-box!important;width:32px!important;height:32px!important;
+    min-width:32px!important;max-width:32px!important;padding:0!important;
+    border-radius:10px!important;flex:0 0 32px!important;
+  }
+  #portalTopbar .topbar-actions .profile-chip{display:flex!important;justify-content:center!important;align-items:center!important;}
+  #portalTopbar .profile-chip>span:not(.avatar),#portalTopbar .profile-chip em{display:none!important;}
+  #portalTopbar .profile-chip .avatar{width:27px!important;height:27px!important;min-width:27px!important;font-size:10px!important;}
+}
+@media (max-width:380px){
+  #portalTopbar.portal-topbar{gap:3px!important;padding:8px 6px!important}
+  #portalTopbar .topbar-actions{gap:2px!important}
+  #portalTopbar #mobileMenu,#portalTopbar :is(#novaQrQuick,#notificationsBtn,#messagesBtn),
+  #portalTopbar .topbar-actions .profile-chip{width:29px!important;min-width:29px!important;max-width:29px!important;height:30px!important;flex-basis:29px!important}
+  #portalTopbar .topbar-left{gap:3px!important}
+  #portalTopbar .topbar-left #pageTitle{font-size:12px!important}
+}
