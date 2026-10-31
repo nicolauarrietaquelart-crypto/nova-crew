@@ -1815,3 +1815,13 @@ button,input,select,textarea{font-family:inherit!important}
  html{scroll-behavior:auto}
  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+/* Normal coordination collapsible operational panel (same interaction on phones). */
+.nova-unified-layout.nova-sidebar-collapsed{grid-template-columns:minmax(0,1fr)!important}
+.nova-coord-sidebar-toggle{display:inline-flex;align-items:center;justify-content:center;min-height:38px;align-self:start;background:#15171b;color:#fff;border:0;border-radius:10px;padding:9px 13px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;margin-bottom:12px}
+.nova-coord-sidebar-toggle:focus-visible{outline:3px solid #f79334;outline-offset:3px}
+@media(max-width:760px){
+ .nova-unified-layout{grid-template-columns:minmax(0,1fr)!important}
+ .nova-unified-layout .nova-coord-sidebar{position:static;width:100%;max-width:none}
+ .nova-unified-main{min-width:0;width:100%}
+}
