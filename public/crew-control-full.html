@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Crew Control v11.2.35 | Gestión de personal</title>
+  <title>Crew Control v11.2.37 | Gestión de personal</title>
   
   <style>
     :root{
@@ -7675,7 +7675,14 @@ const state = {
    Google Sheets: legacy import/PDF/history mirror
    ========================================================= */
 
-const FIREBASE_CONFIG=null; // Demo: no Firebase access
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyAx_UmtJ_ep1Rb06YZy6Qh4TqfHs-xwFOw",
+  authDomain:"app-bolos-c1cd4.firebaseapp.com",
+  projectId:"app-bolos-c1cd4",
+  storageBucket:"app-bolos-c1cd4.firebasestorage.app",
+  messagingSenderId:"756101668757",
+  appId:"1:756101668757:web:01d7b9e45ccfce70aa209c"
+};
 
 let firebaseCtx=null;
 let firebaseReadyPromise=null;
@@ -7683,12 +7690,55 @@ let firebaseRealtimeUnsubs=[];
 let firebaseRenderTimer=null;
 let firebaseRealtimeCode='';
 
-function callAppsScript(method,args){return Promise.reject(new Error('La función '+method+' requiere un módulo de Cloudflare no habilitado en esta demo.'));}
-function shadowAppsScript(){ /* Demo: no real Sheets or Apps Script mirroring. */ }
+function callAppsScript(method,args){
+  args=Array.isArray(args)?args:[];
+  return new Promise((resolve,reject)=>{
+    try{
+      const runner=google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject);
+
+      if(typeof runner[method]!=='function'){
+        reject(new Error('Método de Apps Script no disponible: '+method));
+        return;
+      }
+
+      runner[method](...args);
+    }catch(err){
+      reject(err);
+    }
+  });
+}
+
+function shadowAppsScript(method,args){
+  setTimeout(()=>{
+    callAppsScript(method,args).catch(err=>{
+      console.warn('[Sheets mirror]',method,errorMessage(err));
+    });
+  },0);
+}
 
 async function ensureFirebase(){
-  if(!window.CREW_CLOUDFLARE_FS)throw new Error('Conexión Cloudflare no disponible. Vuelve a iniciar sesión en NOVA Crew.');
-  return {db:{},fs:window.CREW_CLOUDFLARE_FS};
+  if(firebaseCtx)return firebaseCtx;
+  if(firebaseReadyPromise)return firebaseReadyPromise;
+
+  firebaseReadyPromise=(async()=>{
+    const appSdk=await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js');
+    const fs=await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js');
+
+    const app=appSdk.initializeApp(FIREBASE_CONFIG);
+    const db=fs.getFirestore(app);
+
+    firebaseCtx={app,db,fs};
+    return firebaseCtx;
+  })();
+
+  try{
+    return await firebaseReadyPromise;
+  }catch(err){
+    firebaseReadyPromise=null;
+    throw err;
+  }
 }
 
 function firebaseErrorMessage(err){
@@ -7755,7 +7805,7 @@ function firebaseServiceRoot(service){
     requirements:Array.from(service.requirements||[],r=>sanitizeFirestore(r)),
     audit:Array.from(service.audit||[],a=>sanitizeFirestore(a)),
     backend:'FIRESTORE',
-    schemaVersion:'11.2.34'
+    schemaVersion:'11.2.37'
   });
 }
 
@@ -7877,7 +7927,6 @@ async function readServiceFromFirebase(code){
 
   return {
     code:String(code),
-    serviceReference:String(root.serviceReference||root.reference||''),
     serviceName:String(root.serviceName||''),
     serviceDate:String(root.serviceDate||''),
     venue:String(root.venue||''),
@@ -8176,28 +8225,35 @@ async function startFirebaseRealtime(code){
 }
 
 async function firebaseLoadService(code){
-  const service=await readServiceFromFirebase(String(code));
-  if(!service)throw new Error('No existe ese servicio en la demo.');
-  return service;
+  try{
+    let service=await readServiceFromFirebase(code);
+
+    if(!service){
+      // First opening only: copy the existing 10.1.5 service from Sheets.
+      service=await callAppsScript('loadService',[code]);
+      await migrateServiceToFirebase(service);
+      service=await readServiceFromFirebase(code);
+    }
+
+    return service;
+  }catch(err){
+    throw new Error(firebaseErrorMessage(err));
+  }
 }
 
 async function firebaseGenerateNewService(){
-  const r=await window.CREW_CLOUDFLARE_REQUEST({kind:'create'});
-  if(!r?.ok)throw new Error(r?.error||'No se ha creado el servicio');
-  return readServiceFromFirebase(r.code);
+  const service=await callAppsScript('generateNewService',[]);
+  await migrateServiceToFirebase(service);
+  return readServiceFromFirebase(service.code);
 }
+
 async function firebaseDuplicateServiceSetup(code){
-  const prior=await readServiceFromFirebase(String(code));
-  if(!prior)throw new Error('No se encuentra el servicio de origen.');
-  const next=await firebaseGenerateNewService();
-  const {db,fs}=await ensureFirebase();
-  await fs.setDoc(fs.doc(db,'services',next.code),{
-    serviceName:prior.serviceName,serviceDate:prior.serviceDate,venue:prior.venue,pdfName:'',
-    workOrder:prior.workOrder,hiddenWorkTypes:prior.hiddenWorkTypes,
-    scenarios:prior.scenarios,teams:prior.teams,requirements:prior.requirements,
-    updatedAt:new Date().toISOString()
-  },{merge:true});
-  return readServiceFromFirebase(next.code);
+  if(state.service&&String(state.service.code)===String(code)){
+    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
+  }
+  const service=await callAppsScript('duplicateServiceSetup',[code]);
+  await migrateServiceToFirebase(service);
+  return readServiceFromFirebase(service.code);
 }
 
 async function firebaseSaveServiceMeta(code,meta){
@@ -8530,14 +8586,45 @@ async function firebaseAddManualWorker(code,data){
   return worker;
 }
 
-async function firebaseReplaceWorkersFromPdf(){
-  throw new Error('La importación PDF está deshabilitada: el personal de esta demo ya está integrado.');
+async function firebaseReplaceWorkersFromPdf(code,parsed){
+  // Ensure the legacy parser sees the current Firebase state before matching.
+  if(state.service&&String(state.service.code)===String(code)){
+    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
+  }
+
+  const result=await callAppsScript('replaceWorkersFromPdf',[code,parsed]);
+  await migrateServiceToFirebase(result.service);
+
+  return {
+    ...result,
+    service:await readServiceFromFirebase(code)
+  };
 }
+
 async function firebaseGenerateClosedPdf(code){
-  // Avoid claiming an uploaded/generated PDF where none exists.
-  window.print();
-  return {pdfId:'',pdfUrl:'',notice:'Utiliza la impresión del navegador para guardar una copia en PDF.'};
+  // One legacy mirror only at close; normal operation never waits for Sheets.
+  if(state.service&&String(state.service.code)===String(code)){
+    await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
+  }
+
+  const pdf=await callAppsScript('generateClosedServicePdf',[code]);
+
+  if(pdf?.pdfUrl){
+    const {db,fs}=await ensureFirebase();
+    await fs.setDoc(
+      fs.doc(db,'services',code),
+      {
+        finalPdfId:String(pdf.pdfId||''),
+        finalPdfUrl:String(pdf.pdfUrl||''),
+        updatedAt:new Date().toISOString()
+      },
+      {merge:true}
+    );
+  }
+
+  return pdf;
 }
+
 async function dispatchBackend(method,args){
   switch(String(method)){
     case 'loadService':
@@ -8585,13 +8672,11 @@ async function dispatchBackend(method,args){
     case 'generateClosedServicePdf':
       return firebaseGenerateClosedPdf(...args);
 
-    case 'getWorkerHistory': {
-      const worker=state.service?.workers?.find(w=>String(w.id)===String(args[1]));
-      const relevant=state.service?.incidents?.filter(i=>i.workerId===worker?.id)||[];
-      return {movil:worker?.movil||'',services:worker?1:0,present:worker?.status==='PRESENTE'?1:0,
-        noShow:worker?.status==='NO PRESENTADO'?1:0,incidents:relevant.length,
-        averageRating:'',totalActualMinutes:0,items:[],history:[],workTypes:[]};
-    }
+    case 'getWorkerHistory':
+      if(state.service){
+        await callAppsScript('syncServiceSnapshotToSheets',[state.service]);
+      }
+      return callAppsScript(method,args);
 
     default:
       return callAppsScript(method,args);
@@ -9051,6 +9136,7 @@ function openServiceData(service){
   const hiddenBar=document.getElementById('hiddenWorkTypesBar');
   if(hiddenBar){
     hiddenBar.innerHTML='';
+    delete hiddenBar.dataset.hiddenSignature;
     hiddenBar.classList.remove('show');
   }
 
@@ -9066,10 +9152,7 @@ function openServiceData(service){
   syncMobileOperationalToggleV11234();
   updateSidebarToggleButton();
 
-  const actualReference=String(service.serviceReference||service.reference||new URLSearchParams(location.search).get('reference')||'').trim().slice(0,90);
-  const refPanel=document.getElementById('novaCrewServiceReference');
-  if(refPanel)refPanel.hidden=!actualReference;
-  document.getElementById('serviceCodeBadge').textContent=actualReference;
+  document.getElementById('serviceCodeBadge').textContent=service.code;
   document.getElementById('serviceName').value=service.serviceName||'';
   document.getElementById('serviceDate').value=service.serviceDate||'';
   document.getElementById('venue').value=service.venue||'';
@@ -9124,7 +9207,7 @@ function finalizeCloseServiceView(){
 
 function copyServiceCode(){
   if(!state.service)return;
-  navigator.clipboard.writeText(document.getElementById('serviceCodeBadge')?.textContent||'')
+  navigator.clipboard.writeText(state.service.code)
     .then(()=>setSaveState('Código copiado','saved')).catch(()=>{});
 }
 
@@ -10461,8 +10544,12 @@ function renderHiddenWorkTypesBar(){
   const hidden=orderedWorkTypes(allServiceWorkTypes())
     .filter(isWorkTypeHidden);
 
+  const signature=JSON.stringify(hidden);
+  if(host.dataset.hiddenSignature===signature)return;
+  host.dataset.hiddenSignature=signature;
+
   if(!hidden.length){
-    host.innerHTML='';
+    host.replaceChildren();
     host.classList.remove('show');
     return;
   }
@@ -10730,7 +10817,12 @@ function renderPersonnel(light=false){
   const workers=workersForActiveDay();
 
   if(!workers.length){
-    host.innerHTML='<div class="empty">No hay personal para este día.</div>';renderOperationalAlerts();return;
+    renderHiddenWorkTypesBar();
+    if(host.textContent!=='No hay personal para este día.'){
+      host.innerHTML='<div class="empty">No hay personal para este día.</div>';
+    }
+    renderOperationalAlerts();
+    return;
   }
 
   // Agrupamos por TIPO DE SERVICIO, no por cada bloque horario.
@@ -10753,7 +10845,34 @@ function renderPersonnel(light=false){
     return;
   }
 
-  host.innerHTML=visibleEntries.map(([trabajo,rows])=>{
+  const existingGroups=new Map(
+    [...host.querySelectorAll(':scope > details.work-group')].map(el=>[
+      normalize(el.getAttribute('data-work-group')||''),el
+    ])
+  );
+  const nextNodes=[];
+  const groupTemplate=document.createElement('template');
+  visibleEntries.forEach(([trabajo,rows])=>{
+    const key=normalize(trabajo);
+    const existing=existingGroups.get(key);
+    const fingerprint=JSON.stringify({
+      rows,
+      selection:rows.filter(w=>state.selected.has(w.id)).map(w=>w.id),
+      teamFilter:state.workTeamFilters[trabajo]||'ALL',
+      sort:state.workSorts[trabajo]||null,
+      shifts:Object.entries(state.collapsedShifts||{}).filter(([k])=>k.startsWith(trabajo+'|')),
+      teams:state.service.teams,
+      scenarios:state.service.scenarios,
+      requirements:(state.service.requirements||[]).filter(r=>normalize(r.trabajo||'')===key),
+      incidents:(state.service.incidents||[]).filter(i=>rows.some(w=>String(w.id)===String(i.workerId))),
+      closed:Boolean(state.service.closed)
+    });
+
+    if(existing && existing.dataset.renderFingerprint===fingerprint){
+      nextNodes.push(existing);
+      return;
+    }
+    const markup=(()=>{
     const includedRows=rows.filter(w=>w.included);
     const present=includedRows.filter(w=>w.status==='PRESENTE').length;
     const contacted=includedRows.filter(w=>w.status==='CONTACTADO').length;
@@ -10813,9 +10932,11 @@ function renderPersonnel(light=false){
               title="Bajar">↓</button>
           </span>
           <button type="button"
-            class="work-hide-btn-v11227"
+            class="work-hide-btn-v11227 work-hide-icon-v11237"
             onclick="event.preventDefault();event.stopPropagation();hideWorkType('${escapeJsString(trabajo)}')"
-            title="Ocultar">⊖</button>
+            title="Ocultar este tipo de servicio" aria-label="Ocultar ${escapeAttr(trabajo)}">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c5 0 9.3 4.1 10 7-.2.9-1.2 2.5-2.7 3.9"/><path d="M6.2 6.2C4.1 7.6 2.5 9.7 2 12c.7 2.9 5 7 10 7 1.9 0 3.7-.6 5.2-1.5"/><path d="M10 10a3 3 0 0 0 4 4"/></svg>
+          </button>
           <span class="work-group-arrow">›</span>
         </div>
         <div class="work-group-meta">
@@ -10849,7 +10970,35 @@ function renderPersonnel(light=false){
         </table>
       </div>
     </details>`;
-  }).join('');
+    })();
+    groupTemplate.innerHTML=markup;
+    const node=groupTemplate.content.firstElementChild;
+    if(node){
+      node.dataset.renderFingerprint=fingerprint;
+      // Keep the user's expanded state if this group was updated in place.
+      if(existing){
+        if(existing.open)state.expandedWorkGroups.add(trabajo);
+        else state.expandedWorkGroups.delete(trabajo);
+        node.open=existing.open;
+      }
+      nextNodes.push(node);
+    }
+  });
+
+  // Stable keyed DOM reconciliation: untouched blocks never detach/repaint.
+  let cursor=host.firstElementChild;
+  nextNodes.forEach(node=>{
+    if(node===cursor){
+      cursor=cursor.nextElementSibling;
+    }else{
+      host.insertBefore(node,cursor);
+    }
+  });
+  while(cursor){
+    const next=cursor.nextElementSibling;
+    cursor.remove();
+    cursor=next;
+  }
 
   // Restaurar selects.
   workers.forEach(w=>{
@@ -10984,35 +11133,21 @@ function toggleShiftGroup(trabajo,time){
   const key=shiftStateKey(trabajo,time);
   state.collapsedShifts[key]=!state.collapsedShifts[key];
 
-  const details=[...document.querySelectorAll('.work-group')]
+  const details=[...document.querySelectorAll('#personnelGroups .work-group')]
     .find(el=>(el.getAttribute('data-work-group')||'')===trabajo);
-
   if(!details)return;
 
+  const collapsed=Boolean(state.collapsedShifts[key]);
   details.querySelectorAll(`[data-shift-key="${cssEscape(key)}"]`).forEach(row=>{
-    row.classList.toggle('shift-row-hidden',Boolean(state.collapsedShifts[key]));
+    row.classList.toggle('shift-row-hidden',collapsed);
   });
 
-  // Refrescar solo la banda horaria para que gire la flecha.
-  const body=details.querySelector('tbody[data-work-team-body]');
-  if(body){
-    const rows=state.service.workers.filter(w=>
-      w.included &&
-      (w.serviceDate||'SIN FECHA')===state.activeDay &&
-      (w.trabajo||'SIN TIPO')===trabajo
-    );
-    const filtered=filteredRowsForWork(trabajo,rows);
-    body.innerHTML=filtered.length
-      ? rowsGroupedByEntryHtml(trabajo,filtered)
-      : '<tr><td colspan="11" class="empty">Sin personal.</td></tr>';
-
-    filtered.forEach(w=>{
-      const teamSelect=document.querySelector(`[data-team-worker="${cssEscape(w.id)}"]`);
-      const statusSelect=document.querySelector(`[data-status-worker="${cssEscape(w.id)}"]`);
-      if(teamSelect)teamSelect.value=w.teamId||'';
-      if(statusSelect)statusSelect.value=w.status||'PENDIENTE';
-    });
+  const button=details.querySelector(`[data-shift-summary="${cssEscape(key)}"]`);
+  if(button){
+    button.classList.toggle('collapsed',collapsed);
+    button.setAttribute('aria-expanded',String(!collapsed));
   }
+  // Sin innerHTML: no pierdes scroll, selección, ni estado de otros turnos.
 }
 
 function sortHeaderHtml(trabajo,key,label){
@@ -11742,7 +11877,7 @@ function workerRowHtml(w){
     </td>
 
     <td class="worker-name mobile-name">
-      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${(w.isCoordinator||w.isSubCoordinator)?'<span class="coordinator-badge">CS · COORD.</span>':''}
+      <button class="worker-open" onclick="openWorkerModal('${escapeAttr(w.id)}')">${escapeHtml(w.personal)}</button>${reserve}${w.isCoordinator?'<span class="coordinator-badge">CS · COORD.</span>':''}
     </td>
 
     <td class="mobile-role"><span class="role">${escapeHtml(w.especialidad)}</span></td>
@@ -13348,28 +13483,30 @@ function renderOperationalDashboard(){
 
   const metrics=getDayOperationalMetrics();
   if(!metrics){
-    host.innerHTML='';
+    if(host.children.length)host.replaceChildren();
+    delete host.dataset.tilesReady;
     return;
   }
 
-  host.innerHTML=`
-    <article class="dashboard-metric simple-v127 metric-present-v11232">
-      <strong>${metrics.present}/${metrics.total}</strong>
-      <span>Presentes</span>
-    </article>
-    <article class="dashboard-metric simple-v127 metric-contacted-v11232">
-      <strong>${metrics.contacted}</strong>
-      <span>Contactados</span>
-    </article>
-    <article class="dashboard-metric simple-v127 metric-absent-v11232">
-      <strong>${metrics.absent}</strong>
-      <span>No presentados</span>
-    </article>
-    <article class="dashboard-metric simple-v127">
-      <strong>${metrics.unassigned}</strong>
-      <span>Sin equipo</span>
-    </article>
-  `;
+  if(host.dataset.tilesReady!=='v11237' || host.children.length!==4){
+    host.innerHTML=`
+      <article class="dashboard-metric simple-v127 metric-present-v11232"><strong></strong><span>Presentes</span></article>
+      <article class="dashboard-metric simple-v127 metric-contacted-v11232"><strong></strong><span>Contactados</span></article>
+      <article class="dashboard-metric simple-v127 metric-absent-v11232"><strong></strong><span>No presentados</span></article>
+      <article class="dashboard-metric simple-v127 metric-unassigned-v11236"><strong></strong><span>Sin equipos</span></article>`;
+    host.dataset.tilesReady='v11237';
+  }
+
+  const values=[
+    `${metrics.present}/${metrics.total}`,
+    String(metrics.contacted),
+    String(metrics.absent),
+    String(metrics.unassigned)
+  ];
+  [...host.children].forEach((tile,index)=>{
+    const el=tile.querySelector('strong');
+    if(el && el.textContent!==values[index])el.textContent=values[index];
+  });
 
   updateScopeSelectButton();
   updateSidebarUtilityBadges();
@@ -13440,10 +13577,10 @@ function renderOperationalAlerts(refreshDashboard=true){
   const host=document.getElementById('operationalAlerts');
 
   if(host){
-    host.innerHTML=
-      alerts.length
-        ? alerts.map(x=>`<span class="alert-chip">${escapeHtml(x)}</span>`).join('')
-        : '<span class="hint">Sin alertas operativas.</span>';
+    const markup=alerts.length
+      ? alerts.map(x=>`<span class="alert-chip">${escapeHtml(x)}</span>`).join('')
+      : '<span class="hint">Sin alertas operativas.</span>';
+    if(host.innerHTML!==markup)host.innerHTML=markup;
   }
 
   if(refreshDashboard)renderOperationalDashboard();
@@ -14029,7 +14166,7 @@ function openWorkerModal(id){
     ` · Pausa ${escapeHtml(formatPauseLabel(w.pausa||'00:00'))}`+
     ` · ${Number(w.nDieta||0)} dieta${Number(w.nDieta||0)===1?'':'s'}`+
     (w.isReserve?' <span class="reserve-badge">RESERVA</span>':'')+
-    ((w.isCoordinator||w.isSubCoordinator)?' <span class="coordinator-badge">CS · COORD.</span>':'');
+    (w.isCoordinator?' <span class="coordinator-badge">CS · COORDINADOR</span>':'');
   document.getElementById('modalArrivalTime').textContent=w.arrivalAt||'Todavía no registrada';
   document.getElementById('modalArrivalRecord').classList.toggle('empty-arrival',!w.arrivalAt);
   document.getElementById('modalActualStart').value=w.actualStart||w.inicio||'';
