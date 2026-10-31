@@ -6,6 +6,7 @@ const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const statuses=['PENDIENTE','CONTACTADO','NO CONTACTADO','PRESENTE','NO PRESENTADO'];
 let active=null,workers=[],incidents=[],selected=new Set(),query='',statusFilter='ALL',timeFilter='ALL',busy=false;
 let expandedCoordSections={attendance:false,entry:false,selection:false};
+let coordSidebarHidden=false;
 const account=()=>window.novaActiveAccount||window.NOVA_API?.account||'demo';
 const service=id=>typeof services!=='undefined'?services.find(x=>x.id===id):null;
 const toastMessage=(title,msg)=>{if(typeof toast==='function')toast(title,msg)};
@@ -92,8 +93,9 @@ function sidebar(){
 function render(){
  const root=el('workerCoordDetail');if(!root||!active)return;
  const serviceType=roleTitle(active),list=visible();
- root.innerHTML='<div class="nova-unified-control"><div class="nova-unified-layout">'+
- sidebar()+'<section class="nova-unified-main">'+
+ root.innerHTML='<div class="nova-unified-control"><div class="nova-unified-layout '+(coordSidebarHidden?'nova-sidebar-collapsed':'')+'">'+
+ (coordSidebarHidden?'':sidebar())+'<section class="nova-unified-main">'+
+ '<button type="button" class="nova-coord-sidebar-toggle" data-nova-toggle-sidebar aria-expanded="'+(!coordSidebarHidden)+'">'+(coordSidebarHidden?'Mostrar control operativo':'Ocultar control operativo')+'</button>'+
  '<div class="nova-unified-heading"><div><span class="kicker">'+escape(serviceType)+' · '+escape(active.type||'SERVICIO')+'</span>'+
  '<h2>'+escape(active.name)+'</h2><p>'+escape(active.venue)+' · '+escape(active.date)+' · '+escape(active.time)+'</p></div>'+
  '<div class="nova-coord-header-actions"><button type="button" class="btn light" data-nova-incident>+ Reportar incidencia</button><button type="button" class="btn light" data-nova-refresh>Actualizar</button></div></div>'+
@@ -231,6 +233,7 @@ document.addEventListener('click',e=>{
   return;
  }
  if(!e.target.closest('#workerCoordDetail')||!active)return;
+ if(e.target.closest('[data-nova-toggle-sidebar]')){coordSidebarHidden=!coordSidebarHidden;render();return}
  const fold=e.target.closest('[data-nova-fold]');if(fold){const key=fold.dataset.novaFold;expandedCoordSections[key]=!expandedCoordSections[key];render();return}
  const action=e.target.closest('[data-nova-edit]');
  if(action){edit([action.dataset.novaEdit]);return}
