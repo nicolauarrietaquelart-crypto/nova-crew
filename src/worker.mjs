@@ -81,6 +81,19 @@ export function createDemoApi(storage) {
       }
       const actor=await auth(request);
       if(!actor)return bad('Sesión caducada. Entra de nuevo.',401);
+      if(op==='resetDemo'){
+        if(request.method!=='POST')return bad('Método no permitido.',405);
+        const prefixes=['attendance/','ticket/','active/','small-team/','small-incidents/','crew-full/','crew-owner/','confirmation/','profile/','shift/','interest/'];
+        for(const prefix of prefixes){
+          let cursor;
+          do{
+            const items=await storage.list({prefix,limit:100,cursor});
+            for(const key of items.keys())await storage.delete(key);
+            cursor=items.cursor;
+          }while(cursor);
+        }
+        return json({ok:true,reset:true});
+      }
       if(op==='me')return json({ok:true,user:actor,profile:await profile(actor)});
       if(op==='confirmations'){
         const confirmations={};
