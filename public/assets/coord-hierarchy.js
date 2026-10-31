@@ -71,7 +71,7 @@ function sidebar(){
  return '<aside class="nova-coord-sidebar">'+
  '<div class="nova-coord-sidehead"><span>CONTROL OPERATIVO</span><strong>'+escape(roleTitle(active))+'</strong><small>'+escape(active.time)+' · '+workers.length+' trabajadores</small></div>'+
  '<div class="nova-coord-sidebody">'+
- '<div class="nova-coord-metrics">'+metrics.map(([label,count])=>'<div><b>'+count+'</b><span>'+label+'</span></div>').join('')+'</div>'+
+ '<div class="nova-coord-metrics">'+metrics.map(([label,count])=>'<div data-attendance-metric="'+(label==='PRESENTES'?'PRESENTE':label==='CONTACTADOS'?'CONTACTADO':label==='NO PRESENTADOS'?'NO PRESENTADO':'TOTAL')+'"><b>'+count+'</b><span>'+label+'</span></div>').join('')+'</div>'+
  '<button type="button" class="nova-coord-fold" data-nova-fold="attendance" aria-expanded="'+expandedCoordSections.attendance+'">Estado de asistencia <span>⌄</span></button>'+ (expandedCoordSections.attendance?
  '<div class="nova-coord-filters">'+
  filterButton('Todos','status','ALL')+
@@ -147,13 +147,14 @@ function edit(ids){
  const row=(id,label,val)=>'<label>'+label+'<input type="time" id="'+id+'" value="'+escape(val||'')+'"></label>';
  openDemoModal(multi?'Editar '+ids.length+' trabajadores':'Ficha de '+first.name,
  '<div class="nova-coord-edit-form"><div class="nova-locked-role"><strong>Categoría: '+escape(first.role)+'</strong><small>Categoría asignada · Cambios únicamente mediante incidencia</small></div><div class="basic-modal-grid">'+row('novaEditStart','Inicio',multi?'':first.start)+row('novaEditEnd','Fin',multi?'':first.end)+
- '<label>Estado<select id="novaEditStatus"><option value="">Mantener</option>'+statuses.map(v=>'<option value="'+v+'" '+(!multi&&v===first.status?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
+ '<label>Estado<select id="novaEditStatus" class="nova-status-select" data-status="'+(multi?'PENDIENTE':escape(first.status))+'"><option value="">Mantener</option>'+statuses.map(v=>'<option value="'+v+'" '+(!multi&&v===first.status?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Pausa<select id="novaEditPause"><option value="">Mantener</option>'+['00:00','01:00','02:00','03:00'].map(v=>'<option '+(!multi&&v===first.pause?'selected':'')+'>'+v+'</option>').join('')+'</select></label>'+
  '<label>Dietas<select id="novaEditDiet"><option value="">Mantener</option>'+['0','1','2','3'].map(n=>'<option value="'+n+'" '+(!multi&&String(first.diet)===(n==='0'?'No':n==='1'?'Sí':n)?'selected':'')+'>'+n+'</option>').join('')+'</select></label>'+
  '</div>'+ratingModalRows(first,multi)+
  '<button type="button" class="btn light" id="novaOpenIncident">Reportar incidencia</button>'+
  '</div><div class="crew-modal-actions"><button type="button" class="btn light" id="novaEditCancel">Cancelar</button><button type="button" class="btn primary" id="novaEditSubmit">Guardar cambios</button></div>');
  setTimeout(()=>{
+  el('novaEditStatus').addEventListener('change',e=>{e.target.dataset.status=e.target.value||'PENDIENTE'});
   el('novaEditCancel').onclick=()=>closeDemoModal();
   el('novaOpenIncident').onclick=()=>openIncident(multi?'':first.id);
   el('novaEditSubmit').onclick=async()=>{
