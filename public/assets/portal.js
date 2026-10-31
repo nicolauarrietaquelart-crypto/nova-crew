@@ -1220,11 +1220,14 @@ function enterApp(){
     if(box){box.textContent='No se pudo abrir el portal. Recarga y vuelve a intentarlo.';box.classList.add('show');}
   }
 }
-function logout(){
+async function logout(){
+  const reset=window.NOVA_API?.logout?.();
+  if(reset&&typeof reset.then==='function'){try{await reset}catch(error){console.warn('No se pudo reiniciar la demo:',error);}}
+  for(const key of Object.keys(localStorage)){if(/^(nova-|nova_|crew-)/i.test(key))localStorage.removeItem(key);}
   document.body.classList.remove('crew-mode');
   $('#appView')?.classList.add('hidden');
   $('#loginView')?.classList.remove('hidden');
-  $('#password').value=''; if(window.NOVA_API)window.NOVA_API.logout();
+  $('#password').value='';
   const sc=$('#mainScroller'); if(sc) sc.scrollTop=0;
 }
 
