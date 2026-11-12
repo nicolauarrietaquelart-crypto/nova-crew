@@ -14,9 +14,9 @@
   const qescape=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const userid=()=>window.novaActiveAccount||'demo';
   const coordinator=()=>userid()==='coord';
-  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord'};
+  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord',svc8:'coord'};
   // Mirror Cloudflare's demo canScan grants. Enforcement remains on the server.
-  const QR_SCAN_SERVICES={demo:['svc3','svc4','svc6','svc7'],coord:['svc1','svc2','svc4','svc7']};
+  const QR_SCAN_SERVICES={demo:['svc3','svc4','svc6','svc7'],coord:['svc1','svc2','svc4','svc7','svc8']};
   const isOwnCoord=s=>!!s&&OWNERS[s.id]===userid();
   const isCrewManager=s=>!!s&&(isOwnCoord(s)||(s.id==='svc4'&&userid()==='coord'));
   const canScanService=s=>!!s&&(QR_SCAN_SERVICES[userid()]||[]).includes(s.id);
