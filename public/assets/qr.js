@@ -95,7 +95,7 @@
     return bestService();
   }
   function info(record){
-    return `<div class="nova-qr-success"><strong>✓ ${qescape(record.workerName)} · ${record.direction==='salida'?'SALIDA':'PRESENTE'}</strong><div class="nova-qr-summary"><div><span>Servicio</span><b>${qescape(services.find(s=>s.id===record.serviceId)?.name||record.serviceId)}</b></div><div><span>Equipo / categoría</span><b>${qescape(record.team)} · ${qescape(record.category)}</b></div><div><span>Inicio / fin</span><b>${qescape(record.start)} – ${qescape(record.end)}</b></div><div><span>Confirmado por</span><b>${qescape(record.scannedBy)}</b></div></div><p class="nova-qr-hint">Fichaje registrado: ${new Date(record.time).toLocaleString('es-ES')}</p></div>`;
+    return `<div class="nova-qr-success"><strong>✓ ${qescape(record.workerName)} · ${record.direction==='salida'?'SALIDA':'PRESENTE'}</strong><div class="nova-qr-summary"><div><span>Servicio</span><b>${qescape(services.find(s=>s.id===record.serviceId)?.name||record.serviceId)}</b></div><div><span>Equipo / categoría</span><b>${qescape(record.team)} · ${qescape(record.category)}</b></div><div><span>Inicio / fin</span><b>${qescape(record.start)} – ${qescape(record.end)}</b></div><div><span>Confirmado por</span><b>${qescape(record.scannedBy)}</b></div><div><span>Hora de escaneo</span><b>${new Date(record.time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</b></div></div><p class="nova-qr-hint">QR escaneado correctamente · ${new Date(record.time).toLocaleString('es-ES')}</p></div>`;
   }
   function svgQR(text){
     const C=window.NOVA_QR_Encoder,L=window.NOVA_QR_Level;
@@ -168,11 +168,12 @@
     el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Sin coordinador asignado: elige QR si alguien autorizado va a escanearlo o geolocalización para registrar tu asistencia directamente (radio máximo 500 m).';
     const prior=lsRead(KEY_ATT,[]).filter(x=>x.workerId===userid()&&x.serviceId===s.id).at(-1);
     el('qrLatestStatus').textContent=prior?`Último fichaje: ${new Date(prior.time).toLocaleString('es-ES')}`:'';
+    if(!coordinator())refreshAttendance(s.id);
   }
   function issue(){
     const s=chosenService();el('qrDynamic').textContent='Generando código…';
     callBackend('novaIssueQr',[userid(),s.id],data=>{
-      activeToken=data.token;
+      activeToken=data.token;workerQrIssuedAt=Date.now();workerQrConfirmedKey='';
       const payload='NOVAQR:'+data.token;
       const qr=`<div class="nova-qr-codebox"><h4>${qescape(data.workerName)}</h4><p>${qescape(s.name)} · ${qescape(data.team||s.team)} · ${qescape(s.time)}</p>${svgQR(payload)}<span class="nova-qr-count" id="qrRemain">Válido 90 segundos</span><span class="nova-qr-code">${qescape(payload)}</span><button type="button" class="btn light" id="qrCopyToken">Copiar código para probar en otra pestaña</button></div>`;
       el('qrDynamic').innerHTML=qr;
@@ -341,17 +342,19 @@
     if(typeof saveBasicCoord==='function')saveBasicCoord();
     if(typeof renderBasicTeamRows==='function')renderBasicTeamRows();
   }
+  let workerQrIssuedAt=0;
+  let workerQrConfirmedKey='';
   function refreshAttendance(serviceId){
     callBackend('novaGetAttendance',[serviceId||''],rows=>{
       if(!Array.isArray(rows))return;
       for(const r of rows){if(r.status==='PRESENTE'||r.status==='SALIDA')applyAttendanceToCurrent(r)}
       if(!coordinator()){
-        const current=el('novaQrLastClock');const latest=rows.filter(x=>x.workerId==='demo').at(-1);
+        const current=el('novaQrLastClock');const latest=rows.filter(x=>x.workerId===userid()&&x.serviceId===(serviceId||chosenService().id)).at(-1);
         if(current&&latest)current.textContent=`Último fichaje: ${new Date(latest.time).toLocaleString('es-ES')} · ${latest.status}`;
-        if(latest&&activeToken&&latest.time){
+        if(latest&&activeToken&&latest.time&&new Date(latest.time).getTime()>=workerQrIssuedAt-2000){
           const box=el('qrDynamic');
           if(box && !overlay.classList.contains('hidden') && chosenService().id===latest.serviceId && !box.querySelector('.nova-qr-success')){
-            activeToken='';clearInterval(expiresTimer);box.innerHTML=info(latest);
+            activeToken='';workerQrConfirmedKey=latest.eventId||latest.time;clearInterval(expiresTimer);box.innerHTML=info(latest);
             const status=el('qrLatestStatus');if(status)status.textContent='Asistencia confirmada por coordinación.';
           }
         }
@@ -593,7 +596,7 @@
     setInterval(()=>{
       if((coordinator()||basicCoordState?.service?.assignedCoordinator)&&document.querySelector('#page-worker-coordination.page.active')&&basicCoordState?.service)refreshAttendance(basicCoordState.service.id);
       if(document.querySelector('#page-crew-control.page.active')&&crewState?.service)refreshAttendance(crewState.service.id);
-      else if(!coordinator()&&activeToken&&!overlay.classList.contains('hidden'))refreshAttendance(chosenService().id);
+      else if(!coordinator()&&!overlay.classList.contains('hidden')&&activeToken)refreshAttendance(chosenService().id);
     },5000);
     setInterval(()=>{if(window.NOVA_API)updateDemoWorkerFromServer();},12000);
   }
