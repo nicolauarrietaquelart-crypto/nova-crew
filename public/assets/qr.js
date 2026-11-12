@@ -168,7 +168,7 @@
     el('qrModeHint').textContent=own?'Eres el único coordinador del servicio. Puedes fichar tu propio turno sin añadir otro coordinador. Para el equipo, utiliza Escanear QR.':need?'Enseña tu QR al coordinador único del servicio. Cada código es de un solo uso y caduca en 90 segundos.':'Sin coordinador asignado: elige QR si alguien autorizado va a escanearlo o geolocalización para registrar tu asistencia directamente (radio máximo 500 m).';
     const prior=lsRead(KEY_ATT,[]).filter(x=>x.workerId===userid()&&x.serviceId===s.id).at(-1);
     el('qrLatestStatus').textContent=prior?`Último fichaje: ${new Date(prior.time).toLocaleString('es-ES')}`:'';
-    if(!coordinator())refreshAttendance(s.id);
+    refreshAttendance(s.id);
   }
   function issue(){
     const s=chosenService();el('qrDynamic').textContent='Generando código…';
@@ -348,7 +348,7 @@
     callBackend('novaGetAttendance',[serviceId||''],rows=>{
       if(!Array.isArray(rows))return;
       for(const r of rows){if(r.status==='PRESENTE'||r.status==='SALIDA')applyAttendanceToCurrent(r)}
-      if(!coordinator()){
+      if(true){
         const current=el('novaQrLastClock');const latest=rows.filter(x=>x.workerId===userid()&&x.serviceId===(serviceId||chosenService().id)).at(-1);
         if(current&&latest)current.textContent=`Último fichaje: ${new Date(latest.time).toLocaleString('es-ES')} · ${latest.status}`;
         if(latest&&activeToken&&latest.time&&new Date(latest.time).getTime()>=workerQrIssuedAt-2000){
@@ -597,7 +597,7 @@
     setInterval(()=>{
       if((coordinator()||basicCoordState?.service?.assignedCoordinator)&&document.querySelector('#page-worker-coordination.page.active')&&basicCoordState?.service)refreshAttendance(basicCoordState.service.id);
       if(document.querySelector('#page-crew-control.page.active')&&crewState?.service)refreshAttendance(crewState.service.id);
-      else if(!coordinator()&&!overlay.classList.contains('hidden')&&activeToken)refreshAttendance(chosenService().id);
+      else if(!overlay.classList.contains('hidden')&&activeToken)refreshAttendance(chosenService().id);
     },5000);
     setInterval(()=>{if(window.NOVA_API)updateDemoWorkerFromServer();},12000);
   }
