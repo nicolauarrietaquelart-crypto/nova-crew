@@ -14,9 +14,9 @@
   const qescape=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const userid=()=>window.novaActiveAccount||'demo';
   const coordinator=()=>userid()==='coord';
-  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord',svc8:'coord'};
+  const OWNERS={svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord',svc8:'coord',svc9:'demo'};
   // Mirror Cloudflare's demo canScan grants. Enforcement remains on the server.
-  const QR_SCAN_SERVICES={demo:['svc3','svc4','svc6','svc7'],coord:['svc1','svc2','svc4','svc7','svc8']};
+  const QR_SCAN_SERVICES={demo:['svc3','svc4','svc6','svc7','svc9'],coord:['svc1','svc2','svc4','svc7','svc8']};
   const isOwnCoord=s=>!!s&&OWNERS[s.id]===userid();
   const isCrewManager=s=>!!s&&(isOwnCoord(s)||(s.id==='svc4'&&userid()==='coord'));
   const canScanService=s=>!!s&&(QR_SCAN_SERVICES[userid()]||[]).includes(s.id);
@@ -85,7 +85,7 @@
   function coordinatorProfileName(){const p=lsRead('novaProfileCoordV11',{});return [p.firstName,p.lastName].filter(Boolean).join(' ')||p.name||'Álvaro Costa'}
   let serverDemoWorker=null;
   function displayWorkerName(){return coordinator()?coordinatorProfileName():latestDemoProfile().name;}
-  function issuableServicesFor(actor){return services.filter(s=>actor==='coord'?['svc1','svc2','svc3','svc4','svc7','svc8'].includes(s.id):true);}
+  function issuableServicesFor(actor){return services.filter(s=>actor==='coord'?['svc1','svc2','svc3','svc4','svc7','svc8','svc9'].includes(s.id):true);}
   function serviceHasCoordinator(s){return Boolean(s&&OWNERS[s.id])}
   function chosenService(){return services.find(s=>s.id===activeService)||services[0]}
   function bestService(){return services.filter(s=>new Date(s.endISO).getTime()>Date.now()).sort((a,b)=>new Date(a.startISO)-new Date(b.startISO))[0]||services[services.length-1]}
@@ -115,7 +115,7 @@
   window.NOVA_OPEN_ATTENDANCE_MENU=()=>openOverlay('menu');
   function closeOverlay(){stopCamera();clearInterval(expiresTimer);overlay.classList.add('hidden')}
   function scannableServices(){return services.filter(s=>isFuture(s)&&canScanService(s));}
-  function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4','svc7','svc8'].includes(s.id):true));}
+  function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4','svc7','svc8','svc9'].includes(s.id):true));}
   function renderModeSwitch(active){
     return `<div class="nova-qr-switch"><button type="button" class="btn ${active==='worker'?'primary':'light'}" id="qrSwitchWorker">Mostrar mi QR</button><button type="button" class="btn ${active==='scan'?'primary':'light'}" id="qrSwitchScan" ${scannableServices().length?'':'disabled'}>Escanear QR</button></div>`;
   }
@@ -541,6 +541,7 @@
       if(['svc1','svc2'].includes(s.id)){s.role=coordinator()?'COORDINADOR':s.id==='svc1'?'HAND B':'FORKLIFTER';s.team=coordinator()?'COORDINACIÓN':s.id==='svc1'?'STAGE':'LOGÍSTICA';}
       if(s.id==='svc4'){s.privilege='crew';s.role='CREW HEAD';s.team='OPERACIONES';}
       if(s.id==='svc5'){s.coordinator='';s.coordinatorPhone='';}
+      if(s.id==='svc9'){s.privilege=isOwnCoord(s)?'crew':'worker';s.role=isOwnCoord(s)?'COORDINADOR':'HAND';s.team=isOwnCoord(s)?'COORDINACIÓN':'STAGE';}
     }
     renderServices();renderHomeServices();renderCoordination();syncCoordPermissionsV9();updateHomeNextService();
   }
