@@ -4,8 +4,8 @@ import {handleCrewStore,handleSmallCoord} from './crew-store.mjs';
    No real staff, payroll or employment data should be used. */
 
 const DEMO_ACCOUNTS = {
-  demo: {password:'crew2026',assigned:['svc1','svc2','svc3','svc4','svc5','svc6','svc7'],canScan:['svc3','svc4','svc6','svc7']},
-  coord:{password:'coord2026',assigned:['svc1','svc2','svc3','svc4','svc7'],canScan:['svc1','svc2','svc4','svc7']}
+  demo: {password:'crew2026',assigned:['svc1','svc2','svc3','svc4','svc5','svc6','svc7','svc8'],canScan:['svc3','svc4','svc6','svc7']},
+  coord:{password:'coord2026',assigned:['svc1','svc2','svc3','svc4','svc7','svc8'],canScan:['svc1','svc2','svc4','svc7','svc8']}
 };
 const DEMO_SERVICES = {
   svc1:{name:'LUMEN LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'STAGE',start:'16:00',end:'23:30',coordinator:'coord'},
@@ -14,7 +14,8 @@ const DEMO_SERVICES = {
   svc4:{name:'ORBIT AWARDS 2026 · RECINTO ARENA',category:'CREW HEAD',team:'OPERACIONES',start:'06:30',end:'20:00',coordinator:'demo',crewHeads:['demo','coord']},
   svc5:{name:'ELECTRA LIVE · SANT JORDI HUB',category:'HAND A',team:'VÍDEO',start:'13:00',end:'23:00',coordinator:null},
   svc6:{name:'LUMINA BUSINESS · SALA CENTRAL',category:'HAND B',team:'GENERAL',start:'09:00',end:'16:00',coordinator:'demo'},
-  svc7:{name:'SPECTRUM LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'SFX',start:'07:00',end:'21:00',coordinator:'coord',crewHeads:['coord'],smallCoordinators:{SFX:'demo'}}
+  svc7:{name:'SPECTRUM LIVE · PALAU METROPOLITÀ',category:'HAND B',team:'SFX',start:'07:00',end:'21:00',coordinator:'coord',crewHeads:['coord'],smallCoordinators:{SFX:'demo'}},
+  svc8:{name:'DEMO FICHAJE QR · NÀPOLS / AUSIÀS MARC',category:'HAND',team:'STAGE',start:'21:00',end:'23:59',coordinator:'coord'}
 };
 const TTL_QR = 90_000;
 const TTL_SESSION = 8 * 3600_000;
