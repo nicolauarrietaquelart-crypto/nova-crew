@@ -350,8 +350,8 @@
       for(const r of rows){if(r.status==='PRESENTE'||r.status==='SALIDA')applyAttendanceToCurrent(r)}
       if(true){
         const current=el('novaQrLastClock');const latest=rows.filter(x=>x.workerId===userid()&&x.serviceId===(serviceId||chosenService().id)).at(-1);
-        if(current&&latest)current.textContent=`Último fichaje: ${new Date(latest.time).toLocaleString('es-ES')} · ${latest.status}`;
-        if(latest&&activeToken&&latest.time&&new Date(latest.time).getTime()>=workerQrIssuedAt-2000){
+        if(current&&latest)current.innerHTML=info(latest);
+        if(latest&&latest.time&&(!activeToken||new Date(latest.time).getTime()>=workerQrIssuedAt-2000)){
           const box=el('qrDynamic');
           if(box && !overlay.classList.contains('hidden') && chosenService().id===latest.serviceId && !box.querySelector('.nova-qr-success')){
             activeToken='';workerQrConfirmedKey=latest.eventId||latest.time;clearInterval(expiresTimer);box.innerHTML=info(latest);
@@ -597,7 +597,8 @@
     setInterval(()=>{
       if((coordinator()||basicCoordState?.service?.assignedCoordinator)&&document.querySelector('#page-worker-coordination.page.active')&&basicCoordState?.service)refreshAttendance(basicCoordState.service.id);
       if(document.querySelector('#page-crew-control.page.active')&&crewState?.service)refreshAttendance(crewState.service.id);
-      else if(!overlay.classList.contains('hidden')&&activeToken)refreshAttendance(chosenService().id);
+      if(!overlay.classList.contains('hidden')&&el('qrDynamic')&&el('qrServiceSelect'))refreshAttendance(chosenService().id);
+      if(document.querySelector('#page-clock.page.active'))refreshAttendance(activeService);
     },5000);
     setInterval(()=>{if(window.NOVA_API)updateDemoWorkerFromServer();},12000);
   }
