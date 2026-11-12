@@ -73,6 +73,14 @@ const services = [
     hands:1,crewHeads:0,forklifts:0,client:'Demo NOVA Crew',ref:'4212/26-DEMO',type:'PRUEBA FICHAJE QR',
     specialty:'HAND',coordinator:'Álvaro Costa',coordinatorPhone:'664 690 034',catering:'No',diet:'No',
     clothing:'Ropa negra',epi:'Guantes + botas + chaleco',access:'Cruce Nàpols / Ausiàs Marc'
+  },{
+    id:'svc9',code:'421209',name:'DEMO QR INVERSO · ESTACIÓ DEL NORD',date:'12/11/2026',short:'12 NOV',venue:'Estació del Nord',
+    address:'Carrer d’Alí Bei, 80 · Barcelona',coords:{lat:41.3949,lng:2.1824},
+    startISO:'2026-11-12T21:00:00+01:00',endISO:'2026-11-12T23:59:00+01:00',time:'21:00–23:59',call:'20:30',
+    role:'HAND',privilege:'basic',assignedCoordinator:true,coordinatorUserId:'demo',team:'STAGE',basicTeamSize:2,
+    hands:1,crewHeads:0,forklifts:0,client:'Demo NOVA Crew',ref:'4212/26-DEMO2',type:'PRUEBA FICHAJE QR INVERSO',
+    specialty:'HAND',coordinator:'Pau Ferrer',coordinatorPhone:'670 555 221',catering:'No',diet:'No',
+    clothing:'Ropa negra',epi:'Guantes + botas + chaleco',access:'Acceso Estació del Nord'
   }
 ];
 
@@ -193,7 +201,7 @@ const pageIds={
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const serviceById=id=>services.find(s=>s.id===id);
-const assignedServices=()=>services.filter(s=>new Date(s.endISO).getTime()>Date.now() && (window.novaActiveAccount==='coord'?['svc1','svc2','svc3','svc4','svc7','svc8'].includes(s.id):true));
+const assignedServices=()=>services.filter(s=>new Date(s.endISO).getTime()>Date.now() && (window.novaActiveAccount==='coord'?['svc1','svc2','svc3','svc4','svc7','svc8','svc9'].includes(s.id):true));
 
 function toast(title,text){
   $('#toastTitle').textContent=title;
