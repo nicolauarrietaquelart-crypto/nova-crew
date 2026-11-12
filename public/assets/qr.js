@@ -85,7 +85,7 @@
   function coordinatorProfileName(){const p=lsRead('novaProfileCoordV11',{});return [p.firstName,p.lastName].filter(Boolean).join(' ')||p.name||'Álvaro Costa'}
   let serverDemoWorker=null;
   function displayWorkerName(){return coordinator()?coordinatorProfileName():latestDemoProfile().name;}
-  function issuableServicesFor(actor){return services.filter(s=>actor==='coord'?['svc1','svc2','svc3'].includes(s.id):true);}
+  function issuableServicesFor(actor){return services.filter(s=>actor==='coord'?['svc1','svc2','svc3','svc4','svc7','svc8'].includes(s.id):true);}
   function serviceHasCoordinator(s){return Boolean(s&&OWNERS[s.id])}
   function chosenService(){return services.find(s=>s.id===activeService)||services[0]}
   function bestService(){return services.filter(s=>new Date(s.endISO).getTime()>Date.now()).sort((a,b)=>new Date(a.startISO)-new Date(b.startISO))[0]||services[services.length-1]}
@@ -115,7 +115,7 @@
   window.NOVA_OPEN_ATTENDANCE_MENU=()=>openOverlay('menu');
   function closeOverlay(){stopCamera();clearInterval(expiresTimer);overlay.classList.add('hidden')}
   function scannableServices(){return services.filter(s=>isFuture(s)&&canScanService(s));}
-  function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4'].includes(s.id):true));}
+  function issuableServices(){return services.filter(s=>isFuture(s)&&(coordinator()?['svc1','svc2','svc3','svc4','svc7','svc8'].includes(s.id):true));}
   function renderModeSwitch(active){
     return `<div class="nova-qr-switch"><button type="button" class="btn ${active==='worker'?'primary':'light'}" id="qrSwitchWorker">Mostrar mi QR</button><button type="button" class="btn ${active==='scan'?'primary':'light'}" id="qrSwitchScan" ${scannableServices().length?'':'disabled'}>Escanear QR</button></div>`;
   }
