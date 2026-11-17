@@ -32,7 +32,7 @@ const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoiceP
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
 async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services');if(actor.role==='coordinator')return new Set(services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id));const a=await rows(db,'assignments');return new Set(a.filter(a=>a.workerId===actor.workerId).map(a=>a.serviceId));}
 async function canService(db,actor,id){if(actor.role==='manager')return;const s=await scope(db,actor);if(!s.has(id))fail('No tienes acceso a ese servicio.',403);}
-function publicAssignment(a,actor){if(actor.role==='manager')return a;const {costRate,chargeRate,clientHours,billableHours,workerHours,minimumHours,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;return rest;}
+function publicAssignment(a,actor){if(actor.role==='manager')return a;const {costRate,chargeRate,baseCostRate,baseChargeRate,clientHours,billableHours,clientUnits,workerHours,workerUnits,minimumHours,incrementPercent,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;return rest;}
 async function view(db,actor){
  const serviceScope=await scope(db,actor);const allServices=await rows(db,'services');
  const services=allServices.filter(s=>!serviceScope||serviceScope.has(s.id)).map(s=>{if(actor.role==='manager')return s;const {clientId,notes,...safe}=s;return safe;});
@@ -57,7 +57,7 @@ async function saveEntity(db,actor,kind,b){
  let data;
  if(kind==='tariffs'){
     const id=required(b.id,'el código de tarifa'),base=STANDARD_TARIFFS.find(t=>t.id===id);
-    if(!/^[a-zA-Z0-9_-]{2,80}$/.test(id))fail('Código de tarifa incorrecto.');
+    if(!/^[a-zA-Z0-9_ -]{2,80}$/.test(id))fail('Código de tarifa incorrecto.');
     if(base?.source==='PW-BCN-2026'&&b.unit&&b.unit!==base.unit)fail('No cambies la unidad original; crea una tarifa personalizada.');
     const workerRate=b.workerRate===''||b.workerRate==null?null:number(b.workerRate,0,1e5);
     const clientRate=b.clientRate===''||b.clientRate==null?(workerRate==null?null:money(workerRate*2)):number(b.clientRate,0,1e6);
@@ -118,7 +118,7 @@ async function saveEntity(db,actor,kind,b){
    const effectiveCostRate=money(costRate*(1+supplement/100)),effectiveChargeRate=money(chargeRate*(1+supplement/100));
    const workerHours=noShow?0:Math.max(minimum,actualHours??hours),billableHours=noShow&&!noShowChargeApproved?0:Math.max(minimum,clientHours??hours);
    const workerUnits=tariff?.unit==='day'?(noShow?0:1):workerHours,clientUnits=tariff?.unit==='day'?(billableHours>0?1:0):billableHours;
-   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,workerUnits,clientUnits,rateUnit:tariff?.unit||'hour',noShow,noShowChargeApproved,categoryId:tariff?.id||text(b.categoryId),orderLineId:line?.id||'',incrementPercent:supplement,costRate:effectiveCostRate,chargeRate:effectiveChargeRate,settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
+   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,workerUnits,clientUnits,rateUnit:tariff?.unit||'hour',noShow,noShowChargeApproved,categoryId:tariff?.id||text(b.categoryId),orderLineId:line?.id||'',incrementPercent:supplement,baseCostRate:costRate,baseChargeRate:chargeRate,costRate:effectiveCostRate,chargeRate:effectiveChargeRate,settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
   if(old?.checkIn&&(data.workerId!==old.workerId||data.serviceId!==old.serviceId))fail('No se puede trasladar un fichaje a otra persona o servicio.',409);
  }
  if(kind==='invoices'||kind==='quotes'){
@@ -191,6 +191,11 @@ export function createOfficeApi(storage,env={}){
   const result=await storage.transaction(async db=>{
    const currentActor=await record(db,'users',actor.id);if(!currentActor.active||currentActor.version!==actor.version)fail('La sesión ha cambiado. Inicia sesión de nuevo.',401);
    if(op==='save')return {record:await saveEntity(db,actor,text(b.kind),b.record||{})};
+    if(op==='order-line-bulk'){
+     managerOnly(actor);const count=number(b.quantity,1,100),created=[];
+     for(let i=0;i<count;i++)created.push(await saveEntity(db,actor,'orderLines',b.record||{}));
+     return {records:created};
+    }
    if(op==='archive'){
     managerOnly(actor);const kind=text(b.kind);if(!['clients','workers','services','assignments','quotes','expenses','invoices','orderLines'].includes(kind))fail('Tipo incorrecto.');const r=await record(db,kind,b.id);revision(r,b);
     if(kind==='invoices'&&r.status!=='draft')fail('Una factura emitida no se puede eliminar ni archivar.',409);
