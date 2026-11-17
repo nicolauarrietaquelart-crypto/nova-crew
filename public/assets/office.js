@@ -54,6 +54,21 @@ function toolbar(rows){return `<div class="toolbar"><div class="searchbox">${ico
 function filtered(kind){return list(kind).filter(r=>!filter||r.status===filter||r.type===filter||(['workers','clients','users'].includes(kind)&&(r.active===false?'unavailable':'available')===filter)||(filter==='overdue'&&((kind==='invoices'&&r.status!=='draft'&&r.paid<r.total&&r.dueDate<day())||(kind==='documents'&&r.expires&&r.expires<day())))).filter(r=>!query||[...Object.values(r).filter(v=>typeof v==='string'),name('clients',r.clientId),name('workers',r.workerId),name('services',r.serviceId)].join(' ').toLowerCase().includes(query.toLowerCase()));}
 function rowActions(r,kind){return `<div class="row-actions">${action('view','Ver detalle',r.id,kind)}${manager()&&(!['invoices','quotes'].includes(kind)||r.status==='draft')?action('edit','Editar',r.id,kind,'edit'):''}</div>`;}
 function table(headers,rows){return `<div class="panel"><div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`;}
+
+function ordersPage(){
+ const slots=list('orderLines'),assigned=list('assignments');
+ $('#page-actions').innerHTML=button('new','Nueva plaza','plus','data-kind="orderLines"')+button('new','Nueva comanda','plus','data-kind="services"','');
+ $('#content').innerHTML='<div class="notice">Cada fila es una plaza individual de una petición. Puede quedar sin cubrir y asignarse después. Los importes de categorías pendientes deben configurarse antes de facturar.</div>'+table(['Servicio','Día / Turno','Categoría / Tipo','Trabajador','Acciones'],slots.filter(l=>l.status!=='cancelled').map(l=>{
+ const a=assigned.find(a=>a.orderLineId===l.id&&!a.archived);
+ return '<tr><td><strong>'+esc(name('services',l.serviceId))+'</strong></td><td>'+esc(l.date)+' '+esc(l.start)+'–'+esc(l.end)+'</td><td>'+esc(l.role)+'<small>'+esc(l.serviceType)+' · '+esc(l.team)+'</small></td><td>'+(a?esc(name('workers',a.workerId)):'<strong>Por cubrir</strong>')+'</td><td><div class="row-actions">'+(a?action('view','Ver trabajador',a.id,'assignments'):button('assign-slot','Asignar trabajador','plus','data-id="'+esc(l.id)+'"',''))+action('edit','Editar plaza',l.id,'orderLines','edit')+'</div></td></tr>';
+ })).join(''));
+}
+function closedPage(){
+ const services=list('services').filter(s=>['completed','cancelled'].includes(s.status)).sort((a,b)=>b.date.localeCompare(a.date));
+ $('#page-actions').innerHTML='';
+ $('#content').innerHTML=table(['Servicio','Cliente','Fecha','Liquidación','Facturas',''],services.map(s=>'<tr><td><strong>'+esc(s.name)+'</strong></td><td>'+esc(name('clients',s.clientId))+'</td><td>'+esc(s.date)+'</td><td>'+(s.settlementStatus==='confirmed'?'Confirmada · '+euro(s.settlementCost):'Pendiente')+'</td><td>'+list('invoices').filter(i=>i.serviceId===s.id).length+'</td><td>'+action('view','Ver servicio',s.id,'services')+'</td></tr>').join(''));
+}
+
 function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c.map(s=>`<td>${s}</td>`).join('')}</tr>`;
  if(page==='tariffs')html=table(['Categoría','Grupo / Unidad','Pago bruto','Cliente','Mínimo',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.id)}</small>`,esc(r.group)+'<small>'+esc(r.unit==='day'?'Por show/día':'Por hora')+'</small>',r.workerRate==null?'Pendiente':euro(r.workerRate),r.clientRate==null?'Pendiente':euro(r.clientRate),r.minHours+' h',action('edit','Modificar tarifa',r.id,'tariffs','edit')])));
   if(['clients','workers'].includes(page))html=table([page==='workers'?'Trabajador':'Cliente','Contacto',page==='workers'?'Especialidad':'NIF','Estado',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.email)}</small>`,esc(r.phone||'—'),esc(page==='workers'?r.specialty:r.taxId),badge(r.active===false?'unavailable':'available'),rowActions(r,page)])));
@@ -79,9 +94,18 @@ function editor(kind,id='',preset={}){
  if(kind==='documents')fields=field('file','Archivo PDF, PNG o JPEG (máximo 5 MB)','','file','required accept=".pdf,.png,.jpg,.jpeg"',true)+select('workerId','Trabajador (puede descargarlo)',list('workers'),r.workerId)+select('clientId','Cliente',list('clients'),r.clientId)+select('serviceId','Servicio',list('services'),r.serviceId)+select('type','Tipo',[{id:'contract',name:'Contrato de trabajo'},{id:'identity',name:'Identificación'},{id:'training',name:'Formación / PRL'},{id:'medical',name:'Reconocimiento / aptitud'},{id:'other',name:'Otro documento'}],r.type||'contract')+field('expires','Fecha de caducidad (opcional)',r.expires,'date')+notes(r.notes);
  const names={tariffs:'tarifa',orderLines:'plaza',clients:'cliente',workers:'trabajador',services:'servicio',assignments:'asignación',invoices:'factura',quotes:'presupuesto',expenses:'gasto',users:'usuario',documents:'documento'};
  modal(`${id?'Editar':'Nuevo'} ${names[kind]}`,formWrap(fields));
+ if(kind==='orderLines'){
+  const applyOrderService=()=>{const sv=find('services',$('[name=serviceId]').value);if(sv)for(const k of ['date','start','endDate','end'])$('[name='+k+']').value=sv[k];};
+  $('[name=serviceId]').onchange=applyOrderService;if(!id&&r.serviceId)applyOrderService();
+ }
  if(kind==='assignments'){
  const applyService=()=>{const s=find('services',$('[name=serviceId]').value);if(!s)return;for(const k of ['date','start','endDate','end'])$(`[name=${k}]`).value=s[k];};
- $('[name=serviceId]').onchange=applyService;if(!id&&r.serviceId)applyService();$('[name=workerId]').onchange=()=>{const w=find('workers',$('[name=workerId]').value);if(w){$('[name=role]').value=w.specialty||'';$('[name=costRate]').value=w.costRate||0;$('[name=chargeRate]').value=(Number(w.costRate)||0)*2;}};
+ $('[name=serviceId]').onchange=applyService;if(!id&&r.serviceId&&!r.orderLineId)applyService();
+ const applyTariff=()=>{const t=find('tariffs',$('[name=categoryId]').value);if(!t)return;$('[name=role]').value=t.name;$('[name=costRate]').value=t.workerRate??'';$('[name=chargeRate]').value=t.clientRate??'';$('[name=incrementPercent]').value=t.incrementPercent??0;};
+ $('[name=categoryId]').onchange=applyTariff;
+ const applyLine=()=>{const l=find('orderLines',$('[name=orderLineId]').value);if(!l)return;$('[name=serviceId]').value=l.serviceId;$('[name=categoryId]').value=l.categoryId;for(const k of ['date','start','endDate','end','pause'])$('[name='+k+']').value=l[k];$('[name=team]').value=l.team||'';applyTariff();$('[name=role]').value=l.role;};
+ $('[name=orderLineId]').onchange=applyLine;if(!id&&r.orderLineId)applyLine();
+ $('[name=workerId]').onchange=()=>{const w=find('workers',$('[name=workerId]').value);if(w){if(!$('[name=categoryId]').value){$('[name=role]').value=w.specialty||'';$('[name=costRate]').value=w.costRate||0;$('[name=chargeRate]').value=(Number(w.costRate)||0)*2;}}};
  }
  if(['invoices','quotes'].includes(kind))lineTotal();
  formHandler(async (input,f)=>{
