@@ -16,7 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Backend and coordination regression tests
+      - name: Check JavaScript syntax
+        run: npm run check
+      - name: Backend, permissions and business regression tests
         run: npm test
   deploy:
     needs: test
@@ -38,6 +40,13 @@ jobs:
             exit 1
           fi
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Deploy NOVA Crew to Cloudflare
         run: npm run deploy
+      - name: Configure initial manager setup key (when provided)
+        env:
+          NOVA_SETUP_TOKEN: ${{ secrets.NOVA_SETUP_TOKEN }}
+        run: |
+          if [ -n "$NOVA_SETUP_TOKEN" ]; then
+            printf '%s' "$NOVA_SETUP_TOKEN" | npx wrangler secret put NOVA_SETUP_TOKEN
+          fi

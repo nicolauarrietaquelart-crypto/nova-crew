@@ -1,3 +1,5 @@
+import {OfficeState} from './office.mjs';
+export {OfficeState};
 import {handleCrewStore,handleSmallCoord} from './crew-store.mjs';
 /* NOVA Crew v14 — Cloudflare Workers + SQLite Durable Object.
    DEMONSTRATION ONLY. Credentials are public demo credentials.
@@ -263,11 +265,26 @@ export class DemoState {
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
-    if(url.pathname==='/api'){
+    let response;
+    if(url.pathname.startsWith('/api/office/')){
+      if(!env.OFFICE_STATE)return bad('Almacenamiento de gestión no configurado.',503);
+      response=await env.OFFICE_STATE.get(env.OFFICE_STATE.idFromName('nova-office-production-v1')).fetch(request);
+    }else if(url.pathname==='/api'){
+      // Public, hardcoded demo accounts cannot access operational data.
+      if(env.ENABLE_LEGACY_DEMO!=='true')return bad('El acceso de demostración está desactivado. Accede al nuevo portal NOVA Crew.',410);
       if(!env.NOVA_STATE)return bad('Almacenamiento no configurado.',503);
-      const id=env.NOVA_STATE.idFromName('nova-crew-v14-demo-shared');
-      return env.NOVA_STATE.get(id).fetch(request);
+      response=await env.NOVA_STATE.get(env.NOVA_STATE.idFromName('nova-crew-v14-demo-shared')).fetch(request);
+    }else{
+      response=await env.ASSETS.fetch(request);
     }
-    return env.ASSETS.fetch(request);
+    const safe=new Response(response.body,response);
+    safe.headers.set('X-Content-Type-Options','nosniff');
+    safe.headers.set('X-Frame-Options','DENY');
+    safe.headers.set('Referrer-Policy','same-origin');
+    safe.headers.set('Permissions-Policy','camera=(self), geolocation=(self), microphone=()');
+    safe.headers.set('Strict-Transport-Security','max-age=31536000');
+    safe.headers.set('Cache-Control','no-store');
+    safe.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
+    return safe;
   }
 };
