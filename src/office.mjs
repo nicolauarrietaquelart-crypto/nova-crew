@@ -238,7 +238,7 @@ export function createOfficeApi(storage,env={}){
     if(op==='invoice-from-service'){
     managerOnly(actor);const service=await record(db,'services',b.serviceId);if(service.archived||service.status==='cancelled')fail('Servicio inactivo.');
     if((await rows(db,'invoices')).some(i=>i.serviceId===service.id&&!i.archived))fail('Este servicio ya tiene una factura o borrador.',409);
-    const assignments=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&a.billableHours>0&&(a.status!=='rejected'||a.noShowChargeApproved));if(!assignments.length)fail('El servicio no tiene personal asignado.');
+    const assignments=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&(a.billableHours??a.hours)>0&&(a.status!=='rejected'||a.noShowChargeApproved));if(!assignments.length)fail('El servicio no tiene personal asignado.');
     const config=await settings(db),workers=await rows(db,'workers'),lines=assignments.map(a=>({description:`${service.name} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'} · ${a.role}${a.noShow?' · Cancelación pactada (no presentado)':''}`,quantity:a.billableHours??a.hours,price:a.chargeRate,vat:config.vat}));
     const day=now().slice(0,10),due=new Date(Date.parse(day+'T12:00:00Z')+config.paymentDays*86400000).toISOString().slice(0,10);return {record:await saveEntity(db,actor,'invoices',{clientId:service.clientId,serviceId:service.id,date:day,dueDate:due,lines})};
    }
