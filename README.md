@@ -44,6 +44,21 @@ No hay credenciales de gestor predeterminadas ni registro público. La recuperac
 - Las antiguas cuentas públicas `demo` y `coord` no funcionan en el portal operativo. `/api` responde 410 por defecto. El HTML antiguo se conserva como `legacy-demo.html`; solo una configuración explícita `ENABLE_LEGACY_DEMO=true` reactiva su backend ficticio, siempre aislado de los registros operativos.
 - Documentos servidos como descarga, con autenticación y sin URLs públicas. No almacenar secretos ni contratos en el repositorio GitHub, que es público.
 
+
+## Gestoría y liquidaciones (propuesta v17)
+
+Esta funcionalidad se desarrolla en la rama `feature/gestoria-liquidaciones-20261117` y no debe desplegarse hasta pasar pruebas de regresión en Cloudflare.
+
+- **Comandas / peticiones:** cada servicio puede tener plazas individuales (`orderLines`) con categoría, tipo de servicio, equipo, día, horario y pausa. Una plaza puede quedar vacante. Creación masiva de 1 a 100 plazas, con un identificador distinto por plaza. Las asignaciones de trabajadores pueden vincularse a una plaza.
+- **Tarifas:** catálogo inicial de 41 conceptos del tarifario aportado «Tarifario trabajadores Temporales PW BCN 2026», incluyendo categorías operativas específicas. Los importes del PDF son *brutos*, no costes laborales completos. Se mantienen los importes expresados por hora y por show/día, con tarifa cliente inicial al doble del precio bruto y cambios configurables.
+- **Categorías operativas:** HAND B mínimo 5 h; HAND A 3 h; HAND M 4 h; CREW HEAD identificado como Coordinador/a de Personal (6 h, 14,40 € brutos); FORKLIFTER identificado con Operador/a Carretilla Elevadora (5 h, 10,80 € brutos). El PDF **no identifica salarios para HAND A, HAND B, HAND C1 y HAND M**; sus precios de la categoría operativa empiezan sin configurar, no con un valor ficticio. La categoría general Hand/Montador/a mantiene 4 h y 9,30 €/h.
+- **Excepciones:** Hand/Montador/a tiene mínimo de 3 h en Palau de la Música, Bikini, Apolo y Razzmatazz 2 y 3. La excepción del PDF sobre dos servicios de 3 h en una misma jornada requiere comprobación contextual y no se automatiza.
+- **Operación real:** horas reales y coste bruto del trabajador distintos de horas y tarifa facturable al cliente. Un no presentado deja coste cero; un cargo de cancelación al cliente requiere declaración explícita y referencia contractual en observaciones. No presentar trabajos inexistentes como horas efectivamente trabajadas.
+- **Cierre y facturación:** aprobación de liquidaciones después de completar el servicio y cerrar fichajes, bloqueo de nuevos cambios ordinarios una vez liquidado y protección de servicios con facturas emitidas. El presupuesto se puede preparar desde la comanda (plazas aunque estén vacantes) y la factura desde las asignaciones facturables. Nunca se emiten documentos automáticamente.
+- **Nuevas pantallas:** Gestoría · Comandas, Servicios cerrados y Tarifas. El área de trabajadores sigue separada de la información comercial.
+
+**Limitaciones:** No hay todavía rectificativas legales, cálculos de coste de Seguridad Social a cargo de empresa, recargos automáticos de convenio, verificación automática de la excepción de dos turnos de 3 h, integración bancaria ni generación tributaria certificada. Antes de producción, ejecutar `npm run check && npm test`, revisar una copia de datos reales y verificar compatibilidad con la configuración del Worker.
+
 ## Alcance actual
 
 Es una primera versión operativa, no una suite laboral/contable completa. No incorpora nóminas, firma electrónica, integración con la Seguridad Social o sistemas tributarios, facturación electrónica certificada, rectificativas, envío automático de correos, conciliación bancaria, restauración de backups o migración automática de registros de la antigua demo/Crew Control. La emisión interna no acredita cumplimiento de un régimen fiscal concreto.
