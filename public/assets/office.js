@@ -61,12 +61,12 @@ function ordersPage(){
  $('#content').innerHTML='<div class="notice">Cada fila es una plaza individual de una petición. Puede quedar sin cubrir y asignarse después. Los importes de categorías pendientes deben configurarse antes de facturar.</div>'+table(['Servicio','Día / Turno','Categoría / Tipo','Trabajador','Acciones'],slots.filter(l=>l.status!=='cancelled').map(l=>{
  const a=assigned.find(a=>a.orderLineId===l.id&&!a.archived);
  return '<tr><td><strong>'+esc(name('services',l.serviceId))+'</strong></td><td>'+esc(l.date)+' '+esc(l.start)+'–'+esc(l.end)+'</td><td>'+esc(l.role)+'<small>'+esc(l.serviceType)+' · '+esc(l.team)+'</small></td><td>'+(a?esc(name('workers',a.workerId)):'<strong>Por cubrir</strong>')+'</td><td><div class="row-actions">'+(a?action('view','Ver trabajador',a.id,'assignments'):button('assign-slot','Asignar trabajador','plus','data-id="'+esc(l.id)+'"',''))+action('edit','Editar plaza',l.id,'orderLines','edit')+'</div></td></tr>';
- })).join(''));
+ }));
 }
 function closedPage(){
  const services=list('services').filter(s=>['completed','cancelled'].includes(s.status)).sort((a,b)=>b.date.localeCompare(a.date));
  $('#page-actions').innerHTML='';
- $('#content').innerHTML=table(['Servicio','Cliente','Fecha','Liquidación','Facturas',''],services.map(s=>'<tr><td><strong>'+esc(s.name)+'</strong></td><td>'+esc(name('clients',s.clientId))+'</td><td>'+esc(s.date)+'</td><td>'+(s.settlementStatus==='confirmed'?'Confirmada · '+euro(s.settlementCost):'Pendiente')+'</td><td>'+list('invoices').filter(i=>i.serviceId===s.id).length+'</td><td>'+action('view','Ver servicio',s.id,'services')+'</td></tr>').join(''));
+ $('#content').innerHTML=table(['Servicio','Cliente','Fecha','Liquidación','Facturas',''],services.map(s=>'<tr><td><strong>'+esc(s.name)+'</strong></td><td>'+esc(name('clients',s.clientId))+'</td><td>'+esc(s.date)+'</td><td>'+(s.settlementStatus==='confirmed'?'Confirmada · '+euro(s.settlementCost):'Pendiente')+'</td><td>'+list('invoices').filter(i=>i.serviceId===s.id).length+'</td><td>'+action('view','Ver servicio',s.id,'services')+'</td></tr>'));
 }
 
 function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c.map(s=>`<td>${s}</td>`).join('')}</tr>`;
