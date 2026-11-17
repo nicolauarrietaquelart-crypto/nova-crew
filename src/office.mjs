@@ -11,6 +11,7 @@ const fail = (s,code=400) => {throw Object.assign(new Error(s),{status:code});};
 const required = (s,label) => {if(!text(s))fail(`Falta ${label}.`);return text(s);};
 const number = (v,min=0,max=1e8) => {const n=Number(v??0);if(!Number.isFinite(n)||n<min||n>max)fail('Importe o cantidad incorrectos.');return n;};
 const money = n => Math.round((n+Number.EPSILON)*100)/100;
+const categoryMinimum = role => ({'HAND B':5,'HAND A':3,'HAND M':4})[text(role).toUpperCase().replace(/\s+/g,' ')]||0;
 const date = s => {const d=text(s,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||Number.isNaN(Date.parse(d+'T12:00:00Z'))||new Date(d+'T12:00:00Z').toISOString().slice(0,10)!==d)fail('Fecha incorrecta.');return d;};
 const time = s => {if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))fail('Hora incorrecta.');return s;};
 const cleanUser = u => {const {passwordHash,salt,iterations,...safe}=u;return safe;};
@@ -49,7 +50,7 @@ function personInput(b){return {name:required(b.name,'el nombre'),taxId:text(b.t
 async function saveEntity(db,actor,kind,b){
  managerOnly(actor);if(!['clients','workers','services','assignments','invoices','quotes','expenses'].includes(kind))fail('Tipo de registro incorrecto.');
  const old=b.id?await record(db,kind,text(b.id)):null;revision(old,b);
- if(old?.archived)fail('El registro está archivado.',409);
+ if(old?.archived)fail('El registro está archivado.',409);if(kind==='services'&&old?.settlementStatus==='confirmed'&&b.status!=='completed')fail('No se puede reabrir un servicio liquidado.',409);
  let data;
  if(kind==='clients')data={...personInput(b),contact:text(b.contact),paymentDays:number(b.paymentDays??30,0,365)};
  if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency)};
@@ -64,7 +65,7 @@ async function saveEntity(db,actor,kind,b){
  if(kind==='assignments'){
   const service=await record(db,'services',required(b.serviceId,'el servicio')),worker=await record(db,'workers',required(b.workerId,'el trabajador'));
   if(service.archived||service.status==='cancelled'||!worker.active||worker.archived)fail('Servicio o trabajador inactivo.');
-  const all=await rows(db,'assignments');if(all.some(a=>a.id!==old?.id&&!a.archived&&a.serviceId===service.id&&a.workerId===worker.id))fail('El trabajador ya está asignado a este servicio.',409);
+  const all=await rows(db,'assignments');
   const startDate=date(b.date||service.date);if(worker.endDate&&worker.endDate<startDate)fail('El contrato del trabajador finaliza antes del servicio.');if(worker.startDate&&worker.startDate>startDate)fail('El trabajador aún no está dado de alta en esa fecha.');const unavailable=(await rows(db,'availability')).find(a=>a.workerId===worker.id&&a.date>=startDate&&a.date<=(b.endDate||service.endDate)&&a.status==='unavailable');if(unavailable)fail('El trabajador ha indicado que no está disponible el '+unavailable.date+'.',409);
   const endDate=date(b.endDate||service.endDate),start=time(b.start||service.start),end=time(b.end||service.end),from=Date.parse(startDate+'T'+start+':00Z'),to=Date.parse(endDate+'T'+end+':00Z');
   if(to<=from)fail('El horario de fin debe ser posterior al inicio.');
@@ -73,7 +74,14 @@ async function saveEntity(db,actor,kind,b){
    const other=await db.get(key('services',a.serviceId));if(other?.status==='cancelled'||other?.archived)continue;
    if(from<Date.parse(a.endDate+'T'+a.end+':00Z')&&to>Date.parse(a.date+'T'+a.start+':00Z'))fail('Este trabajador ya tiene otro servicio en ese horario.',409);
   }
-  data={serviceId:service.id,workerId:worker.id,role:text(b.role)||worker.specialty,team:text(b.team),date:startDate,endDate,start,end,pause,hours,costRate:number(b.costRate??worker.costRate),chargeRate:number(b.chargeRate),status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
+  const role=text(b.role)||worker.specialty,minimum=categoryMinimum(role);
+   if(old?.settlementStatus==='confirmed')fail('Liquidación confirmada: no se pueden cambiar sus importes.',409);
+   const actualHours=b.actualHours===''||b.actualHours==null?(old?.actualHours??null):number(b.actualHours,0,744);
+   const clientHours=b.clientHours===''||b.clientHours==null?(old?.clientHours??null):number(b.clientHours,0,744);
+   const noShow=b.noShow===true||b.noShow==='true';
+   const costRate=number(b.costRate??worker.costRate),chargeRate=number(b.chargeRate===''||b.chargeRate==null?costRate*2:b.chargeRate);
+   const workerHours=noShow?0:Math.max(minimum,actualHours??hours),billableHours=Math.max(minimum,clientHours??hours);
+   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,noShow,costRate,chargeRate,settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
   if(old?.checkIn&&(data.workerId!==old.workerId||data.serviceId!==old.serviceId))fail('No se puede trasladar un fichaje a otra persona o servicio.',409);
  }
  if(kind==='invoices'||kind==='quotes'){
@@ -217,11 +225,21 @@ export function createOfficeApi(storage,env={}){
    if(op==='availability'){
     const workerId=actor.role==='manager'?b.workerId:actor.workerId;if(!workerId)fail('Tu cuenta no está vinculada a un trabajador.');await record(db,'workers',workerId);const day=date(b.date),id=workerId+'_'+day;const old=await db.get(key('availability',id));revision(old,b);const status=b.status;if(!['available','unavailable'].includes(status))fail('Disponibilidad incorrecta.');await db.put(key('availability',id),{id,workerId,date:day,status,notes:text(b.notes,500),revision:(old?.revision||0)+1,updatedAt:now()});await audit(db,actor,'availability','availability',id);return {};
    }
-   if(op==='invoice-from-service'){
+   if(op==='settlement-confirm'){
+     managerOnly(actor);const s=await record(db,'services',b.serviceId);revision(s,b);
+     if(s.status!=='completed'||s.settlementStatus==='confirmed')fail('Finaliza el servicio y revisa que no esté liquidado.',409);
+     const aa=(await rows(db,'assignments')).filter(a=>a.serviceId===s.id&&!a.archived);
+     if(!aa.length)fail('No hay personal para liquidar.');
+     const stamp=now(),cost=money(aa.reduce((n,a)=>n+(a.workerHours??a.hours)*a.costRate,0)),revenue=money(aa.reduce((n,a)=>n+(a.billableHours??a.hours)*a.chargeRate,0));
+     for(const a of aa)await db.put(key('assignments',a.id),{...a,settlementStatus:'confirmed',settledAt:stamp,revision:a.revision+1,updatedAt:stamp});
+     await db.put(key('services',s.id),{...s,settlementStatus:'confirmed',settledAt:stamp,settlementCost:cost,settlementRevenue:revenue,revision:s.revision+1,updatedAt:stamp});
+     await audit(db,actor,'settlement-confirm','services',s.id);return {cost,revenue,margin:money(revenue-cost)};
+    }
+    if(op==='invoice-from-service'){
     managerOnly(actor);const service=await record(db,'services',b.serviceId);if(service.archived||service.status==='cancelled')fail('Servicio inactivo.');
     if((await rows(db,'invoices')).some(i=>i.serviceId===service.id&&!i.archived))fail('Este servicio ya tiene una factura o borrador.',409);
-    const assignments=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&a.status!=='rejected');if(!assignments.length)fail('El servicio no tiene personal asignado.');
-    const config=await settings(db),workers=await rows(db,'workers'),lines=assignments.map(a=>({description:`${service.name} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'} · ${a.role}`,quantity:a.hours,price:a.chargeRate,vat:config.vat}));
+    const assignments=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&(a.status!=='rejected'||a.noShow));if(!assignments.length)fail('El servicio no tiene personal asignado.');
+    const config=await settings(db),workers=await rows(db,'workers'),lines=assignments.map(a=>({description:`${service.name} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'} · ${a.role}`,quantity:a.billableHours??a.hours,price:a.chargeRate,vat:config.vat}));
     const day=now().slice(0,10),due=new Date(Date.parse(day+'T12:00:00Z')+config.paymentDays*86400000).toISOString().slice(0,10);return {record:await saveEntity(db,actor,'invoices',{clientId:service.clientId,serviceId:service.id,date:day,dueDate:due,lines})};
    }
    if(op==='issue'){
