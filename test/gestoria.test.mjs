@@ -74,3 +74,29 @@ test('confirmed settlement locks further edits',async()=>{
  const denied=await f.call('save',{kind:'assignments',record:{...a,clientHours:10}});
  assert.equal(denied.status,409);
 });
+
+test('quotation from comanda uses two-times customer tariff and hour minimum',async()=>{
+ const f=await setup();
+ const slot=await f.save('orderLines',{serviceId:f.service.id,categoryId:'hand-montador',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',serviceType:'LOAD IN'});
+ assert.equal(slot.categoryId,'hand-montador');
+ const quote=await f.call('quote-from-order',{serviceId:f.service.id});
+ assert.equal(quote.status,200,JSON.stringify(quote.body));
+ assert.equal(quote.body.record.lines[0].quantity,4);
+ assert.equal(quote.body.record.lines[0].price,18.6);
+});
+test('editing an increased rate does not multiply the increment a second time',async()=>{
+ const f=await setup();
+ const a=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,role:'HAND B',costRate:10,chargeRate:20,incrementPercent:25});
+ assert.equal(a.costRate,12.5);
+ assert.equal(a.chargeRate,25);
+ const edited=await f.save('assignments',{...a,costRate:a.baseCostRate,chargeRate:a.baseChargeRate});
+ assert.equal(edited.costRate,12.5);
+ assert.equal(edited.chargeRate,25);
+});
+test('Hand Montador minimum falls to three hours at Palau de la Música',async()=>{
+ const f=await setup();
+ const venue=await f.save('services',{...f.service,venue:'Palau de la Música Barcelona'});
+ const assignment=await f.save('assignments',{serviceId:venue.id,workerId:f.worker.id,categoryId:'hand-montador',costRate:9.30,chargeRate:18.60});
+ assert.equal(assignment.minimumHours,3);
+ assert.equal(assignment.workerHours,3);
+});
