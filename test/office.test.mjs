@@ -38,3 +38,8 @@ test('accepted quotes convert once to an editable invoice draft',async()=>{
  const f=await fixture(),s=await seed(f);await f.call('settings',{record:{name:'NOVA',taxId:'B00000000',address:'Barcelona',invoicePrefix:'NOVA',vat:21,paymentDays:30}});
  const q=await save(f,'quotes',{clientId:s.client.id,date:day(),dueDate:day(),lines:[{description:'Crew',quantity:4,price:100,vat:21}]});assert.equal((await f.call('issue',{kind:'quotes',id:q.id,revision:1})).status,200);assert.equal((await f.call('quote-status',{id:q.id,revision:2,status:'accepted'})).status,200);const created=await f.call('quote-invoice',{id:q.id});assert.equal(created.status,200);assert.equal(created.data.record.status,'draft');assert.equal(created.data.record.total,484);assert.equal((await f.call('quote-invoice',{id:q.id})).status,409);
 });
+test('setup diagnostics distinguish missing, short and usable keys without exposing their values',async()=>{
+ for(const [value,state] of [['','missing'],['short-private-key','too_short'],[setupToken,'ready']]){
+  const api=createOfficeApi(storage(),{NOVA_SETUP_TOKEN:value});const r=await api(new Request('https://nova.test/api/office/status'));const body=await r.json();assert.equal(body.setupState,state);assert.equal(body.setupAvailable,state==='ready');assert.equal(body.configured,false);if(value)assert.equal(JSON.stringify(body).includes(value),false);
+ }
+});

@@ -103,7 +103,7 @@ export function createOfficeApi(storage,env={}){
    if(!(req.headers.get('content-type')||'').startsWith('application/json'))fail('Se requiere JSON.',415);
    if(Number(req.headers.get('content-length'))>7500000)fail('El archivo supera el tamaño permitido.',413);
   }
-  if(op==='status'&&req.method==='GET')return reply({ok:true,configured:Boolean(await storage.get('office/initialized')),setupAvailable:Boolean(env.NOVA_SETUP_TOKEN&&env.NOVA_SETUP_TOKEN.length>=24)});
+  if(op==='status'&&req.method==='GET')return reply({ok:true,configured:Boolean(await storage.get('office/initialized')),setupAvailable:Boolean(env.NOVA_SETUP_TOKEN&&env.NOVA_SETUP_TOKEN.length>=24),setupState:!env.NOVA_SETUP_TOKEN?'missing':env.NOVA_SETUP_TOKEN.length<24?'too_short':'ready'});
   const raw=req.method==='POST'?await req.text():'';if(raw.length>7500000)fail('Petición demasiado grande.',413);let b={};if(raw){try{b=JSON.parse(raw);}catch{fail('JSON incorrecto.');}}
   const ip=req.headers.get('cf-connecting-ip')||'local';
   if(op==='setup'||op==='login'){

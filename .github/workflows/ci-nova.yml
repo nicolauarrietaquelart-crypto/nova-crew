@@ -41,12 +41,16 @@ jobs:
           fi
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Deploy NOVA Crew to Cloudflare
-        run: npm run deploy
       - name: Configure initial manager setup key (when provided)
         env:
           NOVA_SETUP_TOKEN: ${{ secrets.NOVA_SETUP_TOKEN }}
         run: |
           if [ -n "$NOVA_SETUP_TOKEN" ]; then
+            if [ "${#NOVA_SETUP_TOKEN}" -lt 24 ]; then
+              echo "::error::NOVA_SETUP_TOKEN exists but is shorter than 24 characters. Update its value in Repository secrets; the value is never printed."
+              exit 1
+            fi
             printf '%s' "$NOVA_SETUP_TOKEN" | npx wrangler secret put NOVA_SETUP_TOKEN
           fi
+      - name: Deploy NOVA Crew to Cloudflare
+        run: npm run deploy
