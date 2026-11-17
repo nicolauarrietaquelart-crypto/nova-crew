@@ -1,0 +1,76 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createOfficeApi} from '../src/office.mjs';
+const token='gestoria-tests-setup-secret-long-enough';
+function database(){
+ const data=new Map();let gate=Promise.resolve();
+ const ops=m=>({get:async k=>structuredClone(m.get(k)),put:async(k,v)=>m.set(k,structuredClone(v)),delete:async k=>m.delete(k),
+ list:async({prefix='',reverse=false,limit=1e9}={})=>new Map([...m].filter(([k])=>k.startsWith(prefix)).sort(([a],[b])=>reverse?b.localeCompare(a):a.localeCompare(b)).slice(0,limit).map(([k,v])=>[k,structuredClone(v)]))});
+ return {...ops(data),transaction:fn=>{const prev=gate;let release;gate=new Promise(r=>release=r);return prev.then(async()=>{const copy=new Map(structuredClone([...data]));try{const result=await fn(ops(copy));data.clear();for(const [k,v] of copy)data.set(k,v);return result;}finally{release();}});}};
+}
+async function setup(){
+ const api=createOfficeApi(database(),{NOVA_SETUP_TOKEN:token});let cookie='';
+ async function call(op,body){
+  const response=await api(new Request('https://nova.test/api/office/'+op,{method:body?'POST':'GET',headers:{...(cookie?{cookie}:{}),...(body?{'origin':'https://nova.test','content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined}));
+  if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];
+  return {status:response.status,body:await response.json()};
+ }
+ assert.equal((await call('setup',{setupToken:token,username:'gestor',name:'Gestor',password:'password-long-enough'})).status,200);
+ const save=async(kind,record)=>{const r=await call('save',{kind,record});assert.equal(r.status,200,JSON.stringify(r.body));return r.body.record;};
+ const client=await save('clients',{name:'Cliente',taxId:'B12345678',address:'Barcelona'});
+ const worker=await save('workers',{name:'Montador',specialty:'HAND B',costRate:9.30});
+ const service=await save('services',{name:'Concierto',clientId:client.id,venue:'Palau Sant Jordi',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',required:4});
+ return {call,save,client,worker,service};
+}
+test('catalog contains source rates and avoids guessing HAND A rate',async()=>{
+ const f=await setup(),state=(await f.call('state')).body;
+ assert.equal(state.tariffs.find(t=>t.id==='coordinador-personal').workerRate,14.4);
+ assert.equal(state.tariffs.find(t=>t.id==='combi-350kg').unit,'day');
+ assert.equal(state.tariffs.find(t=>t.id==='HAND A').workerRate,null);
+ const changed=await f.save('tariffs',{id:'HAND A',name:'HAND A',group:'Operativo',unit:'hour',minHours:3,workerRate:11.4,clientRate:22.8});
+ assert.equal(changed.clientRate,22.8);
+});
+test('bulk comanda creates independent vacant slots, each fillable exactly once',async()=>{
+ const f=await setup();
+ const x=await f.call('order-line-bulk',{quantity:3,record:{serviceId:f.service.id,categoryId:'HAND B',date:'2027-02-01',start:'09:00',endDate:'2027-02-01',end:'12:00',serviceType:'LOAD IN',team:'Principal'}});
+ assert.equal(x.status,200,JSON.stringify(x.body));
+ assert.equal(x.body.records.length,3);
+ assert.equal(new Set(x.body.records.map(l=>l.id)).size,3);
+ const saved=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,orderLineId:x.body.records[0].id,categoryId:'HAND B',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',costRate:9.3,chargeRate:18.6});
+ assert.equal(saved.workerHours,5);
+ assert.equal(saved.billableHours,5);
+ assert.equal(saved.costRate,9.3);
+ assert.equal(saved.chargeRate,18.6);
+ const duplicate=await f.call('save',{kind:'assignments',record:{serviceId:f.service.id,workerId:f.worker.id,orderLineId:x.body.records[1].id,categoryId:'HAND B',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00'}});
+ assert.equal(duplicate.status,409);
+});
+test('no show requires documented approval to create customer cancellation charge',async()=>{
+ const f=await setup();
+ const unbilled=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,role:'HAND B',costRate:9.3,chargeRate:18.6,noShow:true});
+ assert.equal(unbilled.workerHours,0);
+ assert.equal(unbilled.billableHours,0);
+ const bad=await f.call('save',{kind:'assignments',record:{...unbilled,noShow:true,noShowChargeApproved:true,notes:''}});
+ assert.equal(bad.status,400);
+ const billed=await f.save('assignments',{...unbilled,noShow:true,noShowChargeApproved:true,notes:'Cláusula contractual de cancelación validada por gestor'});
+ assert.equal(billed.workerHours,0);
+ assert.equal(billed.billableHours,5);
+});
+test('daily rate bills one day, not the hours multiplied by daily price',async()=>{
+ const f=await setup();
+ const a=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,categoryId:'stage-manager',role:'Stage Manager',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',costRate:270,chargeRate:540});
+ assert.equal(a.rateUnit,'day');assert.equal(a.workerUnits,1);assert.equal(a.clientUnits,1);
+ const inv=await f.call('invoice-from-service',{serviceId:f.service.id});
+ assert.equal(inv.status,200,JSON.stringify(inv.body));
+ assert.equal(inv.body.record.lines[0].quantity,1);
+ assert.equal(inv.body.record.lines[0].price,540);
+});
+test('confirmed settlement locks further edits',async()=>{
+ const f=await setup();
+ const a=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,role:'HAND B',costRate:9.3,chargeRate:18.6});
+ const done=await f.save('services',{...f.service,status:'completed'});
+ const settled=await f.call('settlement-confirm',{serviceId:done.id,revision:done.revision});
+ assert.equal(settled.status,200,JSON.stringify(settled.body));
+ assert.equal(settled.body.cost,46.5);
+ const denied=await f.call('save',{kind:'assignments',record:{...a,clientHours:10}});
+ assert.equal(denied.status,409);
+});
