@@ -96,8 +96,8 @@ test('one coordinator for each service, coordinator in roster and can clock own 
   const demo=await login(api,'demo','crew2026');
   const coord=await login(api,'coord','coord2026');
   const roster=await call(api,'roster',{session:demo.session});
-  assert.deepEqual(roster.coordinators,{svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord'});
-  assert.deepEqual(roster.roster.coord.assigned,['svc1','svc2','svc3','svc4','svc7']);
+  assert.deepEqual(roster.coordinators,{svc1:'coord',svc2:'coord',svc3:'demo',svc4:'demo',svc5:null,svc6:'demo',svc7:'coord',svc8:'coord',svc9:'demo'});
+  assert.deepEqual(roster.roster.coord.assigned,['svc1','svc2','svc3','svc4','svc7','svc8','svc9']);
   assert.equal((await call(api,'issue',{session:coord.session,body:{serviceId:'svc2'}})).status,400);
   const self=await call(api,'selfClock',{session:coord.session,body:{serviceId:'svc2'}});
   assert.equal(self.record.workerName,'Álvaro Costa');
