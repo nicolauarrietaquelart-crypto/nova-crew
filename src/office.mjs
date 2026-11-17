@@ -53,7 +53,7 @@ function personInput(b){return {name:required(b.name,'el nombre'),taxId:text(b.t
 async function saveEntity(db,actor,kind,b){
  managerOnly(actor);if(!['clients','workers','services','assignments','invoices','quotes','expenses','tariffs','orderLines'].includes(kind))fail('Tipo de registro incorrecto.');
  const old=b.id?(kind==='tariffs'?await db.get(key('tariffs',text(b.id))):await record(db,kind,text(b.id))):null;revision(old,b);
- if(old?.archived)fail('El registro está archivado.',409);if(kind==='services'&&old?.settlementStatus==='confirmed'&&b.status!=='completed')fail('No se puede reabrir un servicio liquidado.',409);
+ if(old?.archived)fail('El registro está archivado.',409);if(kind==='services'&&old?.settlementStatus==='confirmed')fail('El servicio ya está liquidado y permanece bloqueado. Registra una rectificación por separado.',409);
  let data;
  if(kind==='tariffs'){
     const id=required(b.id,'el código de tarifa'),base=STANDARD_TARIFFS.find(t=>t.id===id);
@@ -70,6 +70,7 @@ async function saveEntity(db,actor,kind,b){
     const tariff=await tariffLookup(db,required(b.categoryId,'la categoría'));if(!tariff||!tariff.active)fail('Categoría no disponible.');
     const startDate=date(b.date||service.date),endDate=date(b.endDate||startDate),start=time(b.start||service.start),end=time(b.end||service.end);
     if(endDate+'T'+end<=startDate+'T'+start)fail('Horario del bloque incorrecto.');
+    if(startDate<service.date||endDate>service.endDate)fail('La plaza está fuera del periodo de la comanda. Amplía primero las fechas del servicio.');
     if(old&&old.serviceId!==service.id)fail('No se puede mover una plaza entre servicios.');
     const assigned=(await rows(db,'assignments')).some(a=>a.orderLineId===old?.id&&!a.archived);
     if(assigned&&['categoryId','date','endDate','start','end'].some(k=>String(b[k]??old[k])!==String(old[k])))fail('Esta plaza ya está asignada: modifica primero el turno del trabajador.',409);
@@ -108,6 +109,7 @@ async function saveEntity(db,actor,kind,b){
    const exception=tariffCandidate?.id==='hand-montador'&&STANDARD_EXCEPTIONS.some(e=>e.venueContains&&venueNorm.includes(e.venueContains));
    const minimum=exception?3:(tariffCandidate?.minHours??categoryMinimum(role));
    if(old?.settlementStatus==='confirmed'||service.settlementStatus==='confirmed')fail('Liquidación confirmada: no se pueden cambiar sus importes.',409);
+   if((await rows(db,'invoices')).some(i=>i.serviceId===service.id&&i.status!=='draft'&&!i.archived))fail('El servicio tiene una factura emitida. Se necesita una rectificación.',409);
    const actualHours=b.actualHours===''||b.actualHours==null?(old?.actualHours??null):number(b.actualHours,0,744);
    const clientHours=b.clientHours===''||b.clientHours==null?(old?.clientHours??null):number(b.clientHours,0,744);
    const noShow=b.noShow===true||b.noShow==='true',noShowChargeApproved=b.noShowChargeApproved===true||b.noShowChargeApproved==='true';if(noShowChargeApproved&&!noShow)fail('El cargo por ausencia requiere marcar No presentado.');if(noShowChargeApproved&&!text(b.notes))fail('Indica el acuerdo contractual que permite cobrar la cancelación.');
@@ -273,6 +275,7 @@ export function createOfficeApi(storage,env={}){
      if(s.status!=='completed'||s.settlementStatus==='confirmed')fail('Finaliza el servicio y revisa que no esté liquidado.',409);
      const aa=(await rows(db,'assignments')).filter(a=>a.serviceId===s.id&&!a.archived);
      if(!aa.length)fail('No hay personal para liquidar.');
+     if(aa.some(a=>a.checkIn&&!a.checkOut&&!a.noShow))fail('Hay trabajadores con fichaje abierto. Ciérralos o corrige los fichajes antes de liquidar.',409);
      const stamp=now(),cost=money(aa.reduce((n,a)=>n+(a.workerUnits??a.workerHours??a.hours)*a.costRate,0)),revenue=money(aa.reduce((n,a)=>n+(a.clientUnits??a.billableHours??a.hours)*a.chargeRate,0));
      for(const a of aa)await db.put(key('assignments',a.id),{...a,settlementStatus:'confirmed',settledAt:stamp,revision:a.revision+1,updatedAt:stamp});
      await db.put(key('services',s.id),{...s,settlementStatus:'confirmed',settledAt:stamp,settlementCost:cost,settlementRevenue:revenue,revision:s.revision+1,updatedAt:stamp});
