@@ -281,6 +281,26 @@ export function createOfficeApi(storage,env={}){
      await db.put(key('services',s.id),{...s,settlementStatus:'confirmed',settledAt:stamp,settlementCost:cost,settlementRevenue:revenue,revision:s.revision+1,updatedAt:stamp});
      await audit(db,actor,'settlement-confirm','services',s.id);return {cost,revenue,margin:money(revenue-cost)};
     }
+    if(op==='quote-from-order'){
+     managerOnly(actor);const service=await record(db,'services',b.serviceId);
+     if(service.archived||service.status==='cancelled')fail('No se puede presupuestar un servicio cancelado.');
+     const slots=(await rows(db,'orderLines')).filter(l=>l.serviceId===service.id&&!l.archived&&l.status!=='cancelled');
+     if(!slots.length)fail('Primero añade plazas a la comanda.');
+     const config=await settings(db),lines=[];
+     if(slots.length>100)fail('El presupuesto supera 100 líneas. Divide la petición en varios documentos.');
+     for(const slot of slots){
+      const tariff=await tariffLookup(db,slot.categoryId);if(!tariff||tariff.clientRate==null)fail('Configura la tarifa cliente de '+slot.role+' antes de presupuestar.');
+      const raw=money((Date.parse(slot.endDate+'T'+slot.end+':00Z')-Date.parse(slot.date+'T'+slot.start+':00Z'))/3600000-slot.pause);
+      if(raw<=0)fail('Pausa excesiva en la plaza '+slot.role);
+      const venueNorm=service.venue.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      const exception=tariff.id==='hand-montador'&&STANDARD_EXCEPTIONS.some(e=>venueNorm.includes(e.venueContains));
+      const units=tariff.unit==='day'?1:Math.max(raw,exception?3:tariff.minHours);
+      const price=money(tariff.clientRate*(1+(tariff.incrementPercent||0)/100));
+      lines.push({description:service.name+' · '+slot.serviceType+' · '+slot.role+' · '+slot.date+' '+slot.start+'–'+slot.end,quantity:units,price,vat:config.vat});
+     }
+     const issuedDate=now().slice(0,10),dueDate=new Date(Date.parse(issuedDate+'T12:00:00Z')+30*86400000).toISOString().slice(0,10);
+     return {record:await saveEntity(db,actor,'quotes',{clientId:service.clientId,serviceId:service.id,date:issuedDate,dueDate,notes:'Presupuesto generado desde comanda; revisar cantidades y condiciones.',lines})};
+    }
     if(op==='invoice-from-service'){
     managerOnly(actor);const service=await record(db,'services',b.serviceId);if(service.archived||service.status==='cancelled')fail('Servicio inactivo.');
     if((await rows(db,'invoices')).some(i=>i.serviceId===service.id&&!i.archived))fail('Este servicio ya tiene una factura o borrador.',409);
