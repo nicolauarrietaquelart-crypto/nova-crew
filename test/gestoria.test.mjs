@@ -162,3 +162,48 @@ test('worker can save their weekly availability and personal profile without see
  assert.equal(state.profile.city,'Barcelona');
  assert.equal(state.clients,undefined);
 });
+
+test('a worker can coordinate one service and validate QR without a third global role',async()=>{
+ const f=await setup();
+ const coordinator=await f.save('workers',{name:'Coordinador eventual',costRate:14.4,contractType:'eventual',createAccess:false});
+ const coordinatorUser=await f.call('user',{record:{username:'coordinator-worker',name:'Coordinador',role:'worker',workerId:coordinator.id,password:'worker-coordinate-pass'}});
+ assert.equal(coordinatorUser.status,200);
+ const workerUser=await f.call('user',{record:{username:'assigned-hand',name:'Hand',role:'worker',workerId:f.worker.id,password:'worker-assigned-pass'}});
+ assert.equal(workerUser.status,200);
+ const service=await f.save('services',{...f.service,coordinatorId:coordinatorUser.body.record.id});
+ const a=await f.save('assignments',{serviceId:service.id,workerId:f.worker.id,role:'HAND B',costRate:9.3,chargeRate:18.6});
+ const api=createOfficeApi(f.db,{});
+ const auth=async(username,password)=>{
+  const r=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username,password})}));
+  assert.equal(r.status,200);return r.headers.get('set-cookie').split(';')[0];
+ };
+ const coordCookie=await auth('coordinator-worker','worker-coordinate-pass'),handCookie=await auth('assigned-hand','worker-assigned-pass');
+ const call=async(op,b,cookie)=>{const response=await api(new Request('https://nova.test/api/office/'+op,{method:b?'POST':'GET',headers:{cookie,...(b?{origin:'https://nova.test','content-type':'application/json'}:{})},body:b?JSON.stringify(b):undefined}));return{status:response.status,body:await response.json()}};
+ const state=(await call('state',null,coordCookie)).body;
+ assert.equal(state.user.role,'worker');
+ assert.equal(state.coordinatorRoster.length,1);
+ assert.equal(state.clients,undefined);
+ assert.equal(state.coordinatorRoster[0].chargeRate,undefined);
+ const qr=await call('qr-issue',{id:a.id},handCookie);
+ assert.equal(qr.status,200);
+ const redeem=await call('qr-redeem',{token:qr.body.token},coordCookie);
+ assert.equal(redeem.status,200,JSON.stringify(redeem.body));
+ assert.equal(redeem.body.action,'in');
+});
+test('venue geofencing is checked at the clock event, without storing coordinates on the assignment',async()=>{
+ const f=await setup();
+ const service=await f.save('services',{...f.service,venueLat:41.387,venueLng:2.17,radiusMeters:500});
+ const a=await f.save('assignments',{serviceId:service.id,workerId:f.worker.id,role:'HAND B',costRate:9.3,chargeRate:18.6});
+ const workerUser=await f.call('user',{record:{username:'geo-worker',name:'Hand',role:'worker',workerId:f.worker.id,password:'geo-worker-long-pass'}});
+ assert.equal(workerUser.status,200);
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'geo-worker',password:'geo-worker-long-pass'})}));
+ const cookie=login.headers.get('set-cookie').split(';')[0];
+ const clock=async(payload)=>{
+  const r=await api(new Request('https://nova.test/api/office/clock',{method:'POST',headers:{cookie,origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({id:a.id,revision:a.revision,action:'in',...payload})}));
+  return r.status;
+ };
+ assert.equal(await clock({}),403);
+ assert.equal(await clock({latitude:42,longitude:2.17}),403);
+ assert.equal(await clock({latitude:41.387,longitude:2.17}),200);
+});
