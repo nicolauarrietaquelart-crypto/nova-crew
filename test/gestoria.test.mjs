@@ -9,7 +9,7 @@ function database(){
  return {...ops(data),transaction:fn=>{const prev=gate;let release;gate=new Promise(r=>release=r);return prev.then(async()=>{const copy=new Map(structuredClone([...data]));try{const result=await fn(ops(copy));data.clear();for(const [k,v] of copy)data.set(k,v);return result;}finally{release();}});}};
 }
 async function setup(){
- const api=createOfficeApi(database(),{NOVA_SETUP_TOKEN:token});let cookie='';
+ const db=database(),api=createOfficeApi(db,{NOVA_SETUP_TOKEN:token});let cookie='';
  async function call(op,body){
   const response=await api(new Request('https://nova.test/api/office/'+op,{method:body?'POST':'GET',headers:{...(cookie?{cookie}:{}),...(body?{'origin':'https://nova.test','content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined}));
   if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];
@@ -20,7 +20,7 @@ async function setup(){
  const client=await save('clients',{name:'Cliente',taxId:'B12345678',address:'Barcelona'});
  const worker=await save('workers',{name:'Montador',specialty:'HAND B',costRate:9.30,createAccess:false});
  const service=await save('services',{name:'Concierto',clientId:client.id,venue:'Palau Sant Jordi',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',required:4});
- return {call,save,client,worker,service};
+ return {db,call,save,client,worker,service};
 }
 test('catalog contains source rates and avoids guessing HAND A rate',async()=>{
  const f=await setup(),state=(await f.call('state')).body;
