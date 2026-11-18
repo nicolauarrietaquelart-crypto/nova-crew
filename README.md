@@ -45,6 +45,16 @@ No hay credenciales de gestor predeterminadas ni registro público. La recuperac
 - Documentos servidos como descarga, con autenticación y sin URLs públicas. No almacenar secretos ni contratos en el repositorio GitHub, que es público.
 
 
+## Área de empleado recuperada en v17 (sin tocar la demo histórica)
+
+- **`/empleado.html`**: entrada individual para cuentas operativas con rol `worker`. Al iniciar sesión en la página principal se redirige automáticamente a esta área.
+- Secciones de **inicio**, **mis servicios y confirmaciones**, **calendario**, **disponibilidad**, **documentos**, **liquidaciones brutas** y **perfil**. Adaptación móvil.
+- **Fichaje QR** en entrada y salida mediante `qr-issue`, con caducidad de 90 segundos; se valida con `qr-redeem` de un coordinador o gestor autorizado. No se han activado las cuentas demo ni se han copiado fichajes ficticios.
+- El importe mostrado al empleado corresponde a **su propio importe bruto calculado**. El endpoint de estado de empleado no entrega clientes, precio de venta ni tarifas comerciales.
+- La versión histórica `public/legacy-demo.html` y sus activos siguen conservados como referencia visual, **sin habilitar el antiguo backend inseguro de prueba**.
+- Pendiente de migrar/reconstruir desde la experiencia histórica: mensajería, formación, funcionalidades extendidas de coordinación, ajustes avanzados del perfil y otras pantallas específicas del prototipo. No presentar esas funciones como restauradas sin integraciones reales.
+- El trabajo permanece en una rama aislada, no desplegada. Probar ambos roles, cámara QR, fin de sesión, caducidad y visualización móvil antes de fusionar.
+
 ## Gestoría y liquidaciones (propuesta v17)
 
 Esta funcionalidad se desarrolla en la rama `feature/gestoria-liquidaciones-20261117` y no debe desplegarse hasta pasar pruebas de regresión en Cloudflare.
