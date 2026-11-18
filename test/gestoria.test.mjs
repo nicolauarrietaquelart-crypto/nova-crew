@@ -100,3 +100,29 @@ test('Hand Montador minimum falls to three hours at Palau de la Música',async()
  assert.equal(assignment.minimumHours,3);
  assert.equal(assignment.workerHours,3);
 });
+
+test('employee portal receives own gross liquidations but not customer rates',async()=>{
+ const f=await setup();
+ const a=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,categoryId:'hand-montador',costRate:9.30,chargeRate:18.60});
+ assert.equal(a.costRate,9.30);
+ const user=await f.call('user',{record:{username:'empleado-test',name:'Empleado',role:'worker',workerId:f.worker.id,password:'password-long-enough',active:true}});
+ assert.equal(user.status,200,JSON.stringify(user.body));
+ // Login with a dedicated worker session, never the manager's cookies.
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'empleado-test',password:'password-long-enough'})}));
+ assert.equal(login.status,200);
+ const session=login.headers.get('set-cookie').split(';')[0];
+ const response=await api(new Request('https://nova.test/api/office/state',{headers:{cookie:session}}));
+ assert.equal(response.status,200);
+ const payload=await response.json();
+ assert.equal(payload.user.role,'worker');
+ assert.equal(payload.assignments.length,1);
+ const item=payload.assignments[0];
+ assert.equal(item.grossPay,37.2);
+ assert.equal(item.chargeRate,undefined);
+ assert.equal(item.baseChargeRate,undefined);
+ assert.equal(item.clientHours,undefined);
+ assert.equal(item.clientUnits,undefined);
+ assert.equal(payload.tariffs,undefined);
+ assert.equal(payload.clients,undefined);
+});
