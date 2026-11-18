@@ -68,7 +68,8 @@ async function view(db,actor){
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
   const trainingAcks=(await rows(db,'trainingAcks')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
   const hasProfilePhoto=!!(actor.workerId&&await db.get(key('employeePhotos',actor.workerId)));
-  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks};
+  const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||assignedServices.includes(i.serviceId)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents};
  if(actor.role==='manager')Object.assign(result,{tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),expenses:await rows(db,'expenses'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -274,6 +275,23 @@ export function createOfficeApi(storage,env={}){
      if(recipientId===actor.id)fail('Selecciona otro destinatario.');
      const id=uid(),value={id,senderId:actor.id,recipientId,content:text(b.content,2000),createdAt:now()};
      await db.put(key('messages',id),value);await audit(db,actor,'send','messages',id);return {record:value};
+    }
+    if(op==='incident-report'){
+     const service=await record(db,'services',required(b.serviceId,'el servicio'));
+     if(actor.role!=='manager')await canCoordinate(db,actor,service.id);
+     if(service.archived)fail('Servicio archivado.');
+     const workerId=text(b.workerId);if(workerId){
+      const assigned=(await rows(db,'assignments')).some(a=>a.workerId===workerId&&a.serviceId===service.id&&!a.archived);
+      if(!assigned)fail('Trabajador ajeno al servicio.',403);
+     }
+     const id=uid(),value={id,serviceId:service.id,workerId,description:required(b.description,'la incidencia').slice(0,2000),status:'open',createdAt:now(),createdBy:actor.id,revision:1};
+     await db.put(key('incidents',id),value);await audit(db,actor,'incident-report','incidents',id);return {record:value};
+    }
+    if(op==='incident-resolve'){
+     managerOnly(actor);const incident=await record(db,'incidents',b.id);revision(incident,b);
+     if(incident.status==='resolved')return {record:incident};
+     const value={...incident,status:'resolved',resolvedAt:now(),resolvedBy:actor.id,revision:incident.revision+1};
+     await db.put(key('incidents',value.id),value);await audit(db,actor,'incident-resolve','incidents',value.id);return {record:value};
     }
     if(op==='employee-photo-upload'){
      if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
