@@ -12,6 +12,16 @@ const fail = (s,code=400) => {throw Object.assign(new Error(s),{status:code});};
 const required = (s,label) => {if(!text(s))fail(`Falta ${label}.`);return text(s);};
 const number = (v,min=0,max=1e8) => {const n=Number(v??0);if(!Number.isFinite(n)||n<min||n>max)fail('Importe o cantidad incorrectos.');return n;};
 const money = n => Math.round((n+Number.EPSILON)*100)/100;
+function validateGeofence(service,input){
+ if(service.venueLat==null||service.venueLng==null)return;
+ const latitude=Number(input.latitude),longitude=Number(input.longitude);
+ if(input.latitude==null||input.longitude==null||!Number.isFinite(latitude)||!Number.isFinite(longitude))fail('Activa la ubicación para fichar en este recinto.',403);
+ if(latitude < -90||latitude > 90||longitude < -180||longitude > 180)fail('Coordenadas incorrectas.');
+ const rad=Math.PI/180,lat1=latitude*rad,lat2=service.venueLat*rad,dLat=(service.venueLat-latitude)*rad,dLon=(service.venueLng-longitude)*rad;
+ const hav=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+ const distance=6371000*2*Math.asin(Math.min(1,Math.sqrt(hav)));
+ if(distance>(service.radiusMeters||500))fail('Fuera del radio autorizado de fichaje ('+Math.round(distance)+' m).',403);
+}
 const categoryMinimum = role => ({'HAND B':5,'HAND A':3,'HAND M':4,'HAND C1':0,'CREW HEAD':6,'FORKLIFTER':5})[text(role).toUpperCase().replace(/\s+/g,' ')]||0;
 const tariffLookup = async(db,id) => {const base=STANDARD_TARIFFS.find(t=>t.id===id);const override=await db.get(key('tariffs',id));return override?{...base,...override}:base;};
 const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))];};
@@ -98,7 +108,10 @@ async function saveEntity(db,actor,kind,b){
   const startDate=date(b.date),endDate=date(b.endDate||b.date),start=time(b.start),end=time(b.end);
   if(endDate+'T'+end<=startDate+'T'+start)fail('El fin debe ser posterior al inicio. Para un turno nocturno elige el día siguiente.');
   const status=text(b.status)||'planned';if(!['planned','confirmed','in_progress','completed','cancelled'].includes(status))fail('Estado incorrecto.');
-  data={name:required(b.name,'el nombre'),clientId:client.id,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000)};
+  const venueLat=b.venueLat===''||b.venueLat==null?null:Number(b.venueLat),venueLng=b.venueLng===''||b.venueLng==null?null:Number(b.venueLng);
+   if((venueLat==null)!==(venueLng==null))fail('Introduce latitud y longitud o deja ambas vacías.');
+   if(venueLat!=null&&(!Number.isFinite(venueLat)||!Number.isFinite(venueLng)||venueLat < -90||venueLat >90||venueLng < -180||venueLng>180))fail('Coordenadas del recinto incorrectas.');
+   data={name:required(b.name,'el nombre'),clientId:client.id,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000)};
  }
  if(kind==='assignments'){
   const service=await record(db,'services',required(b.serviceId,'el servicio')),worker=await record(db,'workers',required(b.workerId,'el trabajador'));
@@ -309,7 +322,8 @@ export function createOfficeApi(storage,env={}){
     const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket||ticket.expires<Date.now())fail('QR caducado, utilizado o sustituido. Genera uno nuevo.',409);
     const a=await record(db,'assignments',ticket.assignmentId);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
     if(a.archived||service.archived||['completed','cancelled'].includes(service.status))fail('Servicio no disponible.',409);
-    const stamp=now();if(ticket.action==='in'&&a.checkIn||ticket.action==='out'&&(!a.checkIn||a.checkOut))fail('El estado del fichaje ha cambiado. Genera otro QR.',409);
+    validateGeofence(service,b);
+     const stamp=now();if(ticket.action==='in'&&a.checkIn||ticket.action==='out'&&(!a.checkIn||a.checkOut))fail('El estado del fichaje ha cambiado. Genera otro QR.',409);
     await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed'}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
     await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
    }
@@ -349,6 +363,8 @@ export function createOfficeApi(storage,env={}){
    if(op==='clock'){
     const a=await record(db,'assignments',b.id);revision(a,b);const s=await record(db,'services',a.serviceId);
     if(a.archived||s.archived||['cancelled','completed'].includes(s.status))fail('El servicio no admite fichajes.',409);
+     if(actor.role!=='manager'&&s.coordinatorId&&actor.workerId===a.workerId)fail('Este servicio requiere fichaje QR validado por coordinación.',403);
+     validateGeofence(s,b);
     if(actor.role!=='manager'&&a.workerId!==actor.workerId)fail('No puedes fichar a otra persona.',403);await canService(db,actor,a.serviceId);
     const stamp=now();let update={};if(b.action==='in'){if(a.checkIn)fail('Ya hay una entrada registrada.',409);if(a.status==='rejected')fail('La asignación está rechazada.');update={checkIn:stamp,status:'confirmed'};}
     else if(b.action==='out'){if(!a.checkIn||a.checkOut)fail('Debe existir una entrada abierta.',409);update={checkOut:stamp};}
