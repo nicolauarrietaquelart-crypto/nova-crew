@@ -100,7 +100,7 @@ function settlementsPage(){
  $('#employee-content').innerHTML='<div class="notice">Importes <strong>brutos estimados</strong> según las asignaciones y liquidaciones registradas, antes de IRPF y cotizaciones. No es una nómina ni acredita un pago bancario.</div><div class="stats"><div class="stat orange"><span class="muted">Liquidaciones confirmadas</span><strong>'+euro(total)+'</strong><small>Importe bruto</small></div></div>'+box('Mis liquidaciones',a.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Servicio</th><th>Día</th><th>Importe bruto</th><th>Estado</th></tr></thead><tbody>'+a.map(x=>'<tr><td>'+esc(service(x.serviceId).name||'Servicio')+'</td><td>'+human(x.date)+'</td><td>'+euro(x.grossPay)+'</td><td>'+(x.payStatus==='confirmed'?'Confirmada':'Pendiente')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay liquidaciones disponibles.</div>');
 }
 function profilePage(){
- const w=worker();$('#employee-content').innerHTML=box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con Gestoría.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
+ const w=worker();$('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+'</div>'+box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con Gestoría.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
 }
 
 function clockPage(){
@@ -150,6 +150,21 @@ function messagesPage(){
  $('#employee-content').innerHTML=box('Mensajes a Gestoría','<div class="service-list">'+(messages.length?messages.map(m=>'<div class="document"><div><strong>'+(m.senderId===state.user.id?'Tú':'Gestoría')+'</strong><small> · '+stamp(m.createdAt)+'</small><p>'+esc(m.content)+'</p></div></div>').join(''):'<p class="muted">No hay mensajes.</p>')+'</div><form id="employee-message-form" style="display:grid;gap:12px;margin-top:18px"><label class="form-label">Enviar a<select class="field" name="recipientId" required>'+users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><label class="form-label">Mensaje<textarea name="content" class="field" maxlength="2000" required></textarea></label><button class="primary" type="submit">Enviar mensaje</button></form>');
  $('#employee-message-form').onsubmit=async ev=>{ev.preventDefault();try{await api('message-send',Object.fromEntries(new FormData(ev.target)));await load();notice('Mensaje enviado')}catch(e){error(e)}};
 }
+
+function employeePhotoModal(){
+ modal('Fotografía de perfil','<form id="employee-photo-form" style="display:grid;gap:12px"><p class="muted">Sube una fotografía PNG o JPEG de menos de 1 MB. Solo tú y Gestoría podrán consultarla.</p><label class="form-label">Fotografía<input type="file" name="photo" accept="image/png,image/jpeg" required></label><button class="primary" type="submit">Guardar fotografía</button></form>');
+ $('#employee-photo-form').onsubmit=async ev=>{
+  ev.preventDefault();
+  const file=ev.target.elements.photo.files[0];
+  if(!file||file.size>1024*1024||!['image/png','image/jpeg'].includes(file.type))return error(new Error('Selecciona un JPEG o PNG de menos de 1 MB.'));
+  try{
+   const content=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=()=>reject(new Error('No se pudo leer la imagen.'));reader.readAsDataURL(file)});
+   await api('employee-photo-upload',{mime:file.type,content});
+   $('#employee-modal').close();await load();notice('Fotografía guardada');
+  }catch(e){error(e)}
+ };
+}
+
 function extendedProfile(){
  const p=state.profile||{};
  const controls=[['nationality','Nacionalidad'],['postalCode','Código postal'],['city','Ciudad'],['province','Provincia'],['country','País'],['shirtSize','Talla de camiseta'],['drivingLicense','Carnet de conducir'],['ownVehicle','Vehículo propio'],['languages','Idiomas (separados por coma)'],['skills','Carnets y conocimientos (separados por coma)'],['education','Estudios (separados por coma)']];
@@ -193,7 +208,7 @@ function coordShift(id){
 function render(){
  if(!state.user)return;
  renderNav();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
- $('#employee-avatar').textContent=state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase();
+ $('#employee-avatar').innerHTML=state.hasProfilePhoto?'<img alt="Foto de perfil" src="/api/office/employee-photo?workerId='+encodeURIComponent(state.user.workerId)+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase());
  ({dashboard,clock:clockPage,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
 }
 async function load(){
@@ -243,6 +258,7 @@ document.addEventListener('click',async ev=>{
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='edit-profile')return extendedProfile();
+ if(action==='upload-photo')return employeePhotoModal();
  if(action==='training-ack')return mutation('training-ack',{documentId:id},'Formación marcada como leída');
  if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{return mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...await attendanceLocation(a.serviceId)},'Fichaje registrado')}catch(e){return error(e)}}}
 
