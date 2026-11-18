@@ -305,7 +305,7 @@ $('#login-form').onsubmit=async e=>{
  e.preventDefault();const b=e.target.querySelector('button[type=submit]'),err=$('#login-error');b.disabled=true;err.hidden=true;
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
-$('#modal-close').onclick=()=>{stopQrCamera();$('#employee-modal').close()};
+$('#modal-close').onclick=()=>{stopQrCamera();$('#employee-modal').close()};$('#employee-modal').addEventListener('close',stopQrCamera);
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 load();
 })();
