@@ -31,6 +31,13 @@ async function api(op,body){
  if(!r.ok)throw Error(d.error||'No se ha podido completar la operación.');
  return d;
 }
+async function attendanceLocation(serviceId){
+ const sv=service(serviceId);
+ if(sv.venueLat==null||sv.venueLng==null)return {};
+ if(!navigator.geolocation)throw new Error('Este servicio requiere ubicación; tu navegador no la admite.');
+ const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:0}));
+ return {latitude:position.coords.latitude,longitude:position.coords.longitude};
+}
 function notice(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500)}
 function error(e){notice(e.message||String(e))}
 function list(k){return(state[k]||[]).filter(x=>!x.archived)}
@@ -161,7 +168,7 @@ function weeklyAvailabilityModal(){
 }
 function redeemQr(serviceId){
  modal('Validar QR de personal','<form id="qr-redeem-form" style="display:grid;gap:12px"><p class="muted">Introduce el código temporal que muestra el trabajador.</p><label class="form-label">Código QR<input class="field" name="token" required autocomplete="off"></label><button class="primary" type="submit">Registrar fichaje</button></form>');
- $('#qr-redeem-form').onsubmit=async e=>{e.preventDefault();try{await api('qr-redeem',{token:e.target.elements.token.value.trim()});$('#employee-modal').close();await load();notice('Fichaje validado')}catch(ex){error(ex)}};
+ $('#qr-redeem-form').onsubmit=async e=>{e.preventDefault();try{await api('qr-redeem',{token:e.target.elements.token.value.trim(),...await attendanceLocation(serviceId)});$('#employee-modal').close();await load();notice('Fichaje validado')}catch(ex){error(ex)}};
 }
 let qrCamera=null,qrFrame=null;
 function stopQrCamera(){if(qrFrame)cancelAnimationFrame(qrFrame);qrFrame=null;if(qrCamera)qrCamera.getTracks().forEach(track=>track.stop());qrCamera=null}
@@ -237,7 +244,7 @@ document.addEventListener('click',async ev=>{
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='edit-profile')return extendedProfile();
  if(action==='training-ack')return mutation('training-ack',{documentId:id},'Formación marcada como leída');
- if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a)return mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in'},'Fichaje registrado')}
+ if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{return mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...await attendanceLocation(a.serviceId)},'Fichaje registrado')}catch(e){return error(e)}}}
 
  if(action==='logout'){try{await api('logout',{})}catch{}state={};location.replace('/empleado.html');return}
  if(action==='detail')return detail(id);
