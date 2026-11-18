@@ -6,6 +6,24 @@ const today=()=>new Date().toLocaleDateString('en-CA');
 const human=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'short'}):'—';
 const stamp=d=>d?new Date(d).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 const names={dashboard:'Inicio',clock:'Control horario',availability:'Disponibilidad',services:'Mis servicios',calendar:'Mi agenda',coordination:'Coordinación',company:'Datos empresa',training:'Formación',documents:'Documentación',tutorials:'Tutoriales',settlements:'Liquidaciones',contracts:'Contratos',messages:'Mensajes',profile:'Mi perfil'};
+const navPaths={
+ dashboard:'m3 10 9-7 9 7v10H4V10 M9 20v-7h6v7',
+ clock:'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18 M12 7v5l3 2',
+ availability:'M3 5h18v16H3z M8 3v4 M16 3v4 M3 10h18 M8 15l3 3 5-5',
+ services:'M3 7h18v14H3z M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M3 12h18',
+ calendar:'M3 5h18v16H3z M8 3v4 M16 3v4 M3 10h18',
+ coordination:'M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a6 6 0 0 1 12 0v2 M17 11a3 3 0 1 0 0-6 M16 14a5 5 0 0 1 6 5v2',
+ company:'M4 21V3h16v18 M9 7h2 M14 7h2 M9 12h2 M14 12h2 M10 21v-5h4v5',
+ training:'m2 9 10-5 10 5-10 5z M6 11v6c3 3 9 3 12 0v-6',
+ documents:'M6 2h8l5 5v15H6z M14 2v5h5 M9 13h6 M9 17h6',
+ tutorials:'M3 4h18v16H3z M10 8l6 4-6 4z',
+ settlements:'M3 3h18v18H3z M7 10h10 M7 14h10',
+ contracts:'M5 3h10l4 4v14H5z M15 3v5h4 M8 12h8 M8 16h5',
+ messages:'M3 4h18v14H7l-4 3z M7 9h10 M7 13h7',
+ profile:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2'
+};
+const navIcon=k=>'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(navPaths[k]||navPaths.dashboard)+'"/></svg>';
+
 let state={},page='dashboard',month=today().slice(0,7),isLoading=false;
 async function api(op,body){
  const r=await fetch('/api/office/'+op,{method:body?'POST':'GET',credentials:'same-origin',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
@@ -31,9 +49,9 @@ function serviceCard(a){
  return '<article class="service-card">'+dateTile+text+acts+'</article>';
 }
 function renderNav(){
- const pc=Object.entries(names).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'">'+esc(label)+'</button>').join('');
+ const pc=Object.entries(names).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span>'+esc(label)+'</span>'+(key==='coordination'&&state.coordinatorRoster?.length?'<b>'+state.coordinatorRoster.length+'</b>':'')+'</button>').join('');
  $('#employee-nav').innerHTML=pc;
- $('#mobile-nav').innerHTML=['dashboard','clock','services','calendar','coordination'].map(k=>'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+esc(names[k])+'</button>').join('');
+ $('#mobile-nav').innerHTML=['dashboard','clock','services','calendar','coordination'].map(k=>'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+'<small>'+esc(names[k])+'</small></button>').join('');
 }
 function dashboard(){
  const as=myAssignments(),future=as.filter(a=>a.date>=today()&&a.status!=='rejected').sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)),open=as.filter(a=>a.checkIn&&!a.checkOut);
