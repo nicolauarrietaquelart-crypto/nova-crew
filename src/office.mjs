@@ -49,7 +49,7 @@ async function view(db,actor){
  const documents=(await rows(db,'documents')).filter(d=>actor.role==='manager'||(actor.workerId&&d.workerId===actor.workerId));
  const availability=(await rows(db,'availability')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
  const coordinatorIds=new Set(services.map(s=>s.coordinatorId).filter(Boolean));
- const directory=(await rows(db,'users')).filter(u=>coordinatorIds.has(u.id)).map(u=>({id:u.id,name:u.name}));
+ const directory=(await rows(db,'users')).filter(u=>u.active&&(coordinatorIds.has(u.id)||u.role==='manager')).map(u=>({id:u.id,name:u.name,role:u.role}));
  const assignedServices=allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id);
   const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
