@@ -313,7 +313,26 @@ export function createOfficeApi(storage,env={}){
     await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed'}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
     await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
    }
-   if(op==='attendance-adjust'){
+   if(op==='coordinator-shift'){
+     if(actor.role==='manager')fail('Usa Gestoría para modificar turnos.');
+     const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinate(db,actor,a.serviceId);
+     const service=await record(db,'services',a.serviceId);
+     if(service.settlementStatus==='confirmed'||service.status==='completed'||service.status==='cancelled')fail('Servicio cerrado.',409);
+     if(a.checkOut)fail('No se modifica un turno ya fichado y finalizado.',409);
+     const dateStart=date(b.date||a.date),dateEnd=date(b.endDate||a.endDate),start=time(b.start||a.start),end=time(b.end||a.end);
+     const difference=(Date.parse(dateEnd+'T'+end+':00Z')-Date.parse(dateStart+'T'+start+':00Z'))/3600000;
+     if(difference<=0||difference>48)fail('Horario inválido.');
+     const others=(await rows(db,'assignments')).filter(x=>x.workerId===a.workerId&&x.id!==a.id&&!x.archived);
+     for(const other of others){
+      const earlier=dateStart+'T'+start<other.endDate+'T'+other.end;
+      const later=dateEnd+'T'+end>other.date+'T'+other.start;
+      if(earlier&&later)fail('El trabajador ya tiene otro turno en ese horario.',409);
+     }
+     const hours=money(difference-a.pause);if(hours<=0)fail('Pausa superior a la duración del turno.');
+     const value={...a,date:dateStart,endDate:dateEnd,start,end,hours,revision:a.revision+1,updatedAt:now()};
+     await db.put(key('assignments',a.id),value);await audit(db,actor,'coordinator-shift','assignments',a.id);return {record:publicAssignment(value,actor)};
+    }
+    if(op==='attendance-adjust'){
     managerOnly(actor);const a=await record(db,'assignments',b.id);revision(a,b);required(b.reason,'el motivo de corrección');
     const checkIn=b.checkIn?new Date(b.checkIn).toISOString():'',checkOut=b.checkOut?new Date(b.checkOut).toISOString():'';
     if(checkOut&&(!checkIn||checkOut<=checkIn))fail('La salida debe ser posterior a la entrada.');
