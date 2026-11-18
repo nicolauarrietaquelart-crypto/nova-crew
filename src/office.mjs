@@ -48,6 +48,7 @@ async function view(db,actor){
  const workers=(await rows(db,'workers')).filter(w=>actor.role==='manager'||w.id===actor.workerId).map(w=>actor.role==='manager'?w:{id:w.id,name:w.name,phone:w.phone,email:w.email,specialty:w.specialty,contractType:w.contractType||'eventual',revision:w.revision});
  const documents=(await rows(db,'documents')).filter(d=>actor.role==='manager'||(actor.workerId&&d.workerId===actor.workerId));
  const availability=(await rows(db,'availability')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
+  const weeklyAvailability=actor.workerId?await db.get(key('weeklyAvailability',actor.workerId))||null:null;
  const coordinatorIds=new Set(services.map(s=>s.coordinatorId).filter(Boolean));
  const directory=(await rows(db,'users')).filter(u=>u.active&&(coordinatorIds.has(u.id)||u.role==='manager')).map(u=>({id:u.id,name:u.name,role:u.role}));
  const assignedServices=allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id);
@@ -56,7 +57,7 @@ async function view(db,actor){
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
   const trainingAcks=(await rows(db,'trainingAcks')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
-  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,messages,profile,trainingAcks};
+  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,trainingAcks};
  if(actor.role==='manager')Object.assign(result,{tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),expenses:await rows(db,'expenses'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -219,6 +220,19 @@ export function createOfficeApi(storage,env={}){
      await audit(db,actor,'create-access','users',u.id);
      return {record:saved,access:{username,password:b.onboardingPassword,existing:false}};
     }
+    if(op==='availability-weekly'){
+     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     const input=b.days||{};const days={};
+     for(const d of ['mon','tue','wed','thu','fri','sat','sun']){
+      const a=input[d]||{},available=a.available===true;
+      const start=a.start?time(a.start):'08:00',end=a.end?time(a.end):'23:00';
+      if(start>=end)fail('Horario semanal incorrecto en '+d);
+      days[d]={available,start,end};
+     }
+     const value={workerId:actor.workerId,days,updatedAt:now()};
+     await db.put(key('weeklyAvailability',actor.workerId),value);
+     await audit(db,actor,'availability-weekly','workers',actor.workerId);return {record:value};
+    }
     if(op==='employee-profile'){
      if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
      const allowed=['nationality','postalCode','city','province','country','shirtSize','drivingLicense','ownVehicle','languages','skills','education','contactNotes','preferredPhone'];
@@ -322,7 +336,7 @@ export function createOfficeApi(storage,env={}){
     else fail('Fichaje incorrecto.');await db.put(key('assignments',a.id),{...a,...update,revision:a.revision+1,updatedAt:stamp});await audit(db,actor,'clock-'+b.action,'assignments',a.id);return {};
    }
    if(op==='availability'){
-    const workerId=actor.role==='manager'?b.workerId:actor.workerId;if(!workerId)fail('Tu cuenta no está vinculada a un trabajador.');await record(db,'workers',workerId);const day=date(b.date),id=workerId+'_'+day;const old=await db.get(key('availability',id));revision(old,b);const status=b.status;if(!['available','unavailable'].includes(status))fail('Disponibilidad incorrecta.');await db.put(key('availability',id),{id,workerId,date:day,status,notes:text(b.notes,500),revision:(old?.revision||0)+1,updatedAt:now()});await audit(db,actor,'availability','availability',id);return {};
+    const workerId=actor.role==='manager'?b.workerId:actor.workerId;if(!workerId)fail('Tu cuenta no está vinculada a un trabajador.');await record(db,'workers',workerId);const day=date(b.date),id=workerId+'_'+day;const old=await db.get(key('availability',id));revision(old,b);const status=b.status;if(!['available','unavailable'].includes(status))fail('Disponibilidad incorrecta.');const start=b.start?time(b.start):'',end=b.end?time(b.end):'';if(start&&end&&start>=end)fail('La hora final debe ser posterior a la inicial.');await db.put(key('availability',id),{id,workerId,date:day,status,start,end,notes:text(b.notes,500),revision:(old?.revision||0)+1,updatedAt:now()});await audit(db,actor,'availability','availability',id);return {};
    }
    if(op==='settlement-confirm'){
      managerOnly(actor);const s=await record(db,'services',b.serviceId);revision(s,b);
