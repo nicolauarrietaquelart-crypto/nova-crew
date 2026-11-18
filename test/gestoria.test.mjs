@@ -189,6 +189,12 @@ test('a worker can coordinate one service and validate QR without a third global
  const redeem=await call('qr-redeem',{token:qr.body.token},coordCookie);
  assert.equal(redeem.status,200,JSON.stringify(redeem.body));
  assert.equal(redeem.body.action,'in');
+ const refreshed=(await call('state',null,coordCookie)).body;
+ const entry=refreshed.coordinatorRoster[0];
+ const contact=await call('coordinator-control',{id:entry.id,revision:entry.revision,field:'contacted',value:true},coordCookie);
+ assert.equal(contact.status,200);
+ const blocked=await call('coordinator-control',{id:entry.id,revision:entry.revision+1,field:'team',value:'Main Stage'},handCookie);
+ assert.equal(blocked.status,403);
 });
 test('venue geofencing is checked at the clock event, without storing coordinates on the assignment',async()=>{
  const f=await setup();
