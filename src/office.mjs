@@ -32,7 +32,13 @@ const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoiceP
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
 async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services');if(actor.role==='coordinator')return new Set(services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id));const a=await rows(db,'assignments');return new Set(a.filter(a=>a.workerId===actor.workerId).map(a=>a.serviceId));}
 async function canService(db,actor,id){if(actor.role==='manager')return;const s=await scope(db,actor);if(!s.has(id))fail('No tienes acceso a ese servicio.',403);}
-function publicAssignment(a,actor){if(actor.role==='manager')return a;const {costRate,chargeRate,baseCostRate,baseChargeRate,clientHours,billableHours,clientUnits,workerHours,workerUnits,minimumHours,incrementPercent,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;return rest;}
+function publicAssignment(a,actor){
+ if(actor.role==='manager')return a;
+ const {costRate,chargeRate,baseCostRate,baseChargeRate,clientHours,billableHours,clientUnits,workerHours,workerUnits,minimumHours,incrementPercent,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;
+ // Worker receives only their own gross remuneration and settlement state, never customer rates.
+ if(actor.role==='worker'&&a.workerId===actor.workerId)return {...rest,grossPay:money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)),payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
+ return rest;
+}
 async function view(db,actor){
  const serviceScope=await scope(db,actor);const allServices=await rows(db,'services');
  const services=allServices.filter(s=>!serviceScope||serviceScope.has(s.id)).map(s=>{if(actor.role==='manager')return s;const {clientId,notes,...safe}=s;return safe;});
