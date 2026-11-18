@@ -20,14 +20,14 @@ test('last manager cannot be deactivated; password reset invalidates worker sess
 test('cross origin mutations are forbidden and excessive login attempts rate limited',async()=>{const f=await fixture();const r=await f.api(new Request('https://nova.test/api/office/save',{method:'POST',headers:{cookie:f.cookie,origin:'https://evil.test','content-type':'application/json'},body:'{}'}));assert.equal(r.status,403);for(let i=0;i<12;i++)assert.equal((await f.call('login',{username:'unknown',password:'bad'})).status,401);assert.equal((await f.call('login',{username:'unknown',password:'bad'})).status,429);});
 test('coordinator QR redemption is scoped, atomic and single use; another coordinator cannot redeem',async()=>{
  const f=await fixture(),s=await seed(f);
- const c1=await f.call('user',{record:{name:'Coordinator 1',username:'coord1',role:'coordinator',password:'coordinator-one-pass'}}),c2=await f.call('user',{record:{name:'Coordinator 2',username:'coord2',role:'coordinator',password:'coordinator-two-pass'}});
+ const w1=await save(f,'workers',{name:'Coordinator 1',costRate:14.4,createAccess:false}),w2=await save(f,'workers',{name:'Coordinator 2',costRate:14.4,createAccess:false});const c1=await f.call('user',{record:{name:'Coordinator 1',username:'coord1',role:'worker',workerId:w1.id,password:'coordinator-one-pass'}}),c2=await f.call('user',{record:{name:'Coordinator 2',username:'coord2',role:'worker',workerId:w2.id,password:'coordinator-two-pass'}});
  await save(f,'services',{...s.service,coordinatorId:c1.data.record.id});
  await f.call('user',{record:{name:'Employee',username:'employee',role:'worker',workerId:s.worker.id,password:'employee-long-pass'}});
  const emp=(await f.call('login',{username:'employee',password:'employee-long-pass'})).cookie,coord1=(await f.call('login',{username:'coord1',password:'coordinator-one-pass'})).cookie,coord2=(await f.call('login',{username:'coord2',password:'coordinator-two-pass'})).cookie;
  const qr=await f.call('qr-issue',{id:s.assignment.id},emp);assert.equal(qr.status,200);assert.equal((await f.call('qr-redeem',{token:qr.data.token},coord2)).status,403);
  const redeemed=await Promise.all([f.call('qr-redeem',{token:qr.data.token},coord1),f.call('qr-redeem',{token:qr.data.token},coord1)]);assert.deepEqual(redeemed.map(r=>r.status).sort(),[200,409]);
  const qr2=await f.call('qr-issue',{id:s.assignment.id},emp);assert.equal(qr2.data.action,'out');assert.equal((await f.call('qr-redeem',{token:qr2.data.token},coord1)).status,200);
- const state=(await f.call('state',undefined,coord1)).data;assert.equal(state.clients,undefined);assert.equal(state.workers[0].costRate,undefined);assert.ok(state.assignments[0].checkOut);
+ const state=(await f.call('state',undefined,coord1)).data;assert.equal(state.clients,undefined);assert.equal(state.coordinatorWorkers[0].costRate,undefined);assert.ok(state.coordinatorRoster[0].checkOut);
 });
 test('attendance corrections retain before/after audit and unavailable workers cannot be assigned',async()=>{
  const f=await fixture(),s=await seed(f);assert.equal((await f.call('attendance-adjust',{id:s.assignment.id,revision:1,checkIn:'2027-01-20T08:00:00Z',checkOut:'2027-01-20T18:00:00Z',reason:'Verified timesheet'})).status,200);
