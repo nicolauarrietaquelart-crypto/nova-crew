@@ -17,7 +17,7 @@ const tariffLookup = async(db,id) => {const base=STANDARD_TARIFFS.find(t=>t.id==
 const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))];};
 const date = s => {const d=text(s,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||Number.isNaN(Date.parse(d+'T12:00:00Z'))||new Date(d+'T12:00:00Z').toISOString().slice(0,10)!==d)fail('Fecha incorrecta.');return d;};
 const time = s => {if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))fail('Hora incorrecta.');return s;};
-const cleanUser = u => {const {passwordHash,salt,iterations,...safe}=u;return safe;};
+const cleanUser = u => {const {passwordHash,salt,iterations,...safe}=u;return {...safe,role:safe.role==='coordinator'?'worker':safe.role};};
 const cookie = v => `__Host-nova_session=${v}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${v?28800:0}`;
 const reply = (data,status=200,headers={}) => new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...headers}});
 async function passwordHash(password,salt,iterations=100000){const k=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);return hex(await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode(salt),iterations,hash:'SHA-256'},k,256));}
@@ -30,7 +30,8 @@ const revision = (old,input) => {if(old&&Number(input.revision)!==old.revision)f
 async function audit(db,actor,action,kind,id){const stamp=now();await db.put(`office/audit/${stamp}/${uid()}`,{id:uid(),time:stamp,actor:actor.id,name:actor.name,action,kind,recordId:id});}
 const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoicePrefix:'NOVA',vat:21,paymentDays:30,footer:''};
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
-async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services');if(actor.role==='coordinator')return new Set(services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id));const a=await rows(db,'assignments');return new Set(a.filter(a=>a.workerId===actor.workerId).map(a=>a.serviceId));}
+async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services'),a=await rows(db,'assignments');return new Set([...services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id),...a.filter(x=>x.workerId===actor.workerId).map(x=>x.serviceId)]);}
+async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId!==actor.id)fail('No coordinas este servicio.',403);}
 async function canService(db,actor,id){if(actor.role==='manager')return;const s=await scope(db,actor);if(!s.has(id))fail('No tienes acceso a ese servicio.',403);}
 function publicAssignment(a,actor){
  if(actor.role==='manager')return a;
@@ -49,7 +50,10 @@ async function view(db,actor){
  const availability=(await rows(db,'availability')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
  const coordinatorIds=new Set(services.map(s=>s.coordinatorId).filter(Boolean));
  const directory=(await rows(db,'users')).filter(u=>coordinatorIds.has(u.id)).map(u=>({id:u.id,name:u.name}));
- const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),documents,availability};
+ const assignedServices=allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id);
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
+  const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
+  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability};
  if(actor.role==='manager')Object.assign(result,{tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),expenses:await rows(db,'expenses'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -83,10 +87,10 @@ async function saveEntity(db,actor,kind,b){
     data={serviceId:service.id,categoryId:tariff.id,role:text(b.role)||tariff.name,serviceType:text(b.serviceType)||'Montaje',team:text(b.team),date:startDate,endDate,start,end,pause:number(b.pause??0,0,24),notes:text(b.notes,1500),status:b.status==='cancelled'?'cancelled':'open'};
    }
    if(kind==='clients')data={...personInput(b),contact:text(b.contact),paymentDays:number(b.paymentDays??30,0,365)};
- if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency)};
+ if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500)};
  if(kind==='services'){
   const client=await record(db,'clients',required(b.clientId,'el cliente'));if(!client.active||client.archived)fail('El cliente está inactivo.');
-  if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||!['manager','coordinator'].includes(user.role))fail('Coordinador no válido.');}
+  if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||!['manager','worker','coordinator'].includes(user.role))fail('Coordinador no válido.');if(user.role!=='manager'&&!user.workerId)fail('El coordinador debe tener una ficha de trabajador.');}
   const startDate=date(b.date),endDate=date(b.endDate||b.date),start=time(b.start),end=time(b.end);
   if(endDate+'T'+end<=startDate+'T'+start)fail('El fin debe ser posterior al inicio. Para un turno nocturno elige el día siguiente.');
   const status=text(b.status)||'planned';if(!['planned','confirmed','in_progress','completed','cancelled'].includes(status))fail('Estado incorrecto.');
@@ -218,7 +222,7 @@ export function createOfficeApi(storage,env={}){
     managerOnly(actor);const input=b.record||{},old=input.id?await record(db,'users',input.id):null;revision(old,input);
     const username=required(input.username,'el usuario').toLowerCase();if(!/^[a-z0-9@._+-]{3,100}$/.test(username))fail('Usa un usuario o correo válido.');
     const existing=await db.get('office/username/'+username);if(existing&&existing!==old?.id)fail('Ese usuario ya existe.',409);
-    const role=input.role;if(!['manager','coordinator','worker'].includes(role))fail('Rol incorrecto.');
+    const role=input.role;if(!['manager','worker'].includes(role))fail('Solo existen los roles Gestor y Trabajador.');
     if(role==='worker'&&!input.workerId)fail('Vincula el usuario a una ficha de trabajador.');if(input.workerId)await record(db,'workers',input.workerId);
     const all=await rows(db,'users');if(input.workerId&&all.some(u=>u.id!==old?.id&&u.workerId===input.workerId&&u.active))fail('El trabajador ya tiene un usuario activo.',409);
     const active=input.active!==false;if(old?.role==='manager'&&(!active||role!=='manager')&&!all.some(u=>u.id!==old.id&&u.role==='manager'&&u.active))fail('Debe quedar al menos un gestor activo.',409);
@@ -243,7 +247,7 @@ export function createOfficeApi(storage,env={}){
     await db.put('office/qr/'+hash,{assignmentId:a.id,expires:Date.now()+90000,action:a.checkIn?'out':'in'});await db.put('office/qr-active/'+a.id,hash);return {token,expiresAt:Date.now()+90000,action:a.checkIn?'out':'in'};
    }
    if(op==='qr-redeem'){
-    if(actor.role==='worker')fail('Solo un gestor o coordinador puede validar QR.',403);
+    if(actor.role==='worker'||actor.role==='coordinator'){const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket)fail('QR no válido o caducado.',409);const assignment=await record(db,'assignments',ticket.assignmentId);await canCoordinate(db,actor,assignment.serviceId);}
     const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket||ticket.expires<Date.now())fail('QR caducado, utilizado o sustituido. Genera uno nuevo.',409);
     const a=await record(db,'assignments',ticket.assignmentId);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
     if(a.archived||service.archived||['completed','cancelled'].includes(service.status))fail('Servicio no disponible.',409);
@@ -268,7 +272,7 @@ export function createOfficeApi(storage,env={}){
    if(op==='clock'){
     const a=await record(db,'assignments',b.id);revision(a,b);const s=await record(db,'services',a.serviceId);
     if(a.archived||s.archived||['cancelled','completed'].includes(s.status))fail('El servicio no admite fichajes.',409);
-    if(actor.role==='worker'&&a.workerId!==actor.workerId)fail('No puedes fichar a otra persona.',403);await canService(db,actor,a.serviceId);
+    if(actor.role!=='manager'&&a.workerId!==actor.workerId)fail('No puedes fichar a otra persona.',403);await canService(db,actor,a.serviceId);
     const stamp=now();let update={};if(b.action==='in'){if(a.checkIn)fail('Ya hay una entrada registrada.',409);if(a.status==='rejected')fail('La asignación está rechazada.');update={checkIn:stamp,status:'confirmed'};}
     else if(b.action==='out'){if(!a.checkIn||a.checkOut)fail('Debe existir una entrada abierta.',409);update={checkOut:stamp};}
     else fail('Fichaje incorrecto.');await db.put(key('assignments',a.id),{...a,...update,revision:a.revision+1,updatedAt:stamp});await audit(db,actor,'clock-'+b.action,'assignments',a.id);return {};
