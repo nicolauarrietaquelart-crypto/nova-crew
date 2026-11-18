@@ -67,7 +67,8 @@ async function view(db,actor){
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
   const trainingAcks=(await rows(db,'trainingAcks')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
-  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,trainingAcks};
+  const hasProfilePhoto=!!(actor.workerId&&await db.get(key('employeePhotos',actor.workerId)));
+  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks};
  if(actor.role==='manager')Object.assign(result,{tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),expenses:await rows(db,'expenses'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -200,7 +201,16 @@ export function createOfficeApi(storage,env={}){
   const {actor,sessionKey}=await auth(req);
   if(req.method==='GET'){
    if(op==='state')return reply(await view(storage,actor));
-   if(op==='document'){
+   if(op==='employee-photo'){
+     const workerId=text(url.searchParams.get('workerId')||actor.workerId);
+     if(actor.role!=='manager'&&workerId!==actor.workerId)fail('No puedes consultar fotos de otros trabajadores.',403);
+     const info=await storage.get(key('employeePhotos',workerId));if(!info)fail('Fotografía no encontrada.',404);
+     const chunks=[];for(let i=0;i<info.chunks;i++)chunks.push(await storage.get('office/photoData/'+workerId+'/'+i));
+     if(chunks.some(x=>typeof x!=='string'))fail('Fotografía incompleta.',500);
+     const bytes=Uint8Array.from(atob(chunks.join('')),x=>x.charCodeAt(0));
+     return new Response(bytes,{headers:{'content-type':info.mime,'cache-control':'private, no-store','x-content-type-options':'nosniff','content-disposition':'inline'}});
+    }
+    if(op==='document'){
     const d=await record(storage,'documents',url.searchParams.get('id'));if(actor.role!=='manager'&&(!actor.workerId||d.workerId!==actor.workerId))fail('No tienes acceso a este documento.',403);
     const chunks=[];for(let i=0;i<d.chunks;i++){const s=await storage.get(`office/file/${d.id}/${i}`);if(typeof s!=='string')fail('Documento incompleto. Contacta con el gestor.',500);chunks.push(s);}const bytes=Uint8Array.from(atob(chunks.join('')),c=>c.charCodeAt(0));
     return new Response(bytes,{headers:{'content-type':'application/octet-stream','content-disposition':`attachment; filename*=UTF-8''${encodeURIComponent(d.name)}`,'cache-control':'no-store','x-content-type-options':'nosniff'}});
@@ -264,6 +274,20 @@ export function createOfficeApi(storage,env={}){
      if(recipientId===actor.id)fail('Selecciona otro destinatario.');
      const id=uid(),value={id,senderId:actor.id,recipientId,content:text(b.content,2000),createdAt:now()};
      await db.put(key('messages',id),value);await audit(db,actor,'send','messages',id);return {record:value};
+    }
+    if(op==='employee-photo-upload'){
+     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     const mime=b.mime==='image/png'?'image/png':b.mime==='image/jpeg'?'image/jpeg':null;
+     if(!mime)fail('La foto debe ser JPEG o PNG.');
+     const content=String(b.content||'');
+     if(!/^[A-Za-z0-9+/]+={0,2}$/.test(content)||content.length%4!==0||content.length>1400000)fail('La foto debe ocupar menos de 1 MB.');
+     const head=atob(content.slice(0,64));
+     if((mime==='image/jpeg'&&!head.startsWith('\xff\xd8\xff'))||(mime==='image/png'&&!head.startsWith('\x89PNG')))fail('Contenido de imagen no válido.');
+     const workerId=actor.workerId,old=await db.get(key('employeePhotos',workerId));
+     if(old)for(let i=0;i<old.chunks;i++)await db.delete('office/photoData/'+workerId+'/'+i);
+     const chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put('office/photoData/'+workerId+'/'+i,content.slice(i*60000,(i+1)*60000));
+     await db.put(key('employeePhotos',workerId),{mime,chunks,updatedAt:now()});
+     await audit(db,actor,'employee-photo','workers',workerId);return {ok:true};
     }
     if(op==='training-ack'){
      if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
