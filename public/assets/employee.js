@@ -94,10 +94,27 @@ function documentsPage(){
  const docs=list('documents');
  $('#employee-content').innerHTML=box('Mis documentos',docs.length?docs.map(d=>'<div class="document"><div><strong>'+esc(d.name)+'</strong><br><small>'+esc(d.type||'Documento')+(d.expires?' · Caduca '+human(d.expires):'')+'</small></div><a href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a></div>').join(''):'<div class="empty">Todavía no tienes documentos vinculados.</div>');
 }
+
+let selectedPayrollMonth='';
 function settlementsPage(){
- const a=myAssignments().filter(a=>a.status!=='rejected').sort((a,b)=>b.date.localeCompare(a.date));
- const total=a.filter(a=>a.payStatus==='confirmed').reduce((sum,x)=>sum+(x.grossPay||0),0);
- $('#employee-content').innerHTML='<div class="notice">Importes <strong>brutos estimados</strong> según las asignaciones y liquidaciones registradas, antes de IRPF y cotizaciones. No es una nómina ni acredita un pago bancario.</div><div class="stats"><div class="stat orange"><span class="muted">Liquidaciones confirmadas</span><strong>'+euro(total)+'</strong><small>Importe bruto</small></div></div>'+box('Mis liquidaciones',a.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Servicio</th><th>Día</th><th>Importe bruto</th><th>Estado</th></tr></thead><tbody>'+a.map(x=>'<tr><td>'+esc(service(x.serviceId).name||'Servicio')+'</td><td>'+human(x.date)+'</td><td>'+euro(x.grossPay)+'</td><td>'+(x.payStatus==='confirmed'?'Confirmada':'Pendiente')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay liquidaciones disponibles.</div>');
+ const all=myAssignments().filter(a=>a.status!=='rejected').sort((a,b)=>b.date.localeCompare(a.date));
+ const months=[...new Set(all.map(a=>a.date.slice(0,7)))],current=selectedPayrollMonth||months[0]||today().slice(0,7);
+ selectedPayrollMonth=current;
+ const rows=all.filter(a=>a.date.startsWith(current)),confirmed=rows.filter(a=>a.payStatus==='confirmed');
+ const total=confirmed.reduce((sum,a)=>sum+(a.grossPay||0),0);
+ $('#employee-content').innerHTML='<div class="notice">Liquidación <strong>bruta estimada</strong> según turnos y tarifas registrados. No es una nómina ni acredita transferencias; no incluye retenciones, cotizaciones del empleado ni otros ajustes laborales.</div>'+
+ '<div class="actions-row" style="margin-bottom:16px">'+months.map(m=>'<button class="'+(m===current?'primary':'secondary')+'" data-action="payroll-month" data-month="'+esc(m)+'">'+esc(m)+'</button>').join('')+btn('download-payroll','Descargar CSV','','secondary')+'</div>'+
+ '<div class="stats"><div class="stat orange"><span class="muted">Periodo '+esc(current)+'</span><strong>'+euro(total)+'</strong><small>Importes confirmados</small></div><div class="stat"><span class="muted">Servicios</span><strong>'+rows.length+'</strong><small>Del periodo</small></div></div>'+
+ box('Detalle de liquidación',rows.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Servicio</th><th>Fecha</th><th>Importe bruto</th><th>Estado</th></tr></thead><tbody>'+
+ rows.map(a=>'<tr><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+human(a.date)+'</td><td>'+euro(a.grossPay)+'</td><td>'+(a.payStatus==='confirmed'?'Confirmada':'Pendiente')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">Sin servicios durante este periodo.</div>');
+}
+function downloadPayroll(){
+ const entries=myAssignments().filter(a=>a.date.startsWith(selectedPayrollMonth));
+ const csvCell=v=>{let x=String(v??'');if(/^[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"';};
+ const data=[['Fecha','Servicio','Categoría','Bruto EUR','Estado'],...entries.map(a=>[a.date,service(a.serviceId).name,a.role,(a.grossPay||0).toFixed(2),a.payStatus==='confirmed'?'Confirmada':'Pendiente'])];
+ const csv='\ufeff'+data.map(row=>row.map(csvCell).join(';')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');
+ a.href=url;a.download='NOVA_liquidacion_'+selectedPayrollMonth+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function profilePage(){
  const w=worker();$('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+'</div>'+box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con Gestoría.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
@@ -259,6 +276,8 @@ document.addEventListener('click',async ev=>{
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='edit-profile')return extendedProfile();
  if(action==='upload-photo')return employeePhotoModal();
+ if(action==='payroll-month'){selectedPayrollMonth=el.dataset.month;return settlementsPage()}
+ if(action==='download-payroll')return downloadPayroll();
  if(action==='training-ack')return mutation('training-ack',{documentId:id},'Formación marcada como leída');
  if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{return mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...await attendanceLocation(a.serviceId)},'Fichaje registrado')}catch(e){return error(e)}}}
 
