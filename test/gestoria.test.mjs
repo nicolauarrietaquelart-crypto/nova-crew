@@ -126,3 +126,39 @@ test('employee portal receives own gross liquidations but not customer rates',as
  assert.equal(payload.tariffs,undefined);
  assert.equal(payload.clients,undefined);
 });
+
+test('creating a worker automatically creates only a worker account and one-time onboarding credentials',async()=>{
+ const f=await setup();
+ const created=await f.call('save',{kind:'workers',record:{name:'Trabajador eventual',specialty:'HAND M',costRate:9.30,contractType:'eventual'}});
+ assert.equal(created.status,200,JSON.stringify(created.body));
+ assert.equal(created.body.record.contractType,'eventual');
+ assert.equal(created.body.access.existing,false);
+ assert.ok(created.body.access.username);
+ assert.ok(created.body.access.password.length>=12);
+ const users=(await f.call('state')).body.users;
+ const newUser=users.find(u=>u.workerId===created.body.record.id);
+ assert.equal(newUser.role,'worker');
+ assert.equal(newUser.username,created.body.access.username);
+ assert.equal(newUser.passwordHash,undefined);
+ const updated=await f.call('save',{kind:'workers',record:{...created.body.record,name:'Trabajador eventual actualizado'}});
+ assert.equal(updated.status,200);
+ assert.equal(updated.body.access.existing,true);
+ assert.equal(updated.body.access.password,undefined);
+ assert.equal((await f.call('state')).body.users.filter(u=>u.workerId===created.body.record.id).length,1);
+});
+test('worker can save their weekly availability and personal profile without seeing clients',async()=>{
+ const f=await setup(),u=await f.call('user',{record:{username:'trabajador',name:'Trabajador',role:'worker',workerId:f.worker.id,password:'worker-password-strong'}});
+ assert.equal(u.status,200);
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'trabajador',password:'worker-password-strong'})}));
+ const cookie=login.headers.get('set-cookie').split(';')[0];
+ const call=async(op,data)=>{const r=await api(new Request('https://nova.test/api/office/'+op,{method:'POST',headers:{cookie,origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify(data)}));return{status:r.status,body:await r.json()}};
+ const days=Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map(key=>[key,{available:key!=='sun',start:'08:00',end:'22:00'}]));
+ assert.equal((await call('availability-weekly',{days})).status,200);
+ assert.equal((await call('employee-profile',{record:{city:'Barcelona',languages:['Catalán','Español']}})).status,200);
+ const response=await api(new Request('https://nova.test/api/office/state',{headers:{cookie}}));
+ const state=await response.json();
+ assert.equal(state.weeklyAvailability.days.mon.available,true);
+ assert.equal(state.profile.city,'Barcelona');
+ assert.equal(state.clients,undefined);
+});
