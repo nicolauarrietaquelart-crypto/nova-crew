@@ -5,8 +5,9 @@ const euro=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).f
 const today=()=>new Date().toLocaleDateString('en-CA');
 const human=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'short'}):'—';
 const stamp=d=>d?new Date(d).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-const names={dashboard:'Inicio',clock:'Control horario',availability:'Disponibilidad',services:'Mis servicios',calendar:'Mi agenda',coordination:'Coordinación',company:'Datos empresa',training:'Formación',documents:'Documentación',tutorials:'Tutoriales',settlements:'Liquidaciones',contracts:'Contratos',messages:'Mensajes',profile:'Mi perfil'};
+const names={dashboard:'Inicio',clock:'Control horario',availability:'Disponibilidad',services:'Mis servicios',calendar:'Mi agenda',coordination:'Coordinación',crewControl:'Crew Control',company:'Datos empresa',training:'Formación',documents:'Documentación',tutorials:'Tutoriales',settlements:'Liquidaciones',contracts:'Contratos',messages:'Mensajes',profile:'Mi perfil'};
 const navPaths={
+ crewControl:'M3 4h18v16H3z M8 9h8 M8 13h8 M8 17h5',
  dashboard:'m3 10 9-7 9 7v10H4V10 M9 20v-7h6v7',
  clock:'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18 M12 7v5l3 2',
  availability:'M3 5h18v16H3z M8 3v4 M16 3v4 M3 10h18 M8 15l3 3 5-5',
@@ -56,7 +57,7 @@ function serviceCard(a){
  return '<article class="service-card">'+dateTile+text+acts+'</article>';
 }
 function renderNav(){
- const pc=Object.entries(names).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span>'+esc(label)+'</span>'+(key==='coordination'&&state.coordinatorRoster?.length?'<b>'+state.coordinatorRoster.length+'</b>':'')+'</button>').join('');
+ const pc=Object.entries(names).filter(([key])=>key!=='crewControl'||list('services').some(s=>s.coordinatorId===state.user.id)).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span>'+esc(label)+'</span>'+(key==='coordination'&&state.coordinatorRoster?.length?'<b>'+state.coordinatorRoster.length+'</b>':'')+'</button>').join('');
  $('#employee-nav').innerHTML=pc;
  $('#mobile-nav').innerHTML=['dashboard','clock','services','calendar','coordination'].map(k=>'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+'<small>'+esc(names[k])+'</small></button>').join('');
 }
@@ -135,10 +136,35 @@ function coordinationPage(){
  const person=id=>workers.find(w=>w.id===id)?.name||'Personal';
  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación de personal</h2><p class="muted">Puedes coordinar un servicio y trabajar como HAND en otro, utilizando la misma cuenta.</p></div>'+
  (services.length?services.map(s=>box(s.name+' · '+s.venue,
- '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+btn('incident-report','Registrar incidencia',s.id)+'</div>'+
+ '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+btn('crew-open','Abrir Crew Control',s.id,'primary')+btn('incident-report','Registrar incidencia',s.id)+'</div>'+
  '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Categoría</th><th>Horario</th><th>Confirmación</th><th>Fichaje</th><th></th></tr></thead><tbody>'+
  roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. El gestor puede asignarte como coordinador desde una comanda.</div>');
 }
+
+let selectedCrewService='',crewFilter='all';
+function crewControlPage(){
+ const svcs=list('services').filter(s=>s.coordinatorId===state.user.id);
+ if(!svcs.length){$('#employee-content').innerHTML='<div class="panel empty">No tienes servicios bajo tu coordinación.</div>';return}
+ if(!svcs.some(s=>s.id===selectedCrewService))selectedCrewService=svcs[0].id;
+ const sv=service(selectedCrewService),records=(state.coordinatorRoster||[]).filter(a=>a.serviceId===selectedCrewService),people=state.coordinatorWorkers||[];
+ const person=id=>people.find(w=>w.id===id)?.name||'Personal';
+ const present=records.filter(a=>a.checkIn&&!a.checkOut).length,absent=records.filter(a=>!a.checkIn).length,contacted=records.filter(a=>a.contacted).length,noTeam=records.filter(a=>!a.team).length;
+ const matches=a=>crewFilter==='all'||(crewFilter==='present'&&a.checkIn&&!a.checkOut)||(crewFilter==='absent'&&!a.checkIn)||(crewFilter==='contacted'&&a.contacted)||(crewFilter==='no-team'&&!a.team);
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Crew Control</h2><p class="muted">Panel operativo del servicio asignado · no muestra salarios ni facturación</p></div>'+
+ '<div class="panel"><div class="panel-head"><h2>'+esc(sv.name)+'</h2>'+btn('scan-qr','Escanear QR',sv.id,'primary')+'</div>'+
+ '<label class="form-label">Servicio<select class="field" id="crew-service-select">'+svcs.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===selectedCrewService?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label></div>'+
+ '<div class="stats">'+[['Todos',records.length,'all'],['Presentes',present,'present'],['No presentados',absent,'absent'],['Contactados',contacted,'contacted']].map(([label,count,f])=>'<button class="stat '+(crewFilter===f?'orange':'')+'" data-action="crew-filter" data-filter="'+f+'" style="text-align:left;cursor:pointer"><span class="muted">'+label+'</span><strong>'+count+'</strong></button>').join('')+'</div>'+
+ '<div class="actions-row" style="margin-bottom:14px">'+btn('crew-filter','Sin equipo ('+noTeam+')','','secondary')+btn('incident-report','Registrar incidencia',sv.id)+'</div>'+
+ box('Plantilla · '+records.filter(matches).length+' trabajadores',records.filter(matches).length?
+ '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Personal</th><th>Equipo</th><th>Turno</th><th>Fichaje</th><th>Contacto</th><th>Acciones</th></tr></thead><tbody>'+
+ records.filter(matches).map(a=>'<tr><td><strong>'+esc(person(a.workerId))+'</strong><br><small>'+esc(a.role)+'</small></td><td>'+esc(a.team||'Sin equipo')+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida':'')+'</td><td>'+esc(a.contacted?'Contactado':'Pendiente')+'</td><td><div class="actions-row">'+btn('crew-contact',a.contacted?'Desmarcar contacto':'Contactado',a.id)+btn('crew-team','Equipo',a.id)+btn('edit-coord-shift','Horario',a.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay trabajadores con este filtro.</div>');
+}
+function crewTeamModal(id){
+ const a=(state.coordinatorRoster||[]).find(a=>a.id===id);if(!a)return;
+ modal('Cambiar equipo','<form id="crew-team-form" style="display:grid;gap:12px"><label class="form-label">Equipo del trabajador<input class="field" name="team" maxlength="100" value="'+esc(a.team||'')+'"></label><button class="primary" type="submit">Guardar equipo</button></form>');
+ $('#crew-team-form').onsubmit=async e=>{e.preventDefault();try{await api('coordinator-control',{id,revision:a.revision,field:'team',value:e.target.elements.team.value});$('#employee-modal').close();await load();notice('Equipo actualizado')}catch(ex){error(ex)}};
+}
+
 function companyPage(){
  $('#employee-content').innerHTML=box('Datos de empresa','<div class="line"><span>Empresa</span><strong>Penny Wise</strong></div><div class="line"><span>Delegación</span><strong>Barcelona</strong></div><div class="line"><span>Dirección de referencia</span><strong>Zamora 45-47, Barcelona</strong></div><p class="muted" style="margin-top:12px">Los datos de contacto y condiciones laborales deben confirmarse con Gestoría.</p>');
 }
@@ -231,7 +257,7 @@ function render(){
  if(!state.user)return;
  renderNav();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
  $('#employee-avatar').innerHTML=state.hasProfilePhoto?'<img alt="Foto de perfil" src="/api/office/employee-photo?workerId='+encodeURIComponent(state.user.workerId)+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase());
- ({dashboard,clock:clockPage,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
+ ({dashboard,clock:clockPage,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,crewControl:crewControlPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
 }
 async function load(){
  if(isLoading)return;isLoading=true;
@@ -277,6 +303,10 @@ document.addEventListener('click',async ev=>{
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
+ if(action==='crew-open'){selectedCrewService=id;page='crewControl';return render()}
+ if(action==='crew-filter'){crewFilter=el.dataset.filter||'no-team';return crewControlPage()}
+ if(action==='crew-contact'){const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(a)return mutation('coordinator-control',{id,revision:a.revision,field:'contacted',value:!a.contacted},'Estado de contacto actualizado')}
+ if(action==='crew-team')return crewTeamModal(id);
  if(action==='incident-report')return incidentModal(id);
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
@@ -305,6 +335,7 @@ $('#login-form').onsubmit=async e=>{
  e.preventDefault();const b=e.target.querySelector('button[type=submit]'),err=$('#login-error');b.disabled=true;err.hidden=true;
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
+$('#employee-content').addEventListener('change',e=>{if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;crewControlPage()}});
 $('#modal-close').onclick=()=>{stopQrCamera();$('#employee-modal').close()};$('#employee-modal').addEventListener('close',stopQrCamera);
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 load();
