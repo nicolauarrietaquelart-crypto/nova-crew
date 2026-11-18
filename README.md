@@ -1,5 +1,21 @@
 # NOVA Crew · Operaciones y personal
 
+## Estructura definitiva de dos áreas (v17 en revisión)
+
+**Gestor** (`/`): clientes, servicios, comandas, personal, tarifas, facturación, liquidaciones, incidencias y mensajes. Desde la ficha del trabajador, el alta crea la cuenta vinculada por defecto, con usuario generado si no se proporciona y contraseña aleatoria mostrada una sola vez al gestor. Se puede editar su acceso sin crear cuentas duplicadas.
+
+**Trabajador** (`/empleado.html`): inicio, control horario, disponibilidad puntual y semanal, servicios, calendario, coordinación de los servicios que le asignen, empresa, formación documental con confirmación, documentos, tutoriales, liquidaciones mensuales brutas y CSV, contratos, mensajes y perfil con fotografía privada y conocimientos. Un trabajador puede actuar como HAND o coordinar distintos servicios sin cambiar de rol global. Solo existen nuevas cuentas con roles `manager` y `worker`; cuentas `coordinator` históricas se muestran como trabajador para facilitar su migración, pero requieren ficha vinculada.
+
+- QR temporal válido 90 segundos, validado por el gestor o trabajador nombrado coordinador de ese servicio. La cámara usa `BarcodeDetector` cuando está disponible, con entrada manual del código siempre accesible.
+- Los fichajes directos se reservan a servicios sin coordinador. La ubicación (radio de 500 m por defecto) solo se comprueba al fichar cuando Gestoría configura coordenadas del recinto; no hay seguimiento continuo.
+- Coordinación: consulta de plantilla vinculada al servicio, validación QR, cambio de turnos dentro de sus permisos e incidencias; sin acceso a clientes, costes ni tarifas de venta.
+- Contratos de tipo `eventual` como valor predeterminado, con opciones de indefinido y fijo discontinuo. No se crea contrato legal automáticamente.
+- Diseño común basado en los tokens visuales y navegación de la v15 histórica conservada en `public/legacy-demo.html` y `public/assets/styles.css`; se implementa en `nova-original-theme.css` para las dos áreas.
+- El prototipo antiguo usaba datos ficticios, cuentas demo y módulos no conectados. No se activa ese backend. Las equivalencias visuales al píxel y los flujos avanzados de Crew Control deben validarse en navegador antes del despliegue.
+
+**Validación y seguridad:** código en PR de borrador, con validación sintáctica y pruebas añadidas. Sigue pendiente la ejecución completa `npm run check && npm test` en Node/CI, pruebas de cámara QR iPhone/iPad, permisos de ubicación, compatibilidad con Durable Objects y revisión visual de ambas áreas. No fusionar o desplegar sin estas pruebas.
+
+
 Portal de gestión y de trabajadores sobre Cloudflare Workers y Durable Objects SQLite. La versión operativa v16 tiene usuarios reales y parte de una base vacía. Los registros de la demo se conservan separados y no se importan como datos de empresa.
 
 ## Funciones operativas
