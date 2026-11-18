@@ -37,15 +37,15 @@ function publicAssignment(a,actor){
  if(actor.role==='manager')return a;
  const {costRate,chargeRate,baseCostRate,baseChargeRate,clientHours,billableHours,clientUnits,workerHours,workerUnits,minimumHours,incrementPercent,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;
  // Worker receives only their own gross remuneration and settlement state, never customer rates.
- if(actor.role==='worker'&&a.workerId===actor.workerId)return {...rest,grossPay:money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)),payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
+ if(actor.role!=='manager'&&a.workerId===actor.workerId)return {...rest,grossPay:money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)),payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
  return rest;
 }
 async function view(db,actor){
  const serviceScope=await scope(db,actor);const allServices=await rows(db,'services');
  const services=allServices.filter(s=>!serviceScope||serviceScope.has(s.id)).map(s=>{if(actor.role==='manager')return s;const {clientId,notes,...safe}=s;return safe;});
- let assignments=(await rows(db,'assignments')).filter(a=>(!serviceScope||serviceScope.has(a.serviceId))&&(actor.role!=='worker'||a.workerId===actor.workerId));
+ let assignments=(await rows(db,'assignments')).filter(a=>(!serviceScope||serviceScope.has(a.serviceId))&&(actor.role==='manager'||a.workerId===actor.workerId));
  const workerIds=new Set(assignments.map(a=>a.workerId));
- const workers=(await rows(db,'workers')).filter(w=>actor.role==='manager'||(actor.role==='worker'?w.id===actor.workerId:workerIds.has(w.id))).map(w=>actor.role==='manager'?w:actor.role==='worker'?{id:w.id,name:w.name,phone:w.phone,email:w.email,specialty:w.specialty,revision:w.revision}:{id:w.id,name:w.name,phone:w.phone,specialty:w.specialty});
+ const workers=(await rows(db,'workers')).filter(w=>actor.role==='manager'||w.id===actor.workerId).map(w=>actor.role==='manager'?w:{id:w.id,name:w.name,phone:w.phone,email:w.email,specialty:w.specialty,contractType:w.contractType||'eventual',revision:w.revision});
  const documents=(await rows(db,'documents')).filter(d=>actor.role==='manager'||(actor.workerId&&d.workerId===actor.workerId));
  const availability=(await rows(db,'availability')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
  const coordinatorIds=new Set(services.map(s=>s.coordinatorId).filter(Boolean));
@@ -53,7 +53,10 @@ async function view(db,actor){
  const assignedServices=allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id);
   const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
-  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability};
+  const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
+  const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
+  const trainingAcks=(await rows(db,'trainingAcks')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
+  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,messages,profile,trainingAcks};
  if(actor.role==='manager')Object.assign(result,{tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),expenses:await rows(db,'expenses'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -215,6 +218,34 @@ export function createOfficeApi(storage,env={}){
      await db.put(key('users',u.id),u);await db.put('office/username/'+username,u.id);
      await audit(db,actor,'create-access','users',u.id);
      return {record:saved,access:{username,password:b.onboardingPassword,existing:false}};
+    }
+    if(op==='employee-profile'){
+     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     const allowed=['nationality','postalCode','city','province','country','shirtSize','drivingLicense','ownVehicle','languages','skills','education','contactNotes','preferredPhone'];
+     const input=b.record||{},old=await db.get(key('employeeProfiles',actor.workerId))||{};
+     revision(old.revision?old:null,input);
+     const update={};for(const field of allowed)if(Object.hasOwn(input,field))update[field]=Array.isArray(input[field])?input[field].slice(0,30).map(x=>text(x,100)):text(input[field],250);
+     const value={...old,...update,workerId:actor.workerId,revision:(old.revision||0)+1,updatedAt:now()};
+     await db.put(key('employeeProfiles',actor.workerId),value);await audit(db,actor,'employee-profile','workers',actor.workerId);return {record:value};
+    }
+    if(op==='message-send'){
+     const recipientId=text(b.recipientId),content=required(b.content,'el mensaje');
+     if(content.length>2000)fail('El mensaje supera 2000 caracteres.');
+     if(actor.role!=='manager'){
+      const recipient=await record(db,'users',recipientId);if(recipient.role!=='manager'||!recipient.active)fail('El trabajador solo puede escribir a Gestoría.',403);
+     }else{const recipient=await record(db,'users',recipientId);if(!recipient.active)fail('Destinatario inactivo.');}
+     if(recipientId===actor.id)fail('Selecciona otro destinatario.');
+     const id=uid(),value={id,senderId:actor.id,recipientId,content:text(b.content,2000),createdAt:now()};
+     await db.put(key('messages',id),value);await audit(db,actor,'send','messages',id);return {record:value};
+    }
+    if(op==='training-ack'){
+     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     const doc=await record(db,'documents',b.documentId);
+     if(doc.workerId!==actor.workerId||doc.type!=='training')fail('Formación no asignada.',403);
+     const id=actor.workerId+'_'+doc.id,old=await db.get(key('trainingAcks',id));
+     if(old)return {record:old};
+     const value={id,workerId:actor.workerId,documentId:doc.id,acknowledgedAt:now()};
+     await db.put(key('trainingAcks',id),value);await audit(db,actor,'training-ack','documents',doc.id);return {record:value};
     }
     if(op==='order-line-bulk'){
      managerOnly(actor);const count=number(b.quantity,1,100),created=[];
