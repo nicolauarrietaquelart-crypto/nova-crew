@@ -200,9 +200,22 @@ export function createOfficeApi(storage,env={}){
   if(op==='qr-issue'){b.qrToken=random();b.qrHash=await digest(b.qrToken);}
   if(op==='qr-redeem'){if(!/^[a-f0-9]{64}$/.test(String(b.token||'')))fail('Código QR no válido.');b.qrHash=await digest(b.token);}
   if(op==='user'&&b.record?.password){managerOnly(actor);b.passwordFields=await passwordFields(b.record.password);}
+   if(op==='save'&&b.kind==='workers'&&b.record?.createAccess!==false){managerOnly(actor);b.onboardingPassword=random().slice(0,32);b.onboardingPasswordFields=await passwordFields(b.onboardingPassword);}
   const result=await storage.transaction(async db=>{
    const currentActor=await record(db,'users',actor.id);if(!currentActor.active||currentActor.version!==actor.version)fail('La sesión ha cambiado. Inicia sesión de nuevo.',401);
-   if(op==='save')return {record:await saveEntity(db,actor,text(b.kind),b.record||{})};
+   if(op==='save'){
+     const kind=text(b.kind),input=b.record||{},saved=await saveEntity(db,actor,kind,input);
+     if(kind!=='workers'||input.createAccess===false)return {record:saved};
+     const existing=(await rows(db,'users')).find(u=>u.workerId===saved.id&&u.active);
+     if(existing)return {record:saved,access:{username:existing.username,existing:true}};
+     const username=text(input.username,100).toLowerCase()||('emp-'+random().slice(0,12));
+     if(!/^[a-z0-9@._+-]{3,100}$/.test(username))fail('Usuario incorrecto.');
+     if(await db.get('office/username/'+username))fail('Ese usuario ya existe.',409);
+     const u={id:uid(),username,name:saved.name,role:'worker',active:saved.active,workerId:saved.id,version:1,revision:1,createdAt:now(),...b.onboardingPasswordFields};
+     await db.put(key('users',u.id),u);await db.put('office/username/'+username,u.id);
+     await audit(db,actor,'create-access','users',u.id);
+     return {record:saved,access:{username,password:b.onboardingPassword,existing:false}};
+    }
     if(op==='order-line-bulk'){
      managerOnly(actor);const count=number(b.quantity,1,100),created=[];
      for(let i=0;i<count;i++)created.push(await saveEntity(db,actor,'orderLines',b.record||{}));
