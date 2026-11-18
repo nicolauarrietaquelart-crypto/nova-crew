@@ -18,7 +18,7 @@ async function setup(){
  assert.equal((await call('setup',{setupToken:token,username:'gestor',name:'Gestor',password:'password-long-enough'})).status,200);
  const save=async(kind,record)=>{const r=await call('save',{kind,record});assert.equal(r.status,200,JSON.stringify(r.body));return r.body.record;};
  const client=await save('clients',{name:'Cliente',taxId:'B12345678',address:'Barcelona'});
- const worker=await save('workers',{name:'Montador',specialty:'HAND B',costRate:9.30});
+ const worker=await save('workers',{name:'Montador',specialty:'HAND B',costRate:9.30,createAccess:false});
  const service=await save('services',{name:'Concierto',clientId:client.id,venue:'Palau Sant Jordi',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',required:4});
  return {call,save,client,worker,service};
 }
