@@ -1,5 +1,21 @@
 # NOVA Crew · Operaciones y personal
 
+## Estructura definitiva de dos áreas (v17 en revisión)
+
+**Gestor** (`/`): clientes, servicios, comandas, personal, tarifas, facturación, liquidaciones, incidencias y mensajes. Desde la ficha del trabajador, el alta crea la cuenta vinculada por defecto, con usuario generado si no se proporciona y contraseña aleatoria mostrada una sola vez al gestor. Se puede editar su acceso sin crear cuentas duplicadas.
+
+**Trabajador** (`/empleado.html`): inicio, control horario, disponibilidad puntual y semanal, servicios, calendario, coordinación de los servicios que le asignen, empresa, formación documental con confirmación, documentos, tutoriales, liquidaciones mensuales brutas y CSV, contratos, mensajes y perfil con fotografía privada y conocimientos. Un trabajador puede actuar como HAND o coordinar distintos servicios sin cambiar de rol global. Solo existen nuevas cuentas con roles `manager` y `worker`; cuentas `coordinator` históricas se muestran como trabajador para facilitar su migración, pero requieren ficha vinculada.
+
+- QR temporal válido 90 segundos, validado por el gestor o trabajador nombrado coordinador de ese servicio. La cámara usa `BarcodeDetector` cuando está disponible, con entrada manual del código siempre accesible.
+- Los fichajes directos se reservan a servicios sin coordinador. La ubicación (radio de 500 m por defecto) solo se comprueba al fichar cuando Gestoría configura coordenadas del recinto; no hay seguimiento continuo.
+- Coordinación: consulta de plantilla vinculada al servicio, validación QR, cambio de turnos dentro de sus permisos e incidencias; sin acceso a clientes, costes ni tarifas de venta.
+- Contratos de tipo `eventual` como valor predeterminado, con opciones de indefinido y fijo discontinuo. No se crea contrato legal automáticamente.
+- Diseño común basado en los tokens visuales y navegación de la v15 histórica conservada en `public/legacy-demo.html` y `public/assets/styles.css`; se implementa en `nova-original-theme.css` para las dos áreas.
+- El prototipo antiguo usaba datos ficticios, cuentas demo y módulos no conectados. No se activa ese backend. Las equivalencias visuales al píxel y los flujos avanzados de Crew Control deben validarse en navegador antes del despliegue.
+
+**Validación y seguridad:** código en PR de borrador, con validación sintáctica y pruebas añadidas. Sigue pendiente la ejecución completa `npm run check && npm test` en Node/CI, pruebas de cámara QR iPhone/iPad, permisos de ubicación, compatibilidad con Durable Objects y revisión visual de ambas áreas. No fusionar o desplegar sin estas pruebas.
+
+
 Portal de gestión y de trabajadores sobre Cloudflare Workers y Durable Objects SQLite. La versión operativa v16 tiene usuarios reales y parte de una base vacía. Los registros de la demo se conservan separados y no se importan como datos de empresa.
 
 ## Funciones operativas
@@ -43,6 +59,31 @@ No hay credenciales de gestor predeterminadas ni registro público. La recuperac
 - Cada edición incluye una revisión. Un dispositivo con datos antiguos recibe un conflicto 409 en lugar de sobrescribir cambios recientes. La pantalla se actualiza cada 30 segundos cuando no hay un formulario abierto.
 - Las antiguas cuentas públicas `demo` y `coord` no funcionan en el portal operativo. `/api` responde 410 por defecto. El HTML antiguo se conserva como `legacy-demo.html`; solo una configuración explícita `ENABLE_LEGACY_DEMO=true` reactiva su backend ficticio, siempre aislado de los registros operativos.
 - Documentos servidos como descarga, con autenticación y sin URLs públicas. No almacenar secretos ni contratos en el repositorio GitHub, que es público.
+
+
+## Área de empleado recuperada en v17 (sin tocar la demo histórica)
+
+- **`/empleado.html`**: entrada individual para cuentas operativas con rol `worker`. Al iniciar sesión en la página principal se redirige automáticamente a esta área.
+- Secciones de **inicio**, **mis servicios y confirmaciones**, **calendario**, **disponibilidad**, **documentos**, **liquidaciones brutas** y **perfil**. Adaptación móvil.
+- **Fichaje QR** en entrada y salida mediante `qr-issue`, con caducidad de 90 segundos; se valida con `qr-redeem` de un coordinador o gestor autorizado. No se han activado las cuentas demo ni se han copiado fichajes ficticios.
+- El importe mostrado al empleado corresponde a **su propio importe bruto calculado**. El endpoint de estado de empleado no entrega clientes, precio de venta ni tarifas comerciales.
+- La versión histórica `public/legacy-demo.html` y sus activos siguen conservados como referencia visual, **sin habilitar el antiguo backend inseguro de prueba**.
+- Pendiente de migrar/reconstruir desde la experiencia histórica: mensajería, formación, funcionalidades extendidas de coordinación, ajustes avanzados del perfil y otras pantallas específicas del prototipo. No presentar esas funciones como restauradas sin integraciones reales.
+- El trabajo permanece en una rama aislada, no desplegada. Probar ambos roles, cámara QR, fin de sesión, caducidad y visualización móvil antes de fusionar.
+
+## Gestoría y liquidaciones (propuesta v17)
+
+Esta funcionalidad se desarrolla en la rama `feature/gestoria-liquidaciones-20261117` y no debe desplegarse hasta pasar pruebas de regresión en Cloudflare.
+
+- **Comandas / peticiones:** cada servicio puede tener plazas individuales (`orderLines`) con categoría, tipo de servicio, equipo, día, horario y pausa. Una plaza puede quedar vacante. Creación masiva de 1 a 100 plazas, con un identificador distinto por plaza. Las asignaciones de trabajadores pueden vincularse a una plaza.
+- **Tarifas:** catálogo inicial de 41 conceptos del tarifario aportado «Tarifario trabajadores Temporales PW BCN 2026», incluyendo categorías operativas específicas. Los importes del PDF son *brutos*, no costes laborales completos. Se mantienen los importes expresados por hora y por show/día, con tarifa cliente inicial al doble del precio bruto y cambios configurables.
+- **Categorías operativas:** HAND B mínimo 5 h; HAND A 3 h; HAND M 4 h; CREW HEAD identificado como Coordinador/a de Personal (6 h, 14,40 € brutos); FORKLIFTER identificado con Operador/a Carretilla Elevadora (5 h, 10,80 € brutos). El PDF **no identifica salarios para HAND A, HAND B, HAND C1 y HAND M**; sus precios de la categoría operativa empiezan sin configurar, no con un valor ficticio. La categoría general Hand/Montador/a mantiene 4 h y 9,30 €/h.
+- **Excepciones:** Hand/Montador/a tiene mínimo de 3 h en Palau de la Música, Bikini, Apolo y Razzmatazz 2 y 3. La excepción del PDF sobre dos servicios de 3 h en una misma jornada requiere comprobación contextual y no se automatiza.
+- **Operación real:** horas reales y coste bruto del trabajador distintos de horas y tarifa facturable al cliente. Un no presentado deja coste cero; un cargo de cancelación al cliente requiere declaración explícita y referencia contractual en observaciones. No presentar trabajos inexistentes como horas efectivamente trabajadas.
+- **Cierre y facturación:** aprobación de liquidaciones después de completar el servicio y cerrar fichajes, bloqueo de nuevos cambios ordinarios una vez liquidado y protección de servicios con facturas emitidas. El presupuesto se puede preparar desde la comanda (plazas aunque estén vacantes) y la factura desde las asignaciones facturables. Nunca se emiten documentos automáticamente.
+- **Nuevas pantallas:** Gestoría · Comandas, Servicios cerrados y Tarifas. El área de trabajadores sigue separada de la información comercial.
+
+**Limitaciones:** No hay todavía rectificativas legales, cálculos de coste de Seguridad Social a cargo de empresa, recargos automáticos de convenio, verificación automática de la excepción de dos turnos de 3 h, integración bancaria ni generación tributaria certificada. Antes de producción, ejecutar `npm run check && npm test`, revisar una copia de datos reales y verificar compatibilidad con la configuración del Worker.
 
 ## Alcance actual
 
