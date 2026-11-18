@@ -62,7 +62,7 @@ async function view(db,actor){
  const coordinatorIds=new Set(services.map(s=>s.coordinatorId).filter(Boolean));
  const directory=(await rows(db,'users')).filter(u=>u.active&&(coordinatorIds.has(u.id)||u.role==='manager')).map(u=>({id:u.id,name:u.name,role:u.role}));
  const assignedServices=allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id);
-  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
@@ -369,7 +369,20 @@ export function createOfficeApi(storage,env={}){
     await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed'}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
     await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
    }
-   if(op==='coordinator-shift'){
+   if(op==='coordinator-control'){
+     const a=await record(db,'assignments',b.id);revision(a,b);
+     if(actor.role!=='manager')await canCoordinate(db,actor,a.serviceId);
+     const service=await record(db,'services',a.serviceId);
+     if(service.archived||['completed','cancelled'].includes(service.status))fail('Servicio cerrado.',409);
+     const update={};
+     if(b.field==='contacted')update.contacted=b.value===true;
+     else if(b.field==='team')update.team=text(b.value,100);
+     else fail('Campo operativo no permitido.');
+     const value={...a,...update,revision:a.revision+1,updatedAt:now()};
+     await db.put(key('assignments',a.id),value);await audit(db,actor,'coordinator-'+b.field,'assignments',a.id);
+     return {record:publicAssignment(value,actor)};
+    }
+    if(op==='coordinator-shift'){
      if(actor.role==='manager')fail('Usa Gestoría para modificar turnos.');
      const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinate(db,actor,a.serviceId);
      const service=await record(db,'services',a.serviceId);
