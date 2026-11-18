@@ -304,7 +304,7 @@ export function createOfficeApi(storage,env={}){
      const workerId=actor.workerId,old=await db.get(key('employeePhotos',workerId));
      if(old)for(let i=0;i<old.chunks;i++)await db.delete('office/photoData/'+workerId+'/'+i);
      const chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put('office/photoData/'+workerId+'/'+i,content.slice(i*60000,(i+1)*60000));
-     await db.put(key('employeePhotos',workerId),{mime,chunks,updatedAt:now()});
+     await db.put(key('employeePhotos',workerId),{workerId,mime,chunks,updatedAt:now()});
      await audit(db,actor,'employee-photo','workers',workerId);return {ok:true};
     }
     if(op==='training-ack'){
