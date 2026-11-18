@@ -49,3 +49,18 @@ input:focus,select:focus,textarea:focus{border-color:rgba(255,127,31,.55)!import
  .panel,.service-card{border-radius:18px!important}
 }
 @media(min-width:751px) and (max-width:1100px){#app main,#employee-app .main{margin-left:265px}}
+
+/* Original portal navigation with vector icons and contextual counts. */
+#employee-app .sidebar nav button{display:flex!important;align-items:center!important;gap:11px!important;padding:10px 12px!important;min-height:42px!important}
+#employee-app .sidebar nav button .nova-nav-icon{display:grid;place-items:center;width:24px;height:24px;flex-shrink:0;color:#70757d}
+#employee-app .sidebar nav button.active .nova-nav-icon{color:#b55718}
+#employee-app .sidebar nav button b{margin-left:auto;background:#f4e8df;color:#b55b1d;padding:2px 6px;border-radius:8px;font-size:10px}
+#employee-app .sidebar nav button span:nth-child(2){white-space:nowrap}
+#employee-app .mobile-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+#employee-app .mobile-nav button svg{width:21px;height:21px}
+#employee-app .mobile-nav button small{font-size:9px;color:inherit;font-weight:700}
+#employee-app .mobile-nav button.active svg{color:#f47a35}
+#employee-app .sidebar .wordmark{padding-bottom:19px;border-bottom:1px solid rgba(20,22,28,.1);margin-bottom:8px}
+#employee-app .sidebar nav{gap:4px!important;padding-bottom:14px}
+#employee-app .sidebar .sidebar-bottom{position:sticky;bottom:0;background:rgba(255,255,255,.82);border-radius:15px;padding:10px;backdrop-filter:blur(18px)}
+#employee-app .sidebar{scrollbar-width:thin}
