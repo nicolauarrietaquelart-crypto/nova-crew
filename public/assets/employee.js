@@ -135,7 +135,7 @@ function coordinationPage(){
  const person=id=>workers.find(w=>w.id===id)?.name||'Personal';
  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación de personal</h2><p class="muted">Puedes coordinar un servicio y trabajar como HAND en otro, utilizando la misma cuenta.</p></div>'+
  (services.length?services.map(s=>box(s.name+' · '+s.venue,
- '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+'</div>'+
+ '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+btn('incident-report','Registrar incidencia',s.id)+'</div>'+
  '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Categoría</th><th>Horario</th><th>Confirmación</th><th>Fichaje</th><th></th></tr></thead><tbody>'+
  roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. El gestor puede asignarte como coordinador desde una comanda.</div>');
 }
@@ -216,6 +216,11 @@ async function scanQr(serviceId){
   qrFrame=requestAnimationFrame(scan);
  }catch(e){error(new Error('Cámara no disponible; puedes introducir el código manualmente.'))}
 }
+function incidentModal(serviceId){
+ const people=(state.coordinatorRoster||[]).filter(a=>a.serviceId===serviceId),workers=state.coordinatorWorkers||[];
+ modal('Nueva incidencia','<form id="incident-form" style="display:grid;gap:12px"><p class="muted">La incidencia quedará registrada con tu usuario y podrá consultarla Gestoría.</p><label class="form-label">Trabajador (opcional)<select class="field" name="workerId"><option value="">Incidencia general</option>'+people.map(a=>'<option value="'+esc(a.workerId)+'">'+esc(workers.find(w=>w.id===a.workerId)?.name||'Personal')+'</option>').join('')+'</select></label><label class="form-label">Descripción<textarea class="field" name="description" maxlength="2000" required></textarea></label><button class="primary" type="submit">Registrar incidencia</button></form>');
+ $('#incident-form').onsubmit=async e=>{e.preventDefault();try{await api('incident-report',{serviceId,...Object.fromEntries(new FormData(e.target))});$('#employee-modal').close();await load();notice('Incidencia registrada')}catch(ex){error(ex)}};
+}
 function coordShift(id){
  const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(!a)return;
  modal('Cambiar horario del personal','<form id="coord-shift-form" style="display:grid;gap:12px"><label class="form-label">Día de inicio<input class="field" name="date" type="date" value="'+esc(a.date)+'" required></label><label class="form-label">Hora inicio<input class="field" name="start" type="time" value="'+esc(a.start)+'" required></label><label class="form-label">Día final<input class="field" name="endDate" type="date" value="'+esc(a.endDate)+'" required></label><label class="form-label">Hora fin<input class="field" name="end" type="time" value="'+esc(a.end)+'" required></label><button class="primary" type="submit">Guardar horario</button></form>');
@@ -272,6 +277,7 @@ document.addEventListener('click',async ev=>{
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
+ if(action==='incident-report')return incidentModal(id);
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='edit-profile')return extendedProfile();
