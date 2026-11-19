@@ -78,6 +78,67 @@ function boxMessages(msgs,userName){
  (msgs.length?msgs.slice(-100).map(m=>'<div class="list-item"><div class="grow"><strong>'+esc(userName(m.senderId))+' → '+esc(userName(m.recipientId))+'</strong><small>'+esc(m.createdAt.slice(0,16).replace('T',' '))+'</small><p>'+esc(m.content)+'</p></div></div>').join(''):'<p class="footnote">No hay mensajes todavía.</p>')+'</section>';
 }
 
+
+function tariffGroupsPage(){
+ const rates=filtered('tariffs'),groups=[...new Set(rates.map(r=>r.group||'Personalizado'))];
+ $('#page-actions').innerHTML=button('new','Añadir categoría','plus','data-kind="tariffs"');
+ $('#content').innerHTML='<p class="footnote">Cada grupo agrupa categorías individuales con su precio, unidad y mínimo. Edita la categoría desde su fila.</p>'+
+ (groups.length?groups.map(g=>{
+ const items=rates.filter(t=>(t.group||'Personalizado')===g);
+ return '<details class="panel tariff-group" open><summary class="tariff-group-head"><strong>'+esc(g)+'</strong><span>'+items.length+' categorías</span></summary>'+
+ '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Pago bruto</th><th>Tarifa cliente</th><th>Mínimo</th><th></th></tr></thead><tbody>'+
+ items.map(t=>'<tr><td><strong>'+esc(t.name)+'</strong><small>'+esc(t.unit==='day'?'Por jornada':'Por hora')+'</small></td><td>'+(t.workerRate==null?'Por definir':euro(t.workerRate))+'</td><td>'+(t.clientRate==null?'Por definir':euro(t.clientRate))+'</td><td>'+esc(t.minHours)+' h</td><td>'+action('edit','Editar categoría',t.id,'tariffs','edit')+'</td></tr>').join('')+'</tbody></table></div></details>';
+ }).join(''):'<div class="panel">No hay categorías configuradas.</div>');
+}
+let wizardPositions=[];
+function wizardPositionRow(p={},index=0){
+ const tariffs=list('tariffs').filter(t=>t.active),workers=list('workers').filter(w=>w.active);
+ const f=(key,label,value='',type='text')=>'<label>'+label+'<input data-position="'+key+'" type="'+type+'" value="'+esc(value)+'"></label>';
+ return '<section class="position-row" data-position-index="'+index+'"><header><strong>Puesto '+(index+1)+'</strong><button type="button" data-action="wizard-remove-position" data-index="'+index+'" class="btn">Eliminar</button></header><div class="form-grid">'+
+ '<label>Categoría individual<select data-position="categoryId" required>'+selectOptions(tariffs.map(t=>({id:t.id,name:t.name})),p.categoryId)+'</select></label>'+
+ '<label>Trabajador (opcional)<select data-position="workerId">'+selectOptions(workers.map(w=>({id:w.id,name:w.name})),p.workerId,'Dejar sin asignar')+'</select></label>'+
+ f('serviceType','Tipo de servicio',p.serviceType||'Montaje')+f('team','Equipo / escenario',p.team)+
+ f('date','Fecha',p.date||'','date')+f('start','Inicio',p.start||'','time')+
+ f('endDate','Fecha de fin',p.endDate||'','date')+f('end','Fin',p.end||'','time')+
+ f('pause','Pausa (h)',p.pause??0,'number')+'</div></section>';
+}
+function wizardRows(){
+ const root=$('#wizard-positions');if(root)root.innerHTML=wizardPositions.map(wizardPositionRow).join('');
+}
+function captureWizardPositions(){
+ const nodes=$('#wizard-positions .position-row');
+ if(nodes.length)wizardPositions=nodes.map(el=>Object.fromEntries([...el.querySelectorAll('[data-position]')].map(input=>[input.dataset.position,input.value])));
+}
+function serviceWizard(quoteId=''){
+ const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
+ wizardPositions=[{}];
+ const eligible=list('quotes').filter(q=>['issued','accepted'].includes(q.status)&&(!q.serviceId||q.id===quoteId));
+ const body='<form id="service-wizard-form"><div class="notice">Crea un servicio y sus puestos en un solo paso. Cada trabajador tiene categoría, horario y equipo propios.</div>'+
+ '<div class="form-grid"><label class="wide">Presupuesto existente (opcional)<select name="quoteId" id="wizard-quote">'+selectOptions(eligible.map(q=>({id:q.id,name:(q.number||'Presupuesto')+' · '+name('clients',q.clientId)})),quoteId,'Crear sin presupuesto')+'</select></label>'+
+ field('name','Nombre del servicio','','text','required',true)+
+ select('clientId','Cliente',clients,quote?.clientId)+field('venue','Recinto / ubicación','','text','required')+
+ field('date','Fecha',day(),'date','required')+field('start','Inicio','08:00','time','required')+
+ field('endDate','Fecha de fin',day(),'date','required')+field('end','Fin','18:00','time','required')+
+ select('coordinatorId','Trabajador que coordina',coordinators,'')+'</div>'+
+ '<div class="subhead"><h3>Puestos de trabajo</h3>'+button('wizard-add-position','Añadir puesto','plus','','')+'</div>'+
+ '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio</button></div></form>';
+ modal('Crear servicio',body);wizardRows();
+ $('#wizard-quote').onchange=()=>{const q=find('quotes',$('#wizard-quote').value);if(q)$('#service-wizard-form [name=clientId]').value=q.clientId;};
+ const form=$('#service-wizard-form');
+ form.onsubmit=async e=>{
+ e.preventDefault();const submit=form.querySelector('[type=submit]'),err=form.querySelector('.form-error');
+ err.hidden=true;captureWizardPositions();
+ try{
+  const b=Object.fromEntries(new FormData(form)),positions=wizardPositions.filter(p=>p.categoryId);
+  if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada puesto, o elimina los puestos vacíos.');
+  submit.disabled=true;
+  const result=await api('service-create',{quoteId:b.quoteId,service:b,positions});
+  $('#modal').close();page='services';query='';filter='';await load();detail('services',result.record.id);
+  toast('Servicio creado con '+positions.length+' puestos individuales');
+ }catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false}finally{submit.disabled=false}
+ };
+}
+
 function ordersPage(){
  const slots=list('orderLines'),assigned=list('assignments');
  $('#page-actions').innerHTML=button('new','Nueva plaza','plus','data-kind="orderLines"')+button('new','Nueva comanda','plus','data-kind="services"','');
@@ -205,7 +266,9 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='show-password'){const i=$('#auth-password');i.type=i.type==='password'?'text':'password';return;}
  if(a==='add-line'){$('#invoice-lines').insertAdjacentHTML('beforeend',lineHTML({description:'',quantity:1,price:0,vat:data.settings.vat}));lineTotal();return;}
  if(a==='remove-line'){if($$('.invoice-line').length>1)el.closest('.invoice-line').remove();lineTotal();return;}
- if(a==='add-slot')return editor('orderLines','',{serviceId:id});
+ if(a==='wizard-add-position'){captureWizardPositions();wizardPositions.push({});return wizardRows()}
+  if(a==='wizard-remove-position'){captureWizardPositions();wizardPositions.splice(Number(el.dataset.index),1);return wizardRows()}
+  if(a==='add-slot')return editor('orderLines','',{serviceId:id});
   if(a==='assign-slot')return editor('assignments','',{orderLineId:id,serviceId:find('orderLines',id)?.serviceId});
   if(a==='assign-service')return editor('assignments','',{serviceId:id});
  if(a==='worker-user'){const existing=list('users').find(u=>u.workerId===id);return existing?editor('users',existing.id):editor('users','',{workerId:id,name:name('workers',id)});}
