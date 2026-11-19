@@ -496,9 +496,9 @@ export function createOfficeApi(storage,env={}){
           quantity:money(qty*billable),price:unitPrice,vat:config.vat});
       }
       const dates=validated.flatMap(x=>[x.date,x.endDate]).sort();
-      const record={id:old?.id,revision:old?.revision,clientId:client.id,date:input.date||now().slice(0,10),
+      const quoteData={id:old?.id,revision:old?.revision,clientId:client.id,date:input.date||now().slice(0,10),
         dueDate:input.dueDate||input.date||now().slice(0,10),notes:input.notes||'',lines};
-      const saved=await saveEntity(db,actor,'quotes',record);
+      const saved=await saveEntity(db,actor,'quotes',quoteData);
       const full={...saved,staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),planStartDate:dates[0],planEndDate:dates[dates.length-1]};
       await db.put(key('quotes',full.id),full);
       await audit(db,actor,'quote-plan-save','quotes',full.id);return {record:full};
