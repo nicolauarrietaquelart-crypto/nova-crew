@@ -263,3 +263,87 @@ test('worker can upload personal documents but cannot impersonate official contr
  assert.equal(data.company?.name!==undefined,true);
  assert.equal(data.company.iban,undefined);
 });
+
+test('service workspace supports locations and a multi-day block with separate crew categories',async()=>{
+ const f=await setup();
+ const place=await f.call('service-place-save',{record:{serviceId:f.service.id,name:'Escenario principal',address:'Barcelona',lat:41.38,lng:2.18,radiusMeters:500}});
+ assert.equal(place.status,200,JSON.stringify(place.body));
+ const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'LOAD IN',date:'2027-02-03',endDate:'2027-02-03',start:'08:00',end:'16:00',placeId:place.body.record.id,team:'Principal'},categories:[{categoryId:'HAND B',quantity:2},{categoryId:'CREW HEAD',quantity:1}]});
+ assert.equal(block.status,200,JSON.stringify(block.body));
+ assert.equal(block.body.positions.length,3);
+ assert.equal(new Set(block.body.positions.map(x=>x.id)).size,3);
+ assert.equal(block.body.positions.filter(x=>x.role==='HAND B').length,2);
+ const state=(await f.call('state')).body;
+ assert.equal(state.services.find(x=>x.id===f.service.id).endDate,'2027-02-03');
+ assert.ok(state.serviceDays.some(x=>x.date==='2027-02-03'&&x.serviceId===f.service.id));
+ assert.equal(state.servicePlaces.find(x=>x.id===place.body.record.id).lat,41.38);
+ const add=await f.call('service-block-add-positions',{blockId:block.body.record.id,categories:[{categoryId:'FORKLIFTER',quantity:2}]});
+ assert.equal(add.status,200,JSON.stringify(add.body));
+ assert.equal(add.body.positions.length,2);
+ const denied=await f.call('service-place-delete',{id:place.body.record.id,revision:place.body.record.revision});
+ assert.equal(denied.status,409);
+});
+test('quote plan links multiple days, venue locations and categories when converted to a service',async()=>{
+ const f=await setup();
+ const q=await f.call('quote-plan-save',{record:{clientId:f.client.id,date:'2027-01-01',dueDate:'2027-02-01',serviceName:'La Mercè',serviceVenue:'Barcelona',schedule:'Tarifa estándar 2026',staffPlan:[
+  {categoryId:'CREW HEAD',quantity:1,serviceType:'SHOW CALL',date:'2027-09-23',endDate:'2027-09-23',start:'16:00',end:'23:00',locationName:'Plaça Catalunya',locationAddress:'Plaça de Catalunya, Barcelona'},
+  {categoryId:'FORKLIFTER',quantity:2,serviceType:'LOAD OUT',date:'2027-09-24',endDate:'2027-09-24',start:'08:00',end:'15:00',locationName:'Parc del Fòrum',locationAddress:'Parc del Fòrum, Barcelona'}
+ ]}});
+ assert.equal(q.status,200,JSON.stringify(q.body));
+ assert.equal(q.body.record.staffPlan.length,2);
+ assert.equal(q.body.record.lines.length,2);
+ assert.equal(q.body.record.total>0,true);
+ const cfg=await f.call('settings',{record:{name:'Penny Wise',taxId:'B00000000',address:'Barcelona',invoicePrefix:'PW',vat:21,paymentDays:30}});
+ assert.equal(cfg.status,200);
+ const issued=await f.call('issue',{kind:'quotes',id:q.body.record.id,revision:q.body.record.revision});
+ assert.equal(issued.status,200,JSON.stringify(issued.body));
+ const result=await f.call('service-create',{quoteId:q.body.record.id,service:{name:'La Mercè',clientId:f.client.id,venue:'Barcelona',date:'2027-09-23',endDate:'2027-09-24',start:'08:00',end:'23:59'},positions:[]});
+ assert.equal(result.status,200,JSON.stringify(result.body));
+ assert.equal(result.body.positions.length,3);
+ assert.equal(result.body.days.length,2);
+ assert.equal(result.body.places.length,2);
+ assert.equal(result.body.blocks.length,2);
+ assert.equal(new Set(result.body.positions.map(x=>x.blockId)).size,2);
+ assert.equal(new Set(result.body.positions.map(x=>x.placeId)).size,2);
+ const state=(await f.call('state')).body;
+ assert.equal(state.quotes.find(x=>x.id===q.body.record.id).status,'accepted');
+ assert.equal(state.quotes.find(x=>x.id===q.body.record.id).serviceId,result.body.record.id);
+ assert.equal(state.services.find(x=>x.id===result.body.record.id).endDate,'2027-09-24');
+ assert.equal((await f.call('service-create',{quoteId:q.body.record.id,service:{name:'Duplicado'},positions:[]})).status,409);
+});
+test('a cloned client tariff raises selling prices but preserves worker rates',async()=>{
+ const f=await setup();
+ const copy=await f.call('tariff-schedule-create',{name:'Festival 15',source:'Tarifa estándar 2026',increasePercent:15,applyTo:'client'});
+ assert.equal(copy.status,200,JSON.stringify(copy.body));
+ const rate=copy.body.records.find(x=>x.name==='CREW HEAD · Coordinador de Personal');
+ assert.equal(rate.workerRate,14.4);
+ assert.equal(rate.clientRate,33.12);
+ assert.equal(rate.schedule,'Festival 15');
+});
+
+test('worker coordinating a block sees its location and cannot clock outside that venue',async()=>{
+ const f=await setup();
+ const workerAccount=await f.call('user',{record:{username:'coordinator-block',name:'Coordinador bloque',role:'worker',workerId:f.worker.id,password:'coordinate-block-password-strong'}});
+ assert.equal(workerAccount.status,200);
+ const place=await f.call('service-place-save',{record:{serviceId:f.service.id,name:'Escenario Norte',address:'Barcelona',lat:41.387,lng:2.17,radiusMeters:500}});
+ assert.equal(place.status,200);
+ const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',placeId:place.body.record.id,coordinatorId:workerAccount.body.record.id},categories:[{categoryId:'HAND B',quantity:1}]});
+ assert.equal(block.status,200,JSON.stringify(block.body));
+ const slot=block.body.positions[0];
+ const assigned=await f.save('assignments',{serviceId:f.service.id,orderLineId:slot.id,categoryId:'HAND B',workerId:f.worker.id,date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',costRate:9.3,chargeRate:18.6});
+ assert.equal(assigned.placeId,place.body.record.id);
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'coordinator-block',password:'coordinate-block-password-strong'})}));
+ assert.equal(login.status,200);
+ const cookie=login.headers.get('set-cookie').split(';')[0];
+ const stateReq=await api(new Request('https://nova.test/api/office/state',{headers:{cookie}}));
+ const state=await stateReq.json();
+ assert.ok(state.coordinatorServiceIds.includes(f.service.id));
+ assert.ok(state.servicePlaces.some(p=>p.id===place.body.record.id));
+ const attempt=async(latitude,longitude)=>{
+  const r=await api(new Request('https://nova.test/api/office/clock',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json',cookie},body:JSON.stringify({id:assigned.id,revision:assigned.revision,action:'in',latitude,longitude})}));
+  return r.status;
+ };
+ assert.equal(await attempt(42,2.17),403);
+ assert.equal(await attempt(41.387,2.17),200);
+});

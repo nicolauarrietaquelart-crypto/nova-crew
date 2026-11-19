@@ -32,10 +32,15 @@ async function api(op,body){
  if(!r.ok)throw Error(d.error||'No se ha podido completar la operación.');
  return d;
 }
-async function attendanceLocation(serviceId){
- const sv=service(serviceId);
- if(sv.venueLat==null||sv.venueLng==null)return {};
- if(!navigator.geolocation)throw new Error('Este servicio requiere ubicación; tu navegador no la admite.');
+function placeForAssignment(a){return (state.servicePlaces||[]).find(p=>p.id===a?.placeId&&!p.archived)||null}
+function coordinatingServices(){const ids=new Set(state.coordinatorServiceIds||[]);return list('services').filter(s=>ids.has(s.id))}
+function locationForAssignment(a){const p=placeForAssignment(a),sv=service(a?.serviceId);return p?.lat!=null&&p?.lng!=null?{venueLat:p.lat,venueLng:p.lng,radiusMeters:p.radiusMeters,name:p.name}:sv}
+async function attendanceLocation(serviceId,assignmentId=''){
+ const relevant=myAssignments().find(a=>a.id===assignmentId),sv=service(serviceId);
+ const specific=locationForAssignment(relevant),hasSpecific=specific?.venueLat!=null&&specific?.venueLng!=null;
+ const hasAnyPlaces=(state.servicePlaces||[]).some(p=>p.serviceId===serviceId&&p.lat!=null&&p.lng!=null);
+ if(!hasSpecific&&!hasAnyPlaces&&!(sv.venueLat!=null&&sv.venueLng!=null))return {};
+ if(!navigator.geolocation)throw new Error('El fichaje de este servicio requiere ubicación, pero tu navegador no la admite.');
  const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:0}));
  return {latitude:position.coords.latitude,longitude:position.coords.longitude};
 }
@@ -50,14 +55,14 @@ function box(title,content){return '<section class="panel"><div class="panel-hea
 function btn(action,label,id,cls='secondary'){return '<button type="button" class="'+cls+'" data-action="'+action+'" data-id="'+esc(id||'')+'">'+esc(label)+'</button>'}
 function modal(title,html){$('#employee-modal').classList.remove('clock-dialog');$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;if(!$('#employee-modal').open)$('#employee-modal').showModal()}
 function serviceCard(a){
- const s=service(a.serviceId),d=new Date(a.date+'T12:00:00');
+ const s=service(a.serviceId),place=placeForAssignment(a),d=new Date(a.date+'T12:00:00');
  const dateTile='<div class="date-tile"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div>';
- const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(s.venue||'')+' · '+esc(a.role)+' · '+esc(a.team||'Equipo por confirmar')+'</small><small>'+human(a.date)+' '+esc(a.start)+' → '+human(a.endDate)+' '+esc(a.end)+' · '+a.hours+' h previstas</small></div>';
+ const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(place?.name||s.venue||'')+' · '+esc(a.role)+' · '+esc(a.team||'Equipo por confirmar')+'</small><small>'+human(a.date)+' '+esc(a.start)+' → '+human(a.endDate)+' '+esc(a.end)+' · '+a.hours+' h previstas</small></div>';
  const acts='<div class="service-actions">'+status(a.status)+btn('detail','Ver detalles',a.id)+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Fichar',a.id,'primary'):'')+'</div>';
  return '<article class="service-card">'+dateTile+text+acts+'</article>';
 }
 function renderNav(){
- const pc=Object.entries(names).filter(([key])=>key!=='crewControl'||list('services').some(s=>s.coordinatorId===state.user.id)).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span>'+esc(label)+'</span>'+(key==='coordination'&&state.coordinatorRoster?.length?'<b>'+state.coordinatorRoster.length+'</b>':'')+'</button>').join('');
+ const pc=Object.entries(names).filter(([key])=>key!=='crewControl'||coordinatingServices().length>0).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span>'+esc(label)+'</span>'+(key==='coordination'&&state.coordinatorRoster?.length?'<b>'+state.coordinatorRoster.length+'</b>':'')+'</button>').join('');
  $('#employee-nav').innerHTML=pc;
  $('#mobile-nav').innerHTML=['dashboard','clock','services','calendar','coordination'].map(k=>'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+'<small>'+esc(names[k])+'</small></button>').join('');
 }
@@ -81,7 +86,7 @@ function dashboard(){
  '<p class="muted">'+(next?esc(human(next.date)+' · '+next.start+'–'+next.end+' · '+(nextService.venue||'')):'En cuanto tengas una asignación aparecerá aquí.')+'</p>'+
  (next?'<div class="employee-countdown" id="next-countdown" data-date="'+esc(next.date)+'" data-start="'+esc(next.start)+'"></div>':'')+
  '<div class="actions-row">'+btn('open-clock','Fichar',next?.id||'','primary')+(next?btn('detail','Ver servicio',next.id):'')+'</div></div>'+
- '<div class="employee-next-aside"><div><span>Servicios próximos</span><b>'+future.length+'</b></div><div><span>Coordinaciones</span><b>'+list('services').filter(s=>s.coordinatorId===state.user.id).length+'</b></div><div><span>Documentos pendientes</span><b>'+list('documents').filter(d=>d.expires&&d.expires<today()).length+'</b></div><div><span>Formación</span><b>'+training.length+' pendiente(s)</b></div></div></section>';
+ '<div class="employee-next-aside"><div><span>Servicios próximos</span><b>'+future.length+'</b></div><div><span>Coordinaciones</span><b>'+coordinatingServices().length+'</b></div><div><span>Documentos pendientes</span><b>'+list('documents').filter(d=>d.expires&&d.expires<today()).length+'</b></div><div><span>Formación</span><b>'+training.length+' pendiente(s)</b></div></div></section>';
  $('#employee-content').innerHTML='<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">Bienvenido a tu espacio personal</p></div>'+hero+stats+
  (pending.length?'<div class="notice"><strong>'+pending.length+' servicio(s) pendiente(s) de confirmar.</strong><div class="actions-row" style="margin-top:10px">'+btn('go-services','Ver asignaciones')+'</div></div>':'')+
  box('Próximos servicios',future.slice(0,5).length?'<div class="service-list">'+future.slice(0,5).map(serviceCard).join('')+'</div>':'<div class="empty">Todavía no tienes servicios próximos.</div>')+
@@ -191,14 +196,14 @@ function renderClockModal(){
  const root=$('#clock-service-summary');if(!root)return;
  const a=clockAssignments().find(x=>x.id===clockSelection);
  if(!a){root.innerHTML='<p class="empty">No hay turnos para fichar.</p>';return}
- const sv=service(a.serviceId),closed=!!a.checkOut||['completed','cancelled'].includes(sv.status);
+ const sv=service(a.serviceId),place=placeForAssignment(a),geo=locationForAssignment(a),closed=!!a.checkOut||['completed','cancelled'].includes(sv.status);
  const coordinator=!!sv.coordinatorId;
  const remaining=Date.parse(a.date+'T'+a.start+':00')-Date.now();
  const minutes=remaining>0?Math.ceil(remaining/60000):0;
- const distanceEnabled=sv.venueLat!=null&&sv.venueLng!=null;
+ const distanceEnabled=geo.venueLat!=null&&geo.venueLng!=null;
  const insideWindow=remaining<=3600000;
- root.innerHTML='<div class="clock-current"><span class="eyebrow">SERVICIO SELECCIONADO</span><h3>'+esc(sv.name||'Servicio')+'</h3><p class="muted">'+esc(sv.venue||'')+' · '+esc(a.role)+' · '+human(a.date)+' '+esc(a.start)+'–'+esc(a.end)+'</p></div>'+
- '<div class="clock-location"><div><small>Ubicación del servicio</small><strong>'+esc(sv.venue||'Sin recinto')+'</strong><span>'+esc(distanceEnabled?Number(sv.radiusMeters||500)+' m de radio autorizado':'Sin restricción geográfica configurada')+'</span></div>'+
+ root.innerHTML='<div class="clock-current"><span class="eyebrow">SERVICIO SELECCIONADO</span><h3>'+esc(sv.name||'Servicio')+'</h3><p class="muted">'+esc(place?.name||sv.venue||'')+' · '+esc(a.role)+' · '+human(a.date)+' '+esc(a.start)+'–'+esc(a.end)+'</p></div>'+
+ '<div class="clock-location"><div><small>Ubicación del servicio</small><strong>'+esc(place?.name||sv.venue||'Sin recinto')+'</strong><span>'+esc(distanceEnabled?Number(geo.radiusMeters||500)+' m de radio autorizado':'Sin restricción geográfica configurada')+'</span></div>'+
  '<div class="clock-distance"><strong id="clock-distance">—</strong><small>distancia</small></div>'+
  '<div><small>Tu ubicación</small><strong id="clock-my-location">'+(distanceEnabled?'Sin comprobar':'No requerida')+'</strong><span id="clock-location-detail">'+(distanceEnabled?'Pulsa comprobar ubicación':'Este servicio no exige GPS')+'</span></div></div>'+
  (distanceEnabled?'<div class="clock-geo-note">'+btn('check-location','Comprobar mi ubicación',a.id)+'</div>':'')+
@@ -212,9 +217,9 @@ function renderClockModal(){
 }
 async function verifyClockPosition(id){
  const a=clockAssignments().find(a=>a.id===id);if(!a)return;
- const sv=service(a.serviceId);
+ const sv=locationForAssignment(a);
  try{
-  const coords=await attendanceLocation(a.serviceId);
+  const coords=await attendanceLocation(a.serviceId,a.id);
   const R=6371000,rad=Math.PI/180,lat1=coords.latitude*rad,lat2=Number(sv.venueLat)*rad;
   const dlat=lat2-lat1,dlon=(Number(sv.venueLng)-coords.longitude)*rad;
   const h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;
@@ -454,7 +459,7 @@ document.addEventListener('click',async ev=>{
  if(action==='payroll-month'){selectedPayrollMonth=el.dataset.month;return settlementsPage()}
  if(action==='download-payroll')return downloadPayroll();
  if(action==='training-ack')return mutation('training-ack',{documentId:id},'Formación marcada como leída');
- if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{const location=await attendanceLocation(a.serviceId);await mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location},'Fichaje registrado');if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();}catch(e){error(e)}return}}
+ if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{const location=await attendanceLocation(a.serviceId,a.id);await mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location},'Fichaje registrado');if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();}catch(e){error(e)}return}}
 
  if(action==='logout'){try{await api('logout',{})}catch{}state={};location.replace('/empleado.html');return}
  if(action==='detail')return detail(id);
