@@ -95,6 +95,7 @@ async function saveEntity(db,actor,kind,b){
    if(kind==='orderLines'){
     const service=await record(db,'services',required(b.serviceId,'el servicio'));if(service.archived||service.status==='cancelled'||service.settlementStatus==='confirmed')fail('Servicio cerrado o liquidado.');
     const tariff=await tariffLookup(db,required(b.categoryId,'la categoría'));if(!tariff||!tariff.active)fail('Categoría no disponible.');
+    if(service.tariffSchedule&&(tariff.schedule||'Tarifa estándar 2026')!==service.tariffSchedule)fail('Esta categoría no pertenece a la tarifa elegida para el servicio.',409);
     const startDate=date(b.date||service.date),endDate=date(b.endDate||startDate),start=time(b.start||service.start),end=time(b.end||service.end);
     if(endDate+'T'+end<=startDate+'T'+start)fail('Horario del bloque incorrecto.');
     if(startDate<service.date||endDate>service.endDate)fail('La plaza está fuera del periodo de la comanda. Amplía primero las fechas del servicio.');
@@ -112,11 +113,14 @@ async function saveEntity(db,actor,kind,b){
   if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||!['manager','worker','coordinator'].includes(user.role))fail('Coordinador no válido.');if(user.role!=='manager'&&!user.workerId)fail('El coordinador debe tener una ficha de trabajador.');}
   const startDate=date(b.date),endDate=date(b.endDate||b.date),start=time(b.start),end=time(b.end);
   if(endDate+'T'+end<=startDate+'T'+start)fail('El fin debe ser posterior al inicio. Para un turno nocturno elige el día siguiente.');
-  const status=text(b.status)||'planned';if(!['planned','confirmed','in_progress','completed','cancelled'].includes(status))fail('Estado incorrecto.');
+  const tariffSchedule=text(b.tariffSchedule)||old?.tariffSchedule||'Tarifa estándar 2026';
+   if(!(await tariffCatalog(db)).some(t=>(t.schedule||'Tarifa estándar 2026')===tariffSchedule))fail('Tarifa del servicio no válida.');
+   if(old&&old.tariffSchedule&&tariffSchedule!==old.tariffSchedule&&(await rows(db,'orderLines')).some(l=>l.serviceId===old.id&&!l.archived))fail('Para cambiar la tarifa de un servicio con puestos, revisa antes sus categorías.',409);
+   const status=text(b.status)||'planned';if(!['planned','confirmed','in_progress','completed','cancelled'].includes(status))fail('Estado incorrecto.');
   const venueLat=b.venueLat===''||b.venueLat==null?null:Number(b.venueLat),venueLng=b.venueLng===''||b.venueLng==null?null:Number(b.venueLng);
    if((venueLat==null)!==(venueLng==null))fail('Introduce latitud y longitud o deja ambas vacías.');
    if(venueLat!=null&&(!Number.isFinite(venueLat)||!Number.isFinite(venueLng)||venueLat < -90||venueLat >90||venueLng < -180||venueLng>180))fail('Coordenadas del recinto incorrectas.');
-   data={name:required(b.name,'el nombre'),clientId:client.id,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000)};
+   data={name:required(b.name,'el nombre'),clientId:client.id,tariffSchedule,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000)};
  }
  if(kind==='assignments'){
   const service=await record(db,'services',required(b.serviceId,'el servicio')),worker=await record(db,'workers',required(b.workerId,'el trabajador'));
@@ -537,7 +541,7 @@ export function createOfficeApi(storage,env={}){
       const firstStart=items.filter(x=>x.date===startDate).map(x=>x.start).filter(Boolean).sort()[0];
       const lastEnd=items.filter(x=>(x.endDate||x.date)===endDate).map(x=>x.end).filter(Boolean).sort().at(-1);
       const service=await saveEntity(db,actor,'services',{
-        name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,
+        name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
         venue:info.venue||quote?.serviceVenue||items[0]?.locationName||'Ubicación por asignar',
         date:startDate,start:info.start||firstStart||'08:00',
         endDate:endDate||startDate,end:info.end||lastEnd||'23:59',
