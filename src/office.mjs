@@ -44,7 +44,7 @@ async function scope(db,actor){if(actor.role==='manager')return null;const servi
 async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId===actor.id)return;const allowed=(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===id&&c.userId===actor.id&&!c.archived)||(await rows(db,'serviceBlocks')).some(c=>c.serviceId===id&&c.coordinatorId===actor.id&&!c.archived);if(!allowed)fail('No coordinas este servicio.',403);}
 async function canCoordinateAssignment(db,actor,assignment){
  if(actor.role==='manager')fail('El escaneo operativo QR corresponde a coordinadores trabajadores, no a Gestoría.',403);
- if(actor.role!=='worker'&&!actor.workerId)fail('Acceso de trabajador requerido.',403);
+ if(actor.role!=='worker'||!actor.workerId)fail('Acceso de trabajador requerido.',403);
  const service=await record(db,'services',assignment.serviceId);
  const blocks=await rows(db,'serviceBlocks');
  const slot=assignment.orderLineId?await db.get(key('orderLines',assignment.orderLineId)):null;
@@ -82,7 +82,11 @@ async function view(db,actor){
  const allCoordinators=await rows(db,'serviceCoordinators'),allBlocks=await rows(db,'serviceBlocks');const coordinatorIds=new Set([...services.map(s=>s.coordinatorId),...allCoordinators.map(c=>c.userId),...allBlocks.map(c=>c.coordinatorId)].filter(Boolean));
  const directory=(await rows(db,'users')).filter(u=>u.active&&(coordinatorIds.has(u.id)||u.role==='manager')).map(u=>({id:u.id,name:u.name,role:u.role}));
  const assignedServices=[...new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...allBlocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId)])];
-  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
+  const allSlots=actor.role==='manager'?[]:await rows(db,'orderLines');
+  const ownBlockIds=new Set(allBlocks.filter(b=>b.coordinatorId===actor.id&&!b.archived).map(b=>b.id));
+  const ownAssignedServices=new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId)]);
+  const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId===actor.id||ownBlockIds.has(l.blockId))).map(l=>l.id));
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId))).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
@@ -676,7 +680,7 @@ export function createOfficeApi(storage,env={}){
    }
    if(op==='coordinator-control'){
      const a=await record(db,'assignments',b.id);revision(a,b);
-     if(actor.role!=='manager')await canCoordinate(db,actor,a.serviceId);
+     if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);
      const service=await record(db,'services',a.serviceId);
      if(service.archived||['completed','cancelled'].includes(service.status))fail('Servicio cerrado.',409);
      const update={};
