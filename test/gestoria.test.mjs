@@ -318,3 +318,30 @@ test('a cloned client tariff raises selling prices but preserves worker rates',a
  assert.equal(rate.clientRate,33.12);
  assert.equal(rate.schedule,'Festival 15');
 });
+
+test('worker coordinating a block sees its location and cannot clock outside that venue',async()=>{
+ const f=await setup();
+ const workerAccount=await f.call('user',{record:{username:'coordinator-block',name:'Coordinador bloque',role:'worker',workerId:f.worker.id,password:'coordinate-block-password-strong'}});
+ assert.equal(workerAccount.status,200);
+ const place=await f.call('service-place-save',{record:{serviceId:f.service.id,name:'Escenario Norte',address:'Barcelona',lat:41.387,lng:2.17,radiusMeters:500}});
+ assert.equal(place.status,200);
+ const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',placeId:place.body.record.id,coordinatorId:workerAccount.body.record.id},categories:[{categoryId:'HAND B',quantity:1}]});
+ assert.equal(block.status,200,JSON.stringify(block.body));
+ const slot=block.body.positions[0];
+ const assigned=await f.save('assignments',{serviceId:f.service.id,orderLineId:slot.id,categoryId:'HAND B',workerId:f.worker.id,date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',costRate:9.3,chargeRate:18.6});
+ assert.equal(assigned.placeId,place.body.record.id);
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'coordinator-block',password:'coordinate-block-password-strong'})}));
+ assert.equal(login.status,200);
+ const cookie=login.headers.get('set-cookie').split(';')[0];
+ const stateReq=await api(new Request('https://nova.test/api/office/state',{headers:{cookie}}));
+ const state=await stateReq.json();
+ assert.ok(state.coordinatorServiceIds.includes(f.service.id));
+ assert.ok(state.servicePlaces.some(p=>p.id===place.body.record.id));
+ const attempt=async(latitude,longitude)=>{
+  const r=await api(new Request('https://nova.test/api/office/clock',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json',cookie},body:JSON.stringify({id:assigned.id,revision:assigned.revision,action:'in',latitude,longitude})}));
+  return r.status;
+ };
+ assert.equal(await attempt(42,2.17),403);
+ assert.equal(await attempt(41.387,2.17),200);
+});
