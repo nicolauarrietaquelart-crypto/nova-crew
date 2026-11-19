@@ -355,7 +355,7 @@ export function createOfficeApi(storage,env={}){
       if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||!(u.workerId||u.role==='manager'))fail('Coordinador no válido.');}
       const serviceType=required(input.serviceType,'el tipo de servicio'),team=text(input.team);
       const slots=old?(await rows(db,'orderLines')).filter(l=>l.blockId===old.id&&!l.archived&&l.status!=='cancelled'):[];
-      const changed=old&&['date','endDate','start','end','placeId','serviceType','team','coordinatorId'].some(k=>
+      const changed=old&&['date','endDate','start','end','placeId','serviceType','team'].some(k=>
         String(({date:d,endDate:last,start,end,placeId,serviceType,team,coordinatorId})[k])!==String(old[k]));
       if(changed){
         const assigned=await rows(db,'assignments');
@@ -565,10 +565,17 @@ export function createOfficeApi(storage,env={}){
         const value={id:uid(),serviceId:service.id,date:date(d),name:'Jornada',notes:'',revision:1};
         await db.put(key('serviceDays',value.id),value);days.push(value);
       }
-      const positions=[],assigned=[];
+      const positions=[],assigned=[],createdBlocks=[],blockIds=new Map();
       for(const item of items){
         const placeId=item.placeId||(item.locationName?placeMap.get(item.locationName+'|'+(item.locationAddress||''))||'':'');
         if(placeId&&!createdPlaces.some(p=>p.id===placeId))fail('La ubicación del puesto no pertenece al servicio.');
+        const d=item.date||service.date,last=item.endDate||d,start=item.start||service.start,end=item.end||service.end;
+        const serviceType=text(item.serviceType)||'Servicio',team=text(item.team),coordinatorId=text(item.coordinatorId);
+        const blockKey=JSON.stringify([d,last,start,end,serviceType,team,placeId,coordinatorId]);
+        if(!blockIds.has(blockKey)){
+          const value={id:uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(item.notes,1000),revision:1,createdAt:now()};
+          await db.put(key('serviceBlocks',value.id),value);createdBlocks.push(value);blockIds.set(blockKey,value.id);
+        }
         const slot=await saveEntity(db,actor,'orderLines',{
           serviceId:service.id,categoryId:item.categoryId,serviceType:item.serviceType||'Servicio',
           team:item.team||'',placeId,coordinatorId:item.coordinatorId||'',
@@ -576,7 +583,7 @@ export function createOfficeApi(storage,env={}){
           endDate:item.endDate||item.date||service.endDate,end:item.end||service.end,
           pause:item.pause??0,notes:item.notes||''
         });
-        positions.push(slot);
+        const linked={...slot,blockId:blockIds.get(blockKey)};await db.put(key('orderLines',linked.id),linked);positions.push(linked);
         if(item.workerId){
           const assignment=await saveEntity(db,actor,'assignments',{
             serviceId:service.id,orderLineId:slot.id,categoryId:slot.categoryId,
@@ -591,7 +598,7 @@ export function createOfficeApi(storage,env={}){
         await db.put(key('quotes',quote.id),{...quote,status:'accepted',serviceId:service.id,revision:quote.revision+1,updatedAt:now()});
         await audit(db,actor,'quote-to-service','quotes',quote.id);
       }
-      return {record:service,positions,assigned,places:createdPlaces,days,fromQuote};
+      return {record:service,positions,assigned,places:createdPlaces,days,blocks:createdBlocks,fromQuote};
     }
     if(op==='order-line-bulk'){
      managerOnly(actor);const count=number(b.quantity,1,100),created=[];
