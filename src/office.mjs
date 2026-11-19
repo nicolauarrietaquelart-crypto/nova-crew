@@ -69,7 +69,8 @@ async function view(db,actor){
   const trainingAcks=(await rows(db,'trainingAcks')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
   const hasProfilePhoto=!!(actor.workerId&&await db.get(key('employeePhotos',actor.workerId)));
   const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||assignedServices.includes(i.serviceId)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  const result={ok:true,user:cleanUser(actor),users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents};
+  const companySettings=await settings(db);
+  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents};
  if(actor.role==='manager')Object.assign(result,{employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -537,12 +538,16 @@ export function createOfficeApi(storage,env={}){
    if(op==='quote-status'){
     managerOnly(actor);const q=await record(db,'quotes',b.id);revision(q,b);if(q.status!=='issued'||!['accepted','rejected'].includes(b.status))fail('Solo se puede responder a un presupuesto emitido.');await db.put(key('quotes',q.id),{...q,status:b.status,revision:q.revision+1,updatedAt:now()});await audit(db,actor,b.status,'quotes',q.id);return {};
    }
-   if(op==='document-upload'){
-    managerOnly(actor);if(b.workerId)await record(db,'workers',b.workerId);if(b.clientId)await record(db,'clients',b.clientId);if(b.serviceId)await record(db,'services',b.serviceId);
+   if(op==='document-upload'||op==='employee-document-upload'){
+    const personal=op==='employee-document-upload';
+    if(personal){if(!actor.workerId)fail('No tienes ficha de trabajador.',403);if(!['identity','training','medical','other'].includes(b.type))fail('El trabajador no puede publicar contratos como documentos oficiales.',403);}
+    else managerOnly(actor);
+    const workerId=personal?actor.workerId:text(b.workerId),clientId=personal?'':text(b.clientId),serviceId=personal?'':text(b.serviceId);
+    if(workerId)await record(db,'workers',workerId);if(clientId)await record(db,'clients',clientId);if(serviceId)await record(db,'services',serviceId);
     const content=String(b.content||'');if(!/^[A-Za-z0-9+/]+={0,2}$/.test(content)||content.length%4!==0)fail('Archivo incorrecto.');const size=atob(content).length;if(size>5*1024*1024||size<1)fail('El archivo debe ocupar entre 1 byte y 5 MB.');
     const name=required(b.name,'el nombre de archivo').replace(/[\r\n/\\]/g,'_');if(!/\.(pdf|png|jpg|jpeg)$/i.test(name))fail('Sube un PDF, PNG o JPEG.');const bytes=atob(content.slice(0,Math.min(content.length,80)));
     if((/\.pdf$/i.test(name)&&!bytes.startsWith('%PDF-'))||(/\.png$/i.test(name)&&!bytes.startsWith('\x89PNG'))||(/\.jpe?g$/i.test(name)&&!bytes.startsWith('\xff\xd8\xff')))fail('El contenido no corresponde al tipo de archivo.');
-    const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId:text(b.workerId),clientId:text(b.clientId),serviceId:text(b.serviceId),type:text(b.type)||'contract',expires:b.expires?date(b.expires):'',notes:text(b.notes,2000),createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
+    const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId,clientId,serviceId,type:personal?text(b.type):(text(b.type)||'contract'),expires:b.expires?date(b.expires):'',notes:text(b.notes,2000),source:personal?'employee':'manager',createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
    }
    fail('Operación desconocida.',404);
   });return reply({ok:true,...result});
