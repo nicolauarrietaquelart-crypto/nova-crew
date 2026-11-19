@@ -226,3 +226,21 @@ test('named tariff schedule duplicates editable worker categories',async()=>{
  assert.ok(r.body.records.some(x=>x.name==='HAND B'));
  assert.equal((await f.call('tariff-schedule-create',{name:'Tarifa Evento'})).status,409);
 });
+
+test('create service and individual posts from a budget',async()=>{
+ const f=await setup();
+ const quote=await f.save('quotes',{clientId:f.client.id,date:'2027-01-01',dueDate:'2027-02-01',lines:[{description:'Crew',quantity:1,price:200,vat:21}]});
+ const issue=await f.call('issue',{kind:'quotes',id:quote.id,revision:quote.revision});
+ assert.equal(issue.status,200);
+ const service={name:'Festival',venue:'Palau Sant Jordi',date:'2027-03-01',endDate:'2027-03-01',start:'08:00',end:'16:00',clientId:f.client.id};
+ const created=await f.call('service-create',{quoteId:quote.id,service,positions:[{categoryId:'HAND B',workerId:f.worker.id,team:'Principal'},{categoryId:'CREW HEAD',team:'Secundario'}]});
+ assert.equal(created.status,200,JSON.stringify(created.body));
+ assert.equal(created.body.positions.length,2);
+ assert.equal(created.body.assigned.length,1);
+ assert.equal(created.body.positions[0].role,'HAND B');
+ assert.ok(created.body.positions[1].role.includes('CREW HEAD'));
+ const state=(await f.call('state')).body;
+ assert.equal(state.quotes.find(q=>q.id===quote.id).status,'accepted');
+ assert.equal(state.quotes.find(q=>q.id===quote.id).serviceId,created.body.record.id);
+ assert.equal((await f.call('service-create',{quoteId:quote.id,service,positions:[]})).status,409);
+});
