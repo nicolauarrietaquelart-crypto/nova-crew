@@ -316,6 +316,48 @@ export function createOfficeApi(storage,env={}){
      const value={id,workerId:actor.workerId,documentId:doc.id,acknowledgedAt:now()};
      await db.put(key('trainingAcks',id),value);await audit(db,actor,'training-ack','documents',doc.id);return {record:value};
     }
+    
+    if(op==='service-create'){
+      managerOnly(actor);
+      const info=b.service||{},items=Array.isArray(b.positions)?b.positions:[];
+      if(items.length>100)fail('Máximo 100 puestos por servicio.');
+      const quoteId=text(b.quoteId),quote=quoteId?await record(db,'quotes',quoteId):null;
+      if(quote){
+        if(quote.archived||!['issued','accepted'].includes(quote.status))fail('El presupuesto debe estar emitido antes de crear el servicio.',409);
+        if(quote.serviceId)fail('Este presupuesto ya está vinculado a un servicio.',409);
+        if(info.clientId&&info.clientId!==quote.clientId)fail('El cliente no coincide con el presupuesto.');
+      }
+      const value=await saveEntity(db,actor,'services',{
+        name:info.name,clientId:quote?.clientId||info.clientId,venue:info.venue,
+        date:info.date,start:info.start,endDate:info.endDate||info.date,end:info.end,
+        coordinatorId:info.coordinatorId||'',required:items.length,
+        status:'planned',notes:info.notes||''
+      });
+      const positions=[],assigned=[];
+      for(const item of items){
+        const slot=await saveEntity(db,actor,'orderLines',{
+          serviceId:value.id,categoryId:item.categoryId,serviceType:item.serviceType||'Servicio',
+          team:item.team||'',date:item.date||value.date,start:item.start||value.start,
+          endDate:item.endDate||value.endDate,end:item.end||value.end,
+          pause:item.pause??0,notes:item.notes||''
+        });
+        positions.push(slot);
+        if(item.workerId){
+          const assignment=await saveEntity(db,actor,'assignments',{
+            serviceId:value.id,orderLineId:slot.id,categoryId:slot.categoryId,
+            workerId:item.workerId,role:slot.role,team:slot.team,
+            date:slot.date,start:slot.start,endDate:slot.endDate,end:slot.end,pause:slot.pause,
+            costRate:item.costRate??'',chargeRate:item.chargeRate??''
+          });
+          assigned.push(assignment);
+        }
+      }
+      if(quote){
+        await db.put(key('quotes',quote.id),{...quote,status:'accepted',serviceId:value.id,revision:quote.revision+1,updatedAt:now()});
+        await audit(db,actor,'quote-to-service','quotes',quote.id);
+      }
+      return {record:value,positions,assigned};
+    }
     if(op==='order-line-bulk'){
      managerOnly(actor);const count=number(b.quantity,1,100),created=[];
      for(let i=0;i<count;i++)created.push(await saveEntity(db,actor,'orderLines',b.record||{}));
