@@ -693,7 +693,7 @@ export function createOfficeApi(storage,env={}){
     }
     if(op==='coordinator-shift'){
      if(actor.role==='manager')fail('Usa Gestoría para modificar turnos.');
-     const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinate(db,actor,a.serviceId);
+     const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinateAssignment(db,actor,a);
      const service=await record(db,'services',a.serviceId);
      if(service.settlementStatus==='confirmed'||service.status==='completed'||service.status==='cancelled')fail('Servicio cerrado.',409);
      if(a.checkOut)fail('No se modifica un turno ya fichado y finalizado.',409);
