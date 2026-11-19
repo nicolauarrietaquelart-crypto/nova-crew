@@ -40,8 +40,8 @@ const revision = (old,input) => {if(old&&Number(input.revision)!==old.revision)f
 async function audit(db,actor,action,kind,id){const stamp=now();await db.put(`office/audit/${stamp}/${uid()}`,{id:uid(),time:stamp,actor:actor.id,name:actor.name,action,kind,recordId:id});}
 const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoicePrefix:'NOVA',vat:21,paymentDays:30,footer:''};
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
-async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services'),a=await rows(db,'assignments');return new Set([...services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id),...a.filter(x=>x.workerId===actor.workerId).map(x=>x.serviceId)]);}
-async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId!==actor.id)fail('No coordinas este servicio.',403);}
+async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services'),a=await rows(db,'assignments'),coordinators=await rows(db,'serviceCoordinators'),blocks=await rows(db,'serviceBlocks');return new Set([...services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id),...a.filter(x=>x.workerId===actor.workerId).map(x=>x.serviceId),...coordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...blocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId)]);}
+async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId===actor.id)return;const allowed=(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===id&&c.userId===actor.id&&!c.archived)||(await rows(db,'serviceBlocks')).some(c=>c.serviceId===id&&c.coordinatorId===actor.id&&!c.archived);if(!allowed)fail('No coordinas este servicio.',403);}
 async function canService(db,actor,id){if(actor.role==='manager')return;const s=await scope(db,actor);if(!s.has(id))fail('No tienes acceso a ese servicio.',403);}
 function publicAssignment(a,actor){
  if(actor.role==='manager')return a;
@@ -59,9 +59,9 @@ async function view(db,actor){
  const documents=(await rows(db,'documents')).filter(d=>actor.role==='manager'||(actor.workerId&&d.workerId===actor.workerId));
  const availability=(await rows(db,'availability')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
   const weeklyAvailability=actor.workerId?await db.get(key('weeklyAvailability',actor.workerId))||null:null;
- const coordinatorIds=new Set(services.map(s=>s.coordinatorId).filter(Boolean));
+ const allCoordinators=await rows(db,'serviceCoordinators'),allBlocks=await rows(db,'serviceBlocks');const coordinatorIds=new Set([...services.map(s=>s.coordinatorId),...allCoordinators.map(c=>c.userId),...allBlocks.map(c=>c.coordinatorId)].filter(Boolean));
  const directory=(await rows(db,'users')).filter(u=>u.active&&(coordinatorIds.has(u.id)||u.role==='manager')).map(u=>({id:u.id,name:u.name,role:u.role}));
- const assignedServices=allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id);
+ const assignedServices=[...new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...allBlocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId)])];
   const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
@@ -71,7 +71,7 @@ async function view(db,actor){
   const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||assignedServices.includes(i.serviceId)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const companySettings=await settings(db);
   const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
- if(actor.role==='manager')Object.assign(result,{employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
+ if(actor.role==='manager')Object.assign(result,{employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
 function invoiceLines(input){if(!Array.isArray(input)||input.length<1||input.length>100)fail('Añade entre 1 y 100 líneas.');return input.map(l=>{const quantity=number(l.quantity,0.01,1e5),price=number(l.price,0,1e6),vat=number(l.vat,0,100);const net=money(quantity*price);return {description:required(l.description,'el concepto'),quantity,price,vat,net,tax:money(net*vat/100)};});}
@@ -322,6 +322,81 @@ export function createOfficeApi(storage,env={}){
     }
     
     
+    
+    if(op==='service-coordinator-save'){
+      managerOnly(actor);const input=b.record||{},service=await record(db,'services',required(input.serviceId,'el servicio'));
+      if(service.archived||service.settlementStatus==='confirmed')fail('Servicio no editable.',409);
+      const user=await record(db,'users',required(input.userId,'el coordinador'));if(!user.active||!(user.workerId||user.role==='manager'))fail('El coordinador debe ser un trabajador activo o gestor.',409);
+      const prev=(await rows(db,'serviceCoordinators')).find(x=>x.serviceId===service.id&&x.userId===user.id&&!x.archived);
+      if(prev)return {record:prev};
+      const value={id:uid(),serviceId:service.id,userId:user.id,createdAt:now(),revision:1};
+      await db.put(key('serviceCoordinators',value.id),value);await audit(db,actor,'coordinator-add','serviceCoordinators',value.id);return {record:value};
+    }
+    if(op==='service-coordinator-delete'){
+      managerOnly(actor);const value=await record(db,'serviceCoordinators',b.id);revision(value,b);
+      const service=await record(db,'services',value.serviceId);if(service.settlementStatus==='confirmed')fail('Servicio liquidado.',409);
+      await db.put(key('serviceCoordinators',value.id),{...value,archived:true,revision:value.revision+1});
+      await audit(db,actor,'coordinator-remove','serviceCoordinators',value.id);return {};
+    }
+    if(op==='service-block-save'){
+      managerOnly(actor);const input=b.record||{},service=await record(db,'services',required(input.serviceId,'el servicio'));
+      if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio no editable.',409);
+      const old=input.id?await record(db,'serviceBlocks',input.id):null;revision(old,input);
+      if(old&&old.serviceId!==service.id)fail('No puedes mover un bloque a otro servicio.');
+      const d=date(input.date),last=date(input.endDate||input.date),start=time(input.start),end=time(input.end);
+      if(last+'T'+end<=d+'T'+start)fail('El final del bloque debe ser posterior al inicio.');
+      if(Date.parse(last+'T'+end+'Z')-Date.parse(d+'T'+start+'Z')>48*3600000)fail('Bloque de más de 48 h. Divide en jornadas.');
+      const placeId=text(input.placeId),coordinatorId=text(input.coordinatorId);
+      if(placeId){const place=await record(db,'servicePlaces',placeId);if(place.serviceId!==service.id||place.archived)fail('Ubicación ajena al servicio.');}
+      if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||!(u.workerId||u.role==='manager'))fail('Coordinador no válido.');}
+      const serviceType=required(input.serviceType,'el tipo de servicio'),team=text(input.team);
+      const slots=old?(await rows(db,'orderLines')).filter(l=>l.blockId===old.id&&!l.archived&&l.status!=='cancelled'):[];
+      const changed=old&&['date','endDate','start','end','placeId','serviceType'].some(k=>
+        String(({date:d,endDate:last,start,end,placeId,serviceType})[k])!==String(old[k]));
+      if(changed){
+        const assigned=await rows(db,'assignments');
+        if(slots.some(l=>assigned.some(a=>a.orderLineId===l.id&&!a.archived)))
+          fail('Este bloque ya tiene personal asignado. Cambia los turnos individuales antes de mover sus fechas o ubicación.',409);
+      }
+      const value={...old,id:old?.id||uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(input.notes,1000),revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now()};
+      await db.put(key('serviceBlocks',value.id),value);
+      for(const slot of slots){
+        const updated={...slot,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,revision:slot.revision+1};
+        await db.put(key('orderLines',slot.id),updated);
+      }
+      const dates=[d,last],existingDays=await rows(db,'serviceDays');
+      for(const x of dates)if(!existingDays.some(v=>v.serviceId===service.id&&v.date===x&&!v.archived)){
+        const dayValue={id:uid(),serviceId:service.id,date:x,name:'Jornada',revision:1};
+        await db.put(key('serviceDays',dayValue.id),dayValue);
+      }
+      await db.put(key('services',service.id),{...service,date:d<service.date?d:service.date,endDate:last>service.endDate?last:service.endDate,revision:service.revision+1,updatedAt:now()});
+      if(!old){
+        const categories=Array.isArray(b.categories)?b.categories:[];
+        if(categories.length<1||categories.length>50)fail('Añade entre 1 y 50 categorías al bloque.');
+        const count=categories.reduce((n,c)=>n+Number(c.quantity||0),0);
+        if(count>200||count<1)fail('Máximo 200 puestos por bloque.');
+        const created=[];
+        for(const item of categories){
+          const amount=number(item.quantity,1,200);if(!Number.isInteger(amount))fail('Número de puestos incorrecto.');
+          for(let i=0;i<amount;i++){
+            const slot=await saveEntity(db,actor,'orderLines',{serviceId:service.id,categoryId:item.categoryId,
+              serviceType,team,placeId,coordinatorId,date:d,endDate:last,start,end,pause:input.pause??0,notes:input.notes||''});
+            const linked={...slot,blockId:value.id};await db.put(key('orderLines',slot.id),linked);created.push(linked);
+          }
+        }
+        await audit(db,actor,'block-create','serviceBlocks',value.id);return {record:value,positions:created};
+      }
+      await audit(db,actor,'block-update','serviceBlocks',value.id);return {record:value};
+    }
+    if(op==='service-block-delete'){
+      managerOnly(actor);const block=await record(db,'serviceBlocks',b.id);revision(block,b);
+      const slots=(await rows(db,'orderLines')).filter(l=>l.blockId===block.id&&!l.archived&&l.status!=='cancelled');
+      const assignments=await rows(db,'assignments');
+      if(slots.some(l=>assignments.some(a=>a.orderLineId===l.id&&!a.archived)))fail('Este bloque tiene trabajadores asignados.',409);
+      for(const l of slots)await db.put(key('orderLines',l.id),{...l,archived:true,revision:l.revision+1});
+      await db.put(key('serviceBlocks',block.id),{...block,archived:true,revision:block.revision+1});
+      await audit(db,actor,'block-delete','serviceBlocks',block.id);return {};
+    }
     if(op==='service-place-save'){
       managerOnly(actor);
       const input=b.record||{},service=await record(db,'services',required(input.serviceId,'el servicio'));
