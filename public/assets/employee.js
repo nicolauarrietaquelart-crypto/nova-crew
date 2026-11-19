@@ -231,19 +231,19 @@ async function verifyClockPosition(id){
  }catch(e){error(e)}
 }
 function coordinationPage(){
- const services=list('services').filter(s=>s.coordinatorId===state.user.id);
+ const services=coordinatingServices();
  const roster=state.coordinatorRoster||[],workers=state.coordinatorWorkers||[];
  const person=id=>workers.find(w=>w.id===id)?.name||'Personal';
  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación de personal</h2><p class="muted">Puedes coordinar un servicio y trabajar como HAND en otro, utilizando la misma cuenta.</p></div>'+
  (services.length?services.map(s=>box(s.name+' · '+s.venue,
  '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+btn('crew-open','Abrir Crew Control',s.id,'primary')+btn('incident-report','Registrar incidencia',s.id)+'</div>'+
  '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Categoría</th><th>Horario</th><th>Confirmación</th><th>Fichaje</th><th></th></tr></thead><tbody>'+
- roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. El gestor puede asignarte como coordinador desde una comanda.</div>');
+ roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. Un gestor de oficina puede asignarte como coordinador de un día y tipo de servicio.</div>');
 }
 
 let selectedCrewService='',crewFilter='all';
 function crewControlPage(){
- const svcs=list('services').filter(s=>s.coordinatorId===state.user.id);
+ const svcs=coordinatingServices();
  if(!svcs.length){$('#employee-content').innerHTML='<div class="panel empty">No tienes servicios bajo tu coordinación.</div>';return}
  if(!svcs.some(s=>s.id===selectedCrewService))selectedCrewService=svcs[0].id;
  const sv=service(selectedCrewService),records=(state.coordinatorRoster||[]).filter(a=>a.serviceId===selectedCrewService),people=state.coordinatorWorkers||[];
