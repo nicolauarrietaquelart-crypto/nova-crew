@@ -245,3 +245,21 @@ test('create service and individual posts from a budget',async()=>{
  assert.equal(state.quotes.find(q=>q.id===quote.id).serviceId,created.body.record.id);
  assert.equal((await f.call('service-create',{quoteId:quote.id,service,positions:[]})).status,409);
 });
+
+test('worker can upload personal documents but cannot impersonate official contracts',async()=>{
+ const f=await setup();
+ assert.equal((await f.call('user',{record:{username:'self-doc',name:'Worker',role:'worker',workerId:f.worker.id,password:'long-worker-pass-2026'}})).status,200);
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'self-doc',password:'long-worker-pass-2026'})}));
+ assert.equal(login.status,200);
+ const cookie=login.headers.get('set-cookie').split(';')[0];
+ const upload=async type=>{const r=await api(new Request('https://nova.test/api/office/employee-document-upload',{method:'POST',headers:{origin:'https://nova.test',cookie,'content-type':'application/json'},body:JSON.stringify({name:'prl.pdf',type,content:btoa('%PDF-1.4\ntest')})}));return {status:r.status,body:await r.json()}};
+ assert.equal((await upload('contract')).status,403);
+ assert.equal((await upload('training')).status,200);
+ const state=await api(new Request('https://nova.test/api/office/state',{headers:{cookie}}));
+ const data=await state.json();
+ assert.equal(data.documents.length,1);
+ assert.equal(data.documents[0].workerId,f.worker.id);
+ assert.equal(data.company?.name!==undefined,true);
+ assert.equal(data.company.iban,undefined);
+});
