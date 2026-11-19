@@ -49,12 +49,12 @@ async function canCoordinateAssignment(db,actor,assignment){
  const blocks=await rows(db,'serviceBlocks');
  const slot=assignment.orderLineId?await db.get(key('orderLines',assignment.orderLineId)):null;
  const ownBlock=slot?.blockId?blocks.find(b=>b.id===slot.blockId&&!b.archived):null;
- if(ownBlock?.coordinatorId){
-  if(ownBlock.coordinatorId!==actor.id)fail('Este fichaje pertenece a otro coordinador de turno.',403);
+ if(slot?.coordinatorId){
+  if(slot.coordinatorId!==actor.id)fail('No coordinas esta línea de personal.',403);
   return;
  }
- if(slot?.coordinatorId){
-  if(slot.coordinatorId!==actor.id)fail('No coordinas este turno.',403);
+ if(ownBlock?.coordinatorId){
+  if(ownBlock.coordinatorId!==actor.id)fail('Este fichaje pertenece a otro coordinador de turno.',403);
   return;
  }
  if(blocks.some(b=>b.serviceId===service.id&&!b.archived&&b.date===assignment.date&&b.serviceType===slot?.serviceType&&b.coordinatorId)){
