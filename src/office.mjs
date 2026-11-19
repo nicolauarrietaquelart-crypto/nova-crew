@@ -351,8 +351,8 @@ export function createOfficeApi(storage,env={}){
       if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||!(u.workerId||u.role==='manager'))fail('Coordinador no válido.');}
       const serviceType=required(input.serviceType,'el tipo de servicio'),team=text(input.team);
       const slots=old?(await rows(db,'orderLines')).filter(l=>l.blockId===old.id&&!l.archived&&l.status!=='cancelled'):[];
-      const changed=old&&['date','endDate','start','end','placeId','serviceType'].some(k=>
-        String(({date:d,endDate:last,start,end,placeId,serviceType})[k])!==String(old[k]));
+      const changed=old&&['date','endDate','start','end','placeId','serviceType','team','coordinatorId'].some(k=>
+        String(({date:d,endDate:last,start,end,placeId,serviceType,team,coordinatorId})[k])!==String(old[k]));
       if(changed){
         const assigned=await rows(db,'assignments');
         if(slots.some(l=>assigned.some(a=>a.orderLineId===l.id&&!a.archived)))
@@ -387,6 +387,24 @@ export function createOfficeApi(storage,env={}){
         await audit(db,actor,'block-create','serviceBlocks',value.id);return {record:value,positions:created};
       }
       await audit(db,actor,'block-update','serviceBlocks',value.id);return {record:value};
+    }
+    if(op==='service-block-add-positions'){
+      managerOnly(actor);const block=await record(db,'serviceBlocks',b.blockId),service=await record(db,'services',block.serviceId);
+      if(block.archived||service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Bloque cerrado.',409);
+      const categories=Array.isArray(b.categories)?b.categories:[];
+      if(categories.length<1||categories.length>50)fail('Añade una categoría.');
+      const positions=[];let total=0;
+      for(const cat of categories){
+        const quantity=number(cat.quantity,1,200);if(!Number.isInteger(quantity))fail('Cantidad incorrecta.');
+        total+=quantity;if(total>200)fail('Máximo 200 puestos de una vez.');
+        for(let i=0;i<quantity;i++){
+          const raw=await saveEntity(db,actor,'orderLines',{serviceId:service.id,categoryId:cat.categoryId,
+            serviceType:block.serviceType,team:block.team,placeId:block.placeId,coordinatorId:block.coordinatorId,
+            date:block.date,endDate:block.endDate,start:block.start,end:block.end,pause:cat.pause??0});
+          const value={...raw,blockId:block.id};await db.put(key('orderLines',value.id),value);positions.push(value);
+        }
+      }
+      await audit(db,actor,'block-add-positions','serviceBlocks',block.id);return {positions};
     }
     if(op==='service-block-delete'){
       managerOnly(actor);const block=await record(db,'serviceBlocks',b.id);revision(block,b);
