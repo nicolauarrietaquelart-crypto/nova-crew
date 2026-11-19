@@ -114,7 +114,7 @@ function wizardRows(){
 }
 function captureWizardPositions(){
  const nodes=$('#wizard-positions .position-row');
- if(nodes.length)wizardPositions=nodes.map(el=>Object.fromEntries([...el.querySelectorAll('[data-position]')].map(input=>[input.dataset.position,input.value])));
+ wizardPositions=nodes.map(el=>Object.fromEntries([...el.querySelectorAll('[data-position]')].map(input=>[input.dataset.position,input.value])));
 }
 function serviceWizard(quoteId=''){
  const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
@@ -127,7 +127,7 @@ function serviceWizard(quoteId=''){
  field('date','Fecha',day(),'date','required')+field('start','Inicio','08:00','time','required')+
  field('endDate','Fecha de fin',day(),'date','required')+field('end','Fin','18:00','time','required')+
  select('coordinatorId','Trabajador que coordina',coordinators,'')+'</div>'+
- '<div class="subhead"><h3>Puestos de trabajo</h3>'+button('wizard-add-position','Añadir puesto','plus','','')+'</div>'+
+ '<div class="subhead"><h3>Puestos de trabajo</h3>'+button('wizard-add-position','Añadir puesto','plus','type="button"','')+'</div>'+
  '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio</button></div></form>';
  modal('Crear servicio',body);wizardRows();
  $('#wizard-quote').onchange=()=>{const q=find('quotes',$('#wizard-quote').value);if(q)$('#service-wizard-form [name=clientId]').value=q.clientId;};
