@@ -229,6 +229,7 @@ test('named tariff schedule duplicates editable worker categories',async()=>{
 
 test('create service and individual posts from a budget',async()=>{
  const f=await setup();
+ assert.equal((await f.call('settings',{record:{name:'Penny Wise',taxId:'B00000000',address:'Barcelona',invoicePrefix:'PW',vat:21,paymentDays:30}})).status,200);
  const quote=await f.save('quotes',{clientId:f.client.id,date:'2027-01-01',dueDate:'2027-02-01',lines:[{description:'Crew',quantity:1,price:200,vat:21}]});
  const issue=await f.call('issue',{kind:'quotes',id:quote.id,revision:quote.revision});
  assert.equal(issue.status,200);
