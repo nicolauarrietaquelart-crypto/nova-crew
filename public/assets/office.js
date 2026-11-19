@@ -6,8 +6,9 @@ const paths={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',users:
 const icon=(n)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[n]||paths.file}"/></svg>`;
 const euro=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n||0),day=()=>new Date().toISOString().slice(0,10),fmt=d=>d?new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(d.slice(0,10)+'T12:00:00')):'—',stamp=d=>d?new Date(d).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 const statuses={planned:'Planificado',confirmed:'Confirmado',in_progress:'En curso',completed:'Finalizado',cancelled:'Cancelado',pending:'Pendiente',draft:'Borrador',issued:'Emitido',partial:'Cobro parcial',paid:'Pagado',rejected:'Rechazado',accepted:'Aceptado',available:'Disponible',unavailable:'No disponible',overdue:'Vencida'};
+const fmtTime=t=>{if(!t)return '—';const d=new Date(t);return Number.isNaN(d.getTime())?t:d.toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
 const badge=s=>`<span class="badge ${esc(s)}">${esc(statuses[s]||s)}</span>`;
-const navs=[['dashboard','Inicio','grid','OPERACIONES'],['quotes','Presupuestos','file'],['services','Servicios','briefcase'],['calendar','Calendario','calendar'],['assignments','Personal asignado','users'],['closed','Servicios finalizados','check'],['workers','Trabajadores','users','PERSONAL'],['clients','Clientes','building'],['documents','Documentación','folder'],['tariffs','Tarifas por categoría','wallet','CONFIGURACIÓN'],['messages','Mensajes','file'],['incidents','Incidencias','info'],['users','Accesos','shield'],['audit','Actividad','clock']];
+const navs=[['dashboard','Inicio','grid','OPERACIONES'],['quotes','Presupuestos','file'],['services','Servicios','briefcase'],['calendar','Calendario','calendar'],['closed','Servicios finalizados','check'],['workers','Trabajadores','users','PERSONAL'],['clients','Clientes','building'],['documents','Documentación','folder'],['tariffs','Tarifas por categoría','wallet','CONFIGURACIÓN'],['messages','Mensajes','file'],['incidents','Incidencias','info'],['users','Accesos','shield'],['audit','Actividad','clock']];
 const descriptions={incidents:'Incidencias comunicadas por los coordinadores y revisión de Gestoría.',messages:'Mensajes privados entre Gestoría y los trabajadores.',orders:'Peticiones, bloques horarios y plazas por cubrir.',closed:'Servicios finalizados y liquidaciones.',tariffs:'Tarifario 2026, precios e incrementos personalizables.',dashboard:'Servicios, personal y asignaciones pendientes.',services:'Crea servicios desde presupuestos y asigna a cada trabajador su categoría.',calendar:'Tu planificación, día a día.',assignments:'Personal, turnos, confirmaciones y fichajes.',workers:'Las personas que hacen que todo funcione.',clients:'Contactos y datos de facturación en un único lugar.',documents:'Contratos y documentación vinculados a cada persona o servicio.',availability:'Consulta y registra la disponibilidad del equipo.',quotes:'Prepara propuestas y conviértelas en servicios.',invoices:'Borradores, emisión, vencimientos y seguimiento de cobros.',expenses:'Costes y gastos asociados a tus operaciones.',users:'Crea accesos y controla qué puede consultar cada persona.',audit:'Historial de las operaciones guardadas en el servidor.',settings:'Datos fiscales, serie de facturación y preferencias.'};
 let data={},page='dashboard',query='',filter='',month=day().slice(0,7),polling=false,busy=false;let toastTimer;
 const manager=()=>data.user?.role==='manager',isWorker=()=>data.user?.role==='worker';
@@ -33,7 +34,7 @@ async function authScreen(){let status;try{status=await api('status');}catch(e){
 async function load(){const state=await api('state');if(state.user?.role==='worker'){window.location.replace('/empleado.html');return;}data=state;$('#auth').hidden=true;$('#app').hidden=false;$('#account-name').textContent=data.user.name;$('#account-role').textContent=({manager:'Gestor',coordinator:'Coordinador',worker:'Trabajador'})[data.user.role];$('#avatar').textContent=data.user.name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();$('#workspace-name').textContent='NOVA Crew';$('#sync').innerHTML='<span class="live-dot"></span>Actualizado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(location.hash.startsWith('#/servicio/')){const id=decodeURIComponent(location.hash.slice(11));if(list('services').some(x=>x.id===id)){serviceFocus=id;page='service-workspace'}}renderNav();render();}
 function allowed(){return manager()?navs.map(x=>x[0]):isWorker()?['dashboard','services','calendar','assignments','documents','availability']:['dashboard','services','calendar','assignments','workers','documents','availability'];}
 function renderNav(){if(page!=='service-workspace'&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(page==='service-workspace'?'services':page)===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
-function render(){if(page==='service-workspace')return serviceWorkspacePage();const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML=(!isWorker()&&page==='assignments')?button('scan','Escanear QR','shield','',''):'';
+function render(){if(page==='service-workspace')return serviceWorkspacePage();const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML='';
  if(page==='tariffs')return tariffGroupsPage();if(page==='incidents')return managerIncidentsPage();if(page==='messages')return managerMessagesPage();if(page==='closed')return closedPage();if(page==='dashboard')return dashboard();if(page==='calendar')return calendar();if(page==='settings')return settingsPage();if(page==='availability')return availabilityPage();if(page==='audit')return auditPage();
  if(manager()&&['tariffs','services','clients','workers','invoices','quotes','users','assignments','documents'].includes(page)){
  const labels={tariffs:'Nueva categoría',services:'Crear servicio',clients:'Nuevo cliente',workers:'Nuevo trabajador',invoices:'Nueva factura',quotes:'Nuevo presupuesto',expenses:'Nuevo gasto',users:'Crear usuario',assignments:'Asignar personal',documents:'Subir documento'};
@@ -210,7 +211,7 @@ function captureWizardPositions(){
 }
 
 function serviceWizard(quoteId=''){
- const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
+ const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  wizardPositions=quote?.staffPlan?.length?[]:[{}];
  const eligible=list('quotes').filter(q=>['issued','accepted'].includes(q.status)&&(!q.serviceId||q.id===quoteId));
  const start=quote?.planStartDate||day(),end=quote?.planEndDate||start;
@@ -275,13 +276,13 @@ function serviceRows(){
 }
 function servicePostTable(posts,assignments){
  if(!posts.length)return '<div class="empty">Todavía no hay puestos en este bloque.</div>';
- return '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Trabajador</th><th>Equipo / Horario</th><th></th></tr></thead><tbody>'+
+ return '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Trabajador</th><th>Equipo / Horario</th><th>Confirmación / fichaje</th><th></th></tr></thead><tbody>'+
  posts.map(p=>{
    const a=assignments.find(x=>x.orderLineId===p.id&&!x.archived);
    return '<tr><td><strong>'+esc(p.role)+'</strong><small>'+esc(p.serviceType||'')+'</small></td>'+
    '<td>'+(a?esc(name('workers',a.workerId)):'<span class="unfilled-tag">Sin cubrir</span>')+'</td>'+
-   '<td>'+esc(p.team||'—')+'<small>'+esc(p.start)+'–'+esc(p.end)+'</small></td><td><div class="row-actions">'+
-   (a?action('view','Ver trabajador',a.id,'assignments'):button('assign-slot','Asignar','plus','data-id="'+esc(p.id)+'"',''))+
+   '<td>'+esc(p.team||'—')+'<small>'+esc(p.start)+'–'+esc(p.end)+'</small></td><td>'+(a?badge(a.status)+'<small>Entrada: '+(a.checkIn?fmtTime(a.checkIn):'—')+' · Salida: '+(a.checkOut?fmtTime(a.checkOut):'—')+'</small>':'—')+'</td><td><div class="row-actions">'+
+   (a?action('view','Ver turno',a.id,'assignments')+action('edit','Modificar asignación',a.id,'assignments','edit')+button('attendance-service-edit','Corregir fichaje','clock','data-id="'+esc(a.id)+'"',''):button('assign-slot','Asignar','plus','data-id="'+esc(p.id)+'"',''))+
    action('edit','Editar puesto',p.id,'orderLines','edit')+'</div></td></tr>';
  }).join('')+'</tbody></table></div>';
 }
@@ -294,7 +295,7 @@ function serviceWorkspacePage(){
  $('#page-actions').innerHTML=button('service-back','Volver a servicios','left','','')+
  button('edit','Editar servicio','edit','data-kind="services" data-id="'+esc(sv.id)+'"','');
  const totalUnfilled=positions.filter(p=>!assigned.some(a=>a.orderLineId===p.id&&!a.archived)).length;
- const menu=[['planning','Jornadas y horarios'],['staff','Personal'],['places','Ubicaciones'],['coordinators','Coordinadores']];
+ const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Coordinadores']];
  const nav='<div class="service-workspace-nav">'+menu.map(([k,label])=>'<button class="'+(serviceTab===k?'selected':'')+'" type="button" data-action="service-tab" data-tab="'+k+'">'+label+'</button>').join('')+'</div>';
  const top='<div class="service-overview"><div><span class="eyebrow">SERVICIO</span><h2>'+esc(sv.name)+'</h2><p>'+esc(name('clients',sv.clientId))+' · '+esc(sv.venue)+'</p>'+
  '<div class="service-meta">'+badge(sv.status)+'<span>'+fmt(sv.date)+' — '+fmt(sv.endDate)+'</span><span>Tarifa: '+esc(sv.tariffSchedule||'Estándar')+'</span></div></div>'+
@@ -314,8 +315,7 @@ function serviceWorkspacePage(){
     blocksOn.map(block=>{
      const posts=positions.filter(p=>p.blockId===block.id);
      return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
-     '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+
-     (block.coordinatorId?' · Coord.: '+esc(name('users',block.coordinatorId)):'')+'</p></div>'+
+     '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+'</p><p><strong>Coordinador del turno:</strong> '+esc(block.coordinatorId?name('users',block.coordinatorId):'Sin asignar')+'</p></div>'+
      '<div class="service-block-tools">'+button('service-block-add-positions','Añadir puestos','plus','data-id="'+esc(block.id)+'"','')+
      button('service-block-edit','Editar bloque','edit','data-id="'+esc(block.id)+'"','')+
      button('service-block-remove','Eliminar bloque','trash','data-id="'+esc(block.id)+'"','')+'</div></div>'+
@@ -326,7 +326,7 @@ function serviceWorkspacePage(){
     '</section>';
    }).join('');
  }else if(serviceTab==='staff'){
-  body='<div class="service-section-header"><div><h3>Personal del servicio</h3><p>Asigna cada trabajador a un puesto y categoría concreta.</p></div>'+
+  body='<div class="service-section-header"><div><h3>Personal y fichajes del servicio</h3><p>Asigna cada trabajador a un puesto, revisa sus confirmaciones y corrige los fichajes desde su turno.</p></div>'+
   button('service-block-new','Crear bloque de personal','plus','','')+'</div>'+
   (positions.length?servicePostTable(positions,assigned):'<div class="panel empty">Añade primero un bloque de horario y sus puestos.</div>');
  }else if(serviceTab==='places'){
@@ -343,7 +343,7 @@ function serviceWorkspacePage(){
    '<details><summary>Ver mapa</summary><iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa de '+esc(p.name)+'" src="'+esc(src)+'"></iframe></details></section>';
   }).join('')+'</div>':'<div class="panel empty">Añade tu primera ubicación. Puedes buscarla en Google Maps y guardar sus datos.</div>');
  }else{
-  const allUsers=list('users').filter(u=>u.active);
+  const allUsers=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
   body='<div class="service-section-header"><div><h3>Coordinación</h3><p>Asigna varios coordinadores al mismo servicio. También puedes asignar uno por bloque.</p></div>'+
    button('service-coordinator-new','Añadir coordinador','plus','','')+'</div>'+
    '<div class="panel"><div class="list-item"><span class="grow">Coordinador principal</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
@@ -394,7 +394,7 @@ function drawBlockCategories(){
 }
 function serviceBlockEditor(id='',preDate=''){
  const old=find('serviceBlocks',id),sv=find('services',serviceFocus),places=list('servicePlaces').filter(p=>p.serviceId===serviceFocus),
- coordinators=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
+ coordinators=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  blockEditorId=id;blockEditorService=serviceFocus;blockCategoryRows=[{categoryId:'',quantity:1}];
  const fields=field('serviceType','Tipo de servicio (LOAD IN, SHOW CALL...)',old?.serviceType||'LOAD IN','text','required',true)+
  field('date','Fecha inicio',old?.date||preDate||sv.date,'date','required')+
@@ -402,7 +402,7 @@ function serviceBlockEditor(id='',preDate=''){
  field('endDate','Fecha fin',old?.endDate||preDate||sv.date,'date','required')+
  field('end','Hora fin',old?.end||'18:00','time','required')+
  select('placeId','Ubicación',places.map(p=>({id:p.id,name:p.name})),old?.placeId||'')+
- select('coordinatorId','Coordinador de este bloque',coordinators,old?.coordinatorId||'')+
+ select('coordinatorId','Trabajador coordinador de este día y tipo de servicio',coordinators,old?.coordinatorId||'')+
  field('team','Equipo / escenario',old?.team||'')+
  (!old?field('pause','Pausa prevista (h)',0,'number','min="0" max="24" step="0.5"'):'')+
  notes(old?.notes||'','Notas de producción')+
@@ -428,7 +428,7 @@ function blockAddCategories(id){
  });
 }
 function serviceCoordinatorEditor(){
- const all=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
+ const all=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  modal('Añadir coordinador',formWrap(select('userId','Trabajador que coordinará',all,'',true),'Asignar coordinador'));
  formHandler(b=>api('service-coordinator-save',{record:{serviceId:serviceFocus,userId:b.userId}}));
 }
@@ -630,8 +630,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='issue-confirm')return runMutation('issue',{kind,id,revision:find(kind,id).revision},'Documento emitido');
  if(a==='payment')return payment(id);
  if(a==='qr')return showQR(id);
- if(a==='scan')return scanner();
- if(a==='attendance-adjust')return adjustAttendance(id);
+ 
+ if(a==='attendance-adjust'||a==='attendance-service-edit')return adjustAttendance(id);
  if(a==='quote-invoice')return runMutation('quote-invoice',{id},'Borrador de factura creado');
  if(a==='quote-status'&&el.dataset.status==='accepted')return serviceWizard(id);
   if(a==='quote-status')return runMutation('quote-status',{id,revision:find('quotes',id).revision,status:el.dataset.status},'Presupuesto actualizado');
