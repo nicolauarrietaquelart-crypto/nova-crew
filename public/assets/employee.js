@@ -232,13 +232,13 @@ async function verifyClockPosition(id){
 }
 function coordinationPage(){
  const services=coordinatingServices();
- const roster=state.coordinatorRoster||[],workers=state.coordinatorWorkers||[];
+ const roster=state.coordinatorRoster||[],workers=state.coordinatorWorkers||[],blocks=state.coordinatorBlocks||[];
  const person=id=>workers.find(w=>w.id===id)?.name||'Personal';
  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación de personal</h2><p class="muted">Puedes coordinar un servicio y trabajar como HAND en otro, utilizando la misma cuenta.</p></div>'+
  (services.length?services.map(s=>box(s.name+' · '+s.venue,
- '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+btn('crew-open','Abrir Crew Control',s.id,'primary')+btn('incident-report','Registrar incidencia',s.id)+'</div>'+
+ '<div class="notice">'+(blocks.filter(b=>b.serviceId===s.id).map(b=>'<strong>'+esc(b.date)+' · '+esc(b.serviceType)+' · '+esc(b.start)+'–'+esc(b.end)+'</strong>').join('<br>')||'Coordinación general del servicio')+'</div><div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código QR',s.id)+btn('crew-open','Abrir Crew Control',s.id,'primary')+btn('incident-report','Registrar incidencia',s.id)+'</div>'+
  '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Categoría</th><th>Horario</th><th>Confirmación</th><th>Fichaje</th><th></th></tr></thead><tbody>'+
- roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. Un gestor de oficina puede asignarte como coordinador de un día y tipo de servicio.</div>');
+ roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.date)+' · '+esc(a.serviceType||'Servicio')+' · '+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. Un gestor de oficina puede asignarte como coordinador de un día y tipo de servicio.</div>');
 }
 
 let selectedCrewService='',crewFilter='all';
@@ -257,7 +257,7 @@ function crewControlPage(){
  '<div class="actions-row" style="margin-bottom:14px">'+btn('crew-filter','Sin equipo ('+noTeam+')','','secondary')+btn('incident-report','Registrar incidencia',sv.id)+'</div>'+
  box('Plantilla · '+records.filter(matches).length+' trabajadores',records.filter(matches).length?
  '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Personal</th><th>Equipo</th><th>Turno</th><th>Fichaje</th><th>Contacto</th><th>Acciones</th></tr></thead><tbody>'+
- records.filter(matches).map(a=>'<tr><td><strong>'+esc(person(a.workerId))+'</strong><br><small>'+esc(a.role)+'</small></td><td>'+esc(a.team||'Sin equipo')+'</td><td>'+esc(a.start)+'–'+esc(a.end)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida':'')+'</td><td>'+esc(a.contacted?'Contactado':'Pendiente')+'</td><td><div class="actions-row">'+btn('crew-contact',a.contacted?'Desmarcar contacto':'Contactado',a.id)+btn('crew-team','Equipo',a.id)+btn('edit-coord-shift','Horario',a.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay trabajadores con este filtro.</div>');
+ records.filter(matches).map(a=>'<tr><td><strong>'+esc(person(a.workerId))+'</strong><br><small>'+esc(a.role)+'</small></td><td>'+esc(a.team||'Sin equipo')+'</td><td>'+esc(a.date)+' · '+esc(a.serviceType||'Servicio')+' · '+esc(a.start)+'–'+esc(a.end)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida':'')+'</td><td>'+esc(a.contacted?'Contactado':'Pendiente')+'</td><td><div class="actions-row">'+btn('crew-contact',a.contacted?'Desmarcar contacto':'Contactado',a.id)+btn('crew-team','Equipo',a.id)+btn('edit-coord-shift','Horario',a.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay trabajadores con este filtro.</div>');
 }
 function crewTeamModal(id){
  const a=(state.coordinatorRoster||[]).find(a=>a.id===id);if(!a)return;
