@@ -134,7 +134,7 @@ async function saveEntity(db,actor,kind,b){
  if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500)};
  if(kind==='services'){
   const client=await record(db,'clients',required(b.clientId,'el cliente'));if(!client.active||client.archived)fail('El cliente está inactivo.');
-  if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||!['manager','worker','coordinator'].includes(user.role))fail('Coordinador no válido.');if(user.role!=='manager'&&!user.workerId)fail('El coordinador debe tener una ficha de trabajador.');}
+  if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||user.role!=='worker'||!user.workerId)fail('El coordinador del servicio debe ser un trabajador, no un gestor de oficina.',403);}
   const startDate=date(b.date),endDate=date(b.endDate||b.date),start=time(b.start),end=time(b.end);
   if(endDate+'T'+end<=startDate+'T'+start)fail('El fin debe ser posterior al inicio. Para un turno nocturno elige el día siguiente.');
   const tariffSchedule=text(b.tariffSchedule)||old?.tariffSchedule||'Tarifa estándar 2026';
@@ -516,6 +516,7 @@ export function createOfficeApi(storage,env={}){
         const billable=tariff.unit==='day'?1:Math.max(span-pause,tariff.minHours);
         const unitPrice=money(tariff.clientRate*(1+(tariff.incrementPercent||0)/100));
         const locationName=text(raw.locationName,150);
+        if(raw.coordinatorId){const u=await record(db,'users',raw.coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador del bloque debe ser trabajador, no gestor de oficina.',403);}
         const detail={quantity:qty,categoryId:tariff.id,role:tariff.name,serviceType:text(raw.serviceType,100)||'Servicio',team:text(raw.team,100),
           date:d,endDate:last,start:from,end:to,pause,locationName,locationAddress:text(raw.locationAddress,400),
           placeMapsUrl:text(raw.placeMapsUrl,700),coordinatorId:text(raw.coordinatorId),unitPrice,billable};
@@ -595,6 +596,7 @@ export function createOfficeApi(storage,env={}){
         if(placeId&&!createdPlaces.some(p=>p.id===placeId))fail('La ubicación del puesto no pertenece al servicio.');
         const d=item.date||service.date,last=item.endDate||d,start=item.start||service.start,end=item.end||service.end;
         const serviceType=text(item.serviceType)||'Servicio',team=text(item.team),coordinatorId=text(item.coordinatorId);
+        if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador debe tener una ficha de trabajador.',403);}
         const blockKey=JSON.stringify([d,last,start,end,serviceType,team,placeId,coordinatorId]);
         if(!blockIds.has(blockKey)){
           const value={id:uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(item.notes,1000),revision:1,createdAt:now()};
