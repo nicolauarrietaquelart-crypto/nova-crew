@@ -63,3 +63,8 @@ html,body{min-height:100%;max-width:100%;overflow-x:hidden}
 .availability-time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
 #employee-modal .clock-popup-actions .primary{background:#ff7f1f}
 @media(max-width:650px){.availability-hour-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.availability-hour{min-height:42px}}
+
+.profile-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid #e6e9eb;padding-bottom:12px}
+.profile-tabs button{border:1px solid #e5e6e9;background:rgba(255,255,255,.8);border-radius:13px;padding:10px 15px;color:#555d67;font-weight:750}
+.profile-tabs button.active{border-color:rgba(255,127,31,.45);background:rgba(255,127,31,.14);color:#bd5715}
+.profile-tabs button:hover{border-color:#f5b183}
