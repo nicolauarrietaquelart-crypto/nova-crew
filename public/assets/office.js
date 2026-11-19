@@ -79,23 +79,30 @@ function boxMessages(msgs,userName){
 }
 
 
+
 function tariffGroupsPage(){
- const rates=filtered('tariffs'),groups=[...new Set(rates.map(r=>r.group||'Personalizado'))];
- $('#page-actions').innerHTML=button('new','Añadir categoría','plus','data-kind="tariffs"');
- $('#content').innerHTML='<p class="footnote">Cada grupo agrupa categorías individuales con su precio, unidad y mínimo. Edita la categoría desde su fila.</p>'+
- (groups.length?groups.map(g=>{
- const items=rates.filter(t=>(t.group||'Personalizado')===g);
- return '<details class="panel tariff-group" open><summary class="tariff-group-head"><strong>'+esc(g)+'</strong><span>'+items.length+' categorías</span></summary>'+
+ const rates=filtered('tariffs'),schedules=[...new Set(rates.map(r=>r.schedule||'Tarifa estándar 2026'))];
+ $('#page-actions').innerHTML=button('tariff-new-schedule','Nueva tarifa','plus')+button('new','Añadir categoría','plus','data-kind="tariffs"','');
+ $('#content').innerHTML='<p class="footnote">Cada tarifa contiene sus categorías, como HAND B, HAND A, Crew Head o Forklifter. Los precios y mínimos se editan por categoría.</p>'+
+ schedules.map(schedule=>{
+ const cats=rates.filter(t=>(t.schedule||'Tarifa estándar 2026')===schedule),groups=[...new Set(cats.map(c=>c.group||'Personalizado'))];
+ return '<section class="panel tariff-schedule"><header><h3>'+esc(schedule)+'</h3><small>'+cats.length+' categorías</small></header>'+
+ groups.map(group=>'<details class="tariff-group" open><summary class="tariff-group-head"><strong>'+esc(group)+'</strong><span>'+cats.filter(c=>(c.group||'Personalizado')===group).length+' categorías</span></summary>'+
  '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Pago bruto</th><th>Tarifa cliente</th><th>Mínimo</th><th></th></tr></thead><tbody>'+
- items.map(t=>'<tr><td><strong>'+esc(t.name)+'</strong><small>'+esc(t.unit==='day'?'Por jornada':'Por hora')+'</small></td><td>'+(t.workerRate==null?'Por definir':euro(t.workerRate))+'</td><td>'+(t.clientRate==null?'Por definir':euro(t.clientRate))+'</td><td>'+esc(t.minHours)+' h</td><td>'+action('edit','Editar categoría',t.id,'tariffs','edit')+'</td></tr>').join('')+'</tbody></table></div></details>';
- }).join(''):'<div class="panel">No hay categorías configuradas.</div>');
+ cats.filter(c=>(c.group||'Personalizado')===group).map(t=>'<tr><td><strong>'+esc(t.name)+'</strong><small>'+esc(t.unit==='day'?'Por jornada':'Por hora')+'</small></td><td>'+(t.workerRate==null?'Por definir':euro(t.workerRate))+'</td><td>'+(t.clientRate==null?'Por definir':euro(t.clientRate))+'</td><td>'+esc(t.minHours)+' h</td><td>'+action('edit','Editar categoría',t.id,'tariffs','edit')+'</td></tr>').join('')+'</tbody></table></div></details>').join('')+'</section>';
+ }).join('');
+}
+function newTariffSchedule(){
+ const sources=[...new Set(list('tariffs').map(t=>t.schedule||'Tarifa estándar 2026'))];
+ modal('Nueva tarifa',formWrap(field('name','Nombre de la tarifa','','text','required',true)+select('source','Copiar las categorías de',sources.map(name=>({id:name,name})),sources[0]),'Crear tarifa'));
+ formHandler(b=>api('tariff-schedule-create',b));
 }
 let wizardPositions=[];
 function wizardPositionRow(p={},index=0){
  const tariffs=list('tariffs').filter(t=>t.active),workers=list('workers').filter(w=>w.active);
  const f=(key,label,value='',type='text')=>'<label>'+label+'<input data-position="'+key+'" type="'+type+'" value="'+esc(value)+'"></label>';
  return '<section class="position-row" data-position-index="'+index+'"><header><strong>Puesto '+(index+1)+'</strong><button type="button" data-action="wizard-remove-position" data-index="'+index+'" class="btn">Eliminar</button></header><div class="form-grid">'+
- '<label>Categoría individual<select data-position="categoryId" required>'+selectOptions(tariffs.map(t=>({id:t.id,name:t.name})),p.categoryId)+'</select></label>'+
+ '<label>Categoría individual<select data-position="categoryId" required>'+selectOptions(tariffs.map(t=>({id:t.id,name:(t.schedule||'Tarifa estándar 2026')+' · '+t.name})),p.categoryId)+'</select></label>'+
  '<label>Trabajador (opcional)<select data-position="workerId">'+selectOptions(workers.map(w=>({id:w.id,name:w.name})),p.workerId,'Dejar sin asignar')+'</select></label>'+
  f('serviceType','Tipo de servicio',p.serviceType||'Montaje')+f('team','Equipo / escenario',p.team)+
  f('date','Fecha',p.date||'','date')+f('start','Inicio',p.start||'','time')+
@@ -167,7 +174,7 @@ function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c
 }
 function editor(kind,id='',preset={}){
  const r={...(id?find(kind,id):{}),...preset};let fields='';const amount=(n,l,v=0)=>field(n,l,v,'number','min="0" step="0.01"');
- if(kind==='tariffs')fields=field('id','Código único de tarifa',r.id||'','text',id?'readonly':'required pattern="[A-Za-z0-9_ -]{2,80}"')+field('name','Categoría',r.name||'','text','required',true)+field('group','Grupo',r.group||'Personalizado')+select('unit','Unidad',[{id:'hour',name:'Hora'},{id:'day',name:'Show / Día'}],r.unit||'hour')+amount('minHours','Mínimo (horas)',r.minHours??0)+field('workerRate','Pago bruto trabajador (€ por unidad)',r.workerRate??'','number','min="0" step="0.01"')+field('clientRate','Tarifa cliente (€ por unidad)',r.clientRate??'','number','min="0" step="0.01"')+amount('incrementPercent','Incremento trabajador y cliente (%)',r.incrementPercent??0)+bool('active','Categoría activa',r.active!==false)+notes(r.notes,'Notas y condiciones');
+ if(kind==='tariffs')fields=field('schedule','Tarifa',r.schedule||'Tarifa estándar 2026','text','required')+field('id','Código único de categoría',r.id||'','text',id?'readonly':'required pattern="[A-Za-z0-9_ -]{2,80}"')+field('name','Categoría',r.name||'','text','required',true)+field('group','Grupo',r.group||'Personalizado')+select('unit','Unidad',[{id:'hour',name:'Hora'},{id:'day',name:'Show / Día'}],r.unit||'hour')+amount('minHours','Mínimo (horas)',r.minHours??0)+field('workerRate','Pago bruto trabajador (€ por unidad)',r.workerRate??'','number','min="0" step="0.01"')+field('clientRate','Tarifa cliente (€ por unidad)',r.clientRate??'','number','min="0" step="0.01"')+amount('incrementPercent','Incremento trabajador y cliente (%)',r.incrementPercent??0)+bool('active','Categoría activa',r.active!==false)+notes(r.notes,'Notas y condiciones');
   if(kind==='orderLines')fields=select('serviceId','Servicio',list('services').filter(s=>s.status!=='cancelled'&&s.settlementStatus!=='confirmed'),r.serviceId)+select('categoryId','Categoría',list('tariffs').filter(t=>t.active).map(t=>({id:t.id,name:t.name})),r.categoryId)+field('serviceType','Tipo de servicio',r.serviceType||'LOAD IN')+field('team','Equipo o escenario',r.team)+field('date','Día',r.date||day(),'date','required')+field('start','Inicio',r.start||'08:00','time','required')+field('endDate','Día final',r.endDate||r.date||day(),'date','required')+field('end','Fin',r.end||'18:00','time','required')+amount('pause','Pausa (h)',r.pause??0)+(id?'':field('quantity','Número de plazas individuales a crear',1,'number','min="1" max="100" step="1"'))+notes(r.notes,'Observaciones de la plaza');
   if(['workers','clients'].includes(kind))fields=field('name',kind==='workers'?'Nombre y apellidos':'Razón social',r.name,'text','required maxlength="200"',true)+field('taxId',kind==='workers'?'DNI / NIE':'NIF / CIF',r.taxId)+field('phone','Móvil',r.phone,'tel')+field('email','Correo electrónico',r.email,'email')+(kind==='workers'?field('specialty','Especialidad',r.specialty):field('contact','Persona de contacto',r.contact))+field('address','Dirección',r.address,'text','',true)+(kind==='workers'?amount('costRate','Coste por hora (€)',r.costRate)+select('contractType','Tipo de contrato',[{id:'eventual',name:'Eventual / por servicio'},{id:'indefinite',name:'Indefinido'},{id:'fixed_discontinuous',name:'Fijo discontinuo'}],r.contractType||'eventual')+field('username','Usuario de acceso (opcional, se genera si está vacío)','', 'text',id?'readonly':'autocomplete="off"',true)+field('iban','IBAN',r.iban)+field('startDate','Fecha de alta',r.startDate,'date')+field('endDate','Fin de contrato',r.endDate,'date')+field('emergency','Contacto de emergencia',r.emergency,'text','',true):field('paymentDays','Plazo de pago (días)',r.paymentDays??30,'number','min="0" max="365"'))+notes(r.notes)+bool('active','Ficha activa',r.active!==false);
  if(kind==='services')fields=field('name','Nombre del servicio',r.name,'text','required',true)+select('clientId','Cliente',list('clients').filter(c=>c.active),r.clientId)+field('venue','Recinto / ubicación',r.venue,'text','required')+field('venueLat','Latitud del recinto (opcional)',r.venueLat??'','number','step="any" min="-90" max="90"')+field('venueLng','Longitud del recinto (opcional)',r.venueLng??'','number','step="any" min="-180" max="180"')+field('radiusMeters','Radio de fichaje en metros',r.radiusMeters??500,'number','min="100" max="5000"')+field('date','Día de inicio',r.date||day(),'date','required')+field('start','Hora de inicio',r.start||'08:00','time','required')+field('endDate','Día de fin',r.endDate||r.date||day(),'date','required')+field('end','Hora de fin',r.end||'18:00','time','required')+select('coordinatorId','Trabajador que coordina el servicio',list('users').filter(u=>u.active&&(u.role==='manager'||u.workerId)),r.coordinatorId)+field('required','Personal requerido',r.required??1,'number','min="0" max="10000"')+select('status','Estado',Object.entries(statuses).filter(([v])=>['planned','confirmed','in_progress','completed','cancelled'].includes(v)).map(([id,name])=>({id,name})),r.status||'planned')+notes(r.notes);
@@ -256,7 +263,8 @@ function importCSV(){const kind=page;modal('Importar '+(kind==='workers'?'trabaj
 async function runMutation(op,b,msg){if(busy)return;busy=true;try{await api(op,b);$('#modal').close();await load();toast(msg);}finally{busy=false;}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-action],[data-page]');if(!el)return;const a=el.dataset.action,id=el.dataset.id,kind=el.dataset.kind;try{
  if(el.dataset.page){page=el.dataset.page;query='';filter='';document.body.classList.remove('nav-open');renderNav();render();if(!a||a==='navigate')return;}
- if(a==='service-wizard')return serviceWizard(el.dataset.quoteId||'');
+ if(a==='tariff-new-schedule')return newTariffSchedule();
+  if(a==='service-wizard')return serviceWizard(el.dataset.quoteId||'');
   if(a==='new'&&kind==='services')return serviceWizard();
   if(a==='new'||a==='edit')return editor(kind,id);
  if(a==='view')return detail(kind,id);
