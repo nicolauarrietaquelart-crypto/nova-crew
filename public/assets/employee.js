@@ -61,12 +61,32 @@ function renderNav(){
  $('#employee-nav').innerHTML=pc;
  $('#mobile-nav').innerHTML=['dashboard','clock','services','calendar','coordination'].map(k=>'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+'<small>'+esc(names[k])+'</small></button>').join('');
 }
+
+let nextCountTimer=null;
+function nextServiceCountdown(){
+ const root=$('#next-countdown');if(!root)return;
+ const date=root.dataset.date,start=root.dataset.start,target=new Date(date+'T'+start+':00').getTime();
+ if(!Number.isFinite(target)){root.textContent='—';return}
+ const delta=Math.max(0,target-Date.now()),seconds=Math.floor(delta/1000);
+ const units=[Math.floor(seconds/86400),Math.floor(seconds%86400/3600),Math.floor(seconds%3600/60),seconds%60],labels=['días','horas','min','seg'];
+ root.innerHTML=units.map((v,i)=>'<div><b>'+String(v).padStart(2,'0')+'</b><span>'+labels[i]+'</span></div>').join('');
+}
 function dashboard(){
  const as=myAssignments(),future=as.filter(a=>a.date>=today()&&a.status!=='rejected').sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)),open=as.filter(a=>a.checkIn&&!a.checkOut);
- const stats='<div class="stats"><div class="stat orange"><span class="muted">Próximos servicios</span><strong>'+future.length+'</strong><small>Programados</small></div><div class="stat"><span class="muted">Por confirmar</span><strong>'+as.filter(a=>a.status==='pending').length+'</strong><small>Responde a tus asignaciones</small></div><div class="stat"><span class="muted">Fichajes abiertos</span><strong>'+open.length+'</strong><small>Entradas sin salida</small></div><div class="stat"><span class="muted">Documentos</span><strong>'+list('documents').length+'</strong><small>Disponibles para descargar</small></div></div>';
- const next=future[0];
- const card=next?'<div class="notice"><strong>PRÓXIMO SERVICIO · '+human(next.date)+'</strong><p>'+esc(service(next.serviceId).name||'')+' · '+esc(next.start)+'–'+esc(next.end)+'</p></div>':'';
- $('#employee-content').innerHTML='<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">Bienvenido a tu espacio personal</p></div>'+stats+card+box('Próximos servicios',future.slice(0,5).length?'<div class="service-list">'+future.slice(0,5).map(serviceCard).join('')+'</div>':'<div class="empty">Todavía no tienes servicios próximos.</div>')+box('Control horario',open.length?'<div class="notice">Tienes '+open.length+' fichaje(s) de entrada abiertos. Accede al servicio para registrar la salida.</div>':'<p class="muted">Cuando estés asignado a un servicio podrás mostrar tu QR de entrada o salida al coordinador.</p>');
+ const pending=as.filter(a=>a.status==='pending'),training=list('documents').filter(d=>d.type==='training'&&!(state.trainingAcks||[]).some(ack=>ack.documentId===d.id));
+ const stats='<div class="stats"><div class="stat orange"><span class="muted">Próximos servicios</span><strong>'+future.length+'</strong><small>Programados</small></div><div class="stat"><span class="muted">Por confirmar</span><strong>'+pending.length+'</strong><small>Responde a tus asignaciones</small></div><div class="stat"><span class="muted">Fichajes abiertos</span><strong>'+open.length+'</strong><small>Entradas sin salida</small></div><div class="stat"><span class="muted">Documentos</span><strong>'+list('documents').length+'</strong><small>Disponibles para descargar</small></div></div>';
+ const next=future[0],nextService=next&&service(next.serviceId);
+ const hero='<section class="employee-next-hero"><div><span class="eyebrow">PRÓXIMO SERVICIO</span>'+
+ '<h2>'+esc(nextService?.name||'Sin servicios próximos')+'</h2>'+
+ '<p class="muted">'+(next?esc(human(next.date)+' · '+next.start+'–'+next.end+' · '+(nextService.venue||'')):'En cuanto tengas una asignación aparecerá aquí.')+'</p>'+
+ (next?'<div class="employee-countdown" id="next-countdown" data-date="'+esc(next.date)+'" data-start="'+esc(next.start)+'"></div>':'')+
+ '<div class="actions-row">'+btn('open-clock','Fichar',next?.id||'','primary')+(next?btn('detail','Ver servicio',next.id):'')+'</div></div>'+
+ '<div class="employee-next-aside"><div><span>Servicios próximos</span><b>'+future.length+'</b></div><div><span>Coordinaciones</span><b>'+list('services').filter(s=>s.coordinatorId===state.user.id).length+'</b></div><div><span>Documentos pendientes</span><b>'+list('documents').filter(d=>d.expires&&d.expires<today()).length+'</b></div><div><span>Formación</span><b>'+training.length+' pendiente(s)</b></div></div></section>';
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">Bienvenido a tu espacio personal</p></div>'+hero+stats+
+ (pending.length?'<div class="notice"><strong>'+pending.length+' servicio(s) pendiente(s) de confirmar.</strong><div class="actions-row" style="margin-top:10px">'+btn('go-services','Ver asignaciones')+'</div></div>':'')+
+ box('Próximos servicios',future.slice(0,5).length?'<div class="service-list">'+future.slice(0,5).map(serviceCard).join('')+'</div>':'<div class="empty">Todavía no tienes servicios próximos.</div>')+
+ box('Control horario',open.length?'<div class="notice">Tienes '+open.length+' fichaje(s) abiertos. '+btn('open-clock','Abrir control horario')+'</div>':'<p class="muted">Abre el control horario para registrar entrada o salida. El fichaje se muestra en una ventana emergente.</p>');
+ if(next){nextServiceCountdown();if(nextCountTimer)clearInterval(nextCountTimer);nextCountTimer=setInterval(()=>{if($('#next-countdown'))nextServiceCountdown();else{clearInterval(nextCountTimer);nextCountTimer=null}},1000)}
 }
 function servicesPage(){
  const as=myAssignments().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
@@ -355,6 +375,7 @@ document.addEventListener('click',async ev=>{
  if(action==='refresh')return load();
  if(action==='check-location')return verifyClockPosition(id);
  if(action==='open-clock')return openClockModal(id);
+ if(action==='go-services'){page='services';return render()}
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
