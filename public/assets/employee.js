@@ -149,11 +149,21 @@ function downloadPayroll(){
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');
  a.href=url;a.download='NOVA_liquidacion_'+selectedPayrollMonth+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+
+let profileTab='personal';
 function profilePage(){
- const w=worker();$('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+'</div>'+box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con la oficina.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
+ const w=worker(),p=state.profile||{},type=({eventual:'Eventual / por servicio',indefinite:'Indefinido',fixed_discontinuous:'Fijo discontinuo'})[w.contractType]||'Eventual / por servicio';
+ const tabs=[['personal','Datos personales'],['work','Datos laborales'],['skills','Idiomas y conocimientos']];
+ const line=(a,b)=>'<div class="line"><span>'+esc(a)+'</span><strong>'+esc(Array.isArray(b)?b.join(', '):b||'—')+'</strong></div>';
+ const content=profileTab==='personal'?
+ line('Nombre',w.name||state.user.name)+line('Correo',w.email)+line('Móvil',w.phone)+line('Nacionalidad',p.nationality)+line('Ciudad',p.city)+line('Código postal',p.postalCode)+line('Provincia',p.province)+line('País',p.country):
+ profileTab==='work'?line('Especialidad',w.specialty)+line('Tipo de contrato',type)+line('Alta',w.startDate)+line('Fin de contrato',w.endDate)+line('Talla',p.shirtSize)+line('Carnet de conducir',p.drivingLicense)+line('Vehículo',p.ownVehicle):
+ line('Idiomas',p.languages)+line('Carnets / conocimientos',p.skills)+line('Formación académica',p.education);
+ $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+btn('edit-profile','Editar datos')+'</div>'+
+ '<div class="profile-tabs">'+tabs.map(([k,l])=>'<button type="button" class="'+(k===profileTab?'active':'')+'" data-action="profile-tab" data-tab="'+k+'">'+esc(l)+'</button>').join('')+'</div>'+
+ box(tabs.find(([k])=>k===profileTab)?.[1]||'Mi perfil',content)+
+ box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar tus datos de contratación, contacta con la oficina.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+'</div>');
 }
-
-
 /* Original v15 clock opens as a modal, without replacing the current page. */
 let clockSelection='',clockCountdown=null;
 function clockAssignments(){
@@ -438,6 +448,7 @@ document.addEventListener('click',async ev=>{
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='edit-profile')return extendedProfile();
+ if(action==='profile-tab'){profileTab=el.dataset.tab;return profilePage()}
  if(action==='upload-photo')return employeePhotoModal();
  if(action==='document-upload')return uploadPersonalDocument();
  if(action==='payroll-month'){selectedPayrollMonth=el.dataset.month;return settlementsPage()}
