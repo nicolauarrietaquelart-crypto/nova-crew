@@ -431,7 +431,7 @@ export function createOfficeApi(storage,env={}){
       const mapsUrl=text(input.mapsUrl,700);
       if(mapsUrl){
         let url;try{url=new URL(mapsUrl)}catch{fail('Enlace de Maps no válido.');}
-        if(url.protocol!=='https:'||!['www.google.com','google.com','maps.google.com','maps.app.goo.gl'].includes(url.hostname))fail('Introduce un enlace HTTPS de Google Maps.');
+        if(url.protocol!=='https:'||!['www.google.com','google.com','maps.google.com','maps.app.goo.gl','www.google.es','google.es','www.google.co.uk','google.co.uk','www.google.fr','google.fr'].includes(url.hostname))fail('Introduce un enlace HTTPS de Google Maps.');
       }
       const value={...old,id:old?.id||uid(),serviceId:service.id,
         name:required(input.name,'el nombre de la ubicación'),address:text(input.address,500),
@@ -554,7 +554,7 @@ export function createOfficeApi(storage,env={}){
       for(const place of allPlaceNames){
         const name=required(place.name,'el nombre de ubicación'),lat=place.lat===''||place.lat==null?null:number(place.lat,-90,90),lng=place.lng===''||place.lng==null?null:number(place.lng,-180,180);
         if((lat==null)!==(lng==null))fail('Coordenadas incompletas de '+name);
-        const mapsUrl=text(place.mapsUrl,700);if(mapsUrl){let url;try{url=new URL(mapsUrl)}catch{fail('Enlace de Google Maps inválido.');}if(url.protocol!=='https:'||!['www.google.com','google.com','maps.google.com','maps.app.goo.gl'].includes(url.hostname))fail('Enlace de Maps no permitido.');}
+        const mapsUrl=text(place.mapsUrl,700);if(mapsUrl){let url;try{url=new URL(mapsUrl)}catch{fail('Enlace de Google Maps inválido.');}if(url.protocol!=='https:'||!['www.google.com','google.com','maps.google.com','maps.app.goo.gl','www.google.es','google.es','www.google.co.uk','google.co.uk','www.google.fr','google.fr'].includes(url.hostname))fail('Enlace de Maps no permitido.');}
         const recordPlace={id:uid(),serviceId:service.id,name,address:text(place.address,500),mapsUrl,lat,lng,radiusMeters:number(place.radiusMeters??500,100,5000),revision:1,createdAt:now()};
         await db.put(key('servicePlaces',recordPlace.id),recordPlace);createdPlaces.push(recordPlace);
         placeMap.set(name+'|'+(place.address||''),recordPlace.id);
