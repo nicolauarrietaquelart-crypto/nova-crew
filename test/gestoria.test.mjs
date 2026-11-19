@@ -380,6 +380,6 @@ test('different workers coordinate independent day/type blocks without office pr
  assert.equal((await call('coordinator-control',{id:turn1.id,revision:turn1.revision,field:'contacted',value:true},cookie1)).status,200);
  const qr=await call('qr-issue',{id:turn2.id},handCookie);assert.equal(qr.status,200);
  assert.equal((await call('qr-redeem',{token:qr.body.token},cookie1)).status,403);
- assert.equal((await call('qr-redeem',{token:qr.body.token},cookie2)).status,200);
  assert.equal((await f.call('qr-redeem',{token:qr.body.token})).status,403);
+ assert.equal((await call('qr-redeem',{token:qr.body.token},cookie2)).status,200);
 });
