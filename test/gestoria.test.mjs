@@ -213,3 +213,16 @@ test('venue geofencing is checked at the clock event, without storing coordinate
  assert.equal(await clock({latitude:42,longitude:2.17}),403);
  assert.equal(await clock({latitude:41.387,longitude:2.17}),200);
 });
+
+test('operational manager cannot save company expenses',async()=>{
+ const f=await setup();
+ assert.equal((await f.call('save',{kind:'expenses',record:{name:'Expense',amount:12}})).status,403);
+ assert.equal((await f.call('state')).body.expenses,undefined);
+});
+test('named tariff schedule duplicates editable worker categories',async()=>{
+ const f=await setup(),r=await f.call('tariff-schedule-create',{name:'Tarifa Evento',source:'Tarifa estándar 2026'});
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.ok(r.body.records.length>30);
+ assert.ok(r.body.records.some(x=>x.name==='HAND B'));
+ assert.equal((await f.call('tariff-schedule-create',{name:'Tarifa Evento'})).status,409);
+});
