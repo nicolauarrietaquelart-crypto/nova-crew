@@ -394,7 +394,7 @@ function availabilityModal(date){
  gridEl.addEventListener('pointermove',e=>{if(availabilityDragFrom==null)return;const cell=document.elementFromPoint(e.clientX,e.clientY)?.closest('#availability-time-grid [data-hour]');if(cell)commit(Number(cell.dataset.hour))});
  gridEl.addEventListener('pointerup',e=>{availabilityDragFrom=null;try{gridEl.releasePointerCapture(e.pointerId)}catch{}});
  gridEl.addEventListener('pointercancel',()=>availabilityDragFrom=null);
- gridEl.addEventListener('click',e=>{const cell=e.target.closest('[data-hour]');if(cell)availabilityHoursSelect(Number(cell.dataset.hour),Number(cell.dataset.hour))});
+ gridEl.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(cell)availabilityHoursSelect(Number(cell.dataset.hour),Number(cell.dataset.hour))});
  $('#available-start').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
  $('#available-end').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
 }
