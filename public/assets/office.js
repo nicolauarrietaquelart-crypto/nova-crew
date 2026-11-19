@@ -310,7 +310,7 @@ function serviceWorkspacePage(){
     const dayRecord=days.find(d=>d.date===date);
     return '<section class="service-day-panel"><header><div><span class="eyebrow">JORNADA</span><h3>'+fmt(date)+'</h3><small>'+esc(dayRecord?.name||'Planificación del día')+'</small></div>'+
     '<div class="service-day-actions">'+button('service-block-new','Añadir tipo / horario','plus','data-date="'+date+'"','')+
-    (dayRecord?button('service-day-edit','Editar jornada','edit','data-id="'+esc(dayRecord.id)+'"',''):'')+'</div></header>'+
+    (dayRecord?button('service-day-edit','Editar jornada','edit','data-id="'+esc(dayRecord.id)+'"','')+button('service-day-remove','Eliminar jornada','trash','data-id="'+esc(dayRecord.id)+'"',''):'')+'</div></header>'+
     blocksOn.map(block=>{
      const posts=positions.filter(p=>p.blockId===block.id);
      return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
@@ -381,7 +381,7 @@ function servicePlaceEditor(id=''){
 }
 function serviceBlockCategoryField(c={},i=0){
  return '<div class="block-category-row" data-category-index="'+i+'">'+
- '<label>Categoría<select data-cat="categoryId" required>'+selectOptions(list('tariffs').filter(t=>t.active).map(t=>({id:t.id,name:(t.schedule||'Tarifa estándar 2026')+' · '+t.name})),c.categoryId)+'</select></label>'+
+ '<label>Categoría<select data-cat="categoryId" required>'+selectOptions(list('tariffs').filter(t=>t.active&&(!find('services',serviceFocus)?.tariffSchedule||(t.schedule||'Tarifa estándar 2026')===find('services',serviceFocus).tariffSchedule)).map(t=>({id:t.id,name:t.name})),c.categoryId)+'</select></label>'+
  '<label>N.º trabajadores<input data-cat="quantity" type="number" min="1" max="200" step="1" value="'+esc(c.quantity||1)+'"></label>'+
  '<button type="button" class="btn" data-action="block-category-remove" data-index="'+i+'">Quitar</button></div>';
 }
