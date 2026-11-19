@@ -370,11 +370,11 @@ function servicePlaceEditor(id=''){
  field('lng','Longitud para fichaje (opcional)',old?.lng??'','number','step="any" min="-180" max="180"')+
  field('radiusMeters','Radio de fichaje (m)',old?.radiusMeters||500,'number','min="100" max="5000"')+
  '<p class="footnote wide">Busca la ubicación en Google Maps, copia el enlace y pégalo aquí. Si el enlace incluye coordenadas se completarán automáticamente; si es corto, puedes introducirlas manualmente. No se solicita acceso a tu cuenta Google.</p>'+
- '<div class="wide">'+button('service-maps-search','Buscar en Google Maps','search','','')+'</div>';
+ '<div class="wide">'+button('service-maps-search','Buscar en Google Maps','search','type="button"','')+'</div>';
  modal(old?'Editar ubicación':'Añadir ubicación',formWrap(content));
  const link=$('#editor [name=mapsUrl]');
  link.addEventListener('change',()=>{
-  const m=link.value.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||link.value.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  const m=link.value.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)||link.value.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
   if(m){$('#editor [name=lat]').value=m[1];$('#editor [name=lng]').value=m[2];}
  });
  formHandler(b=>api('service-place-save',{record:{...b,serviceId:serviceFocus,...(old?{id:old.id,revision:old.revision}:{})}}));
