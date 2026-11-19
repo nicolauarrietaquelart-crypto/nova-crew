@@ -48,12 +48,12 @@ function myAssignments(){return list('assignments').filter(a=>a.workerId===state
 function status(s){return '<span class="badge '+esc(s)+'">'+esc(({confirmed:'Confirmado',pending:'Pendiente',rejected:'Rechazado',planned:'Planificado',completed:'Finalizado',in_progress:'En curso',cancelled:'Cancelado'})[s]||s)+'</span>'}
 function box(title,content){return '<section class="panel"><div class="panel-head"><h2>'+esc(title)+'</h2></div>'+content+'</section>'}
 function btn(action,label,id,cls='secondary'){return '<button type="button" class="'+cls+'" data-action="'+action+'" data-id="'+esc(id||'')+'">'+esc(label)+'</button>'}
-function modal(title,html){$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;$('#employee-modal').showModal()}
+function modal(title,html){$('#employee-modal').classList.remove('clock-dialog');$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;if(!$('#employee-modal').open)$('#employee-modal').showModal()}
 function serviceCard(a){
  const s=service(a.serviceId),d=new Date(a.date+'T12:00:00');
  const dateTile='<div class="date-tile"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div>';
  const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(s.venue||'')+' · '+esc(a.role)+' · '+esc(a.team||'Equipo por confirmar')+'</small><small>'+human(a.date)+' '+esc(a.start)+' → '+human(a.endDate)+' '+esc(a.end)+' · '+a.hours+' h previstas</small></div>';
- const acts='<div class="service-actions">'+status(a.status)+btn('detail','Ver detalles',a.id)+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('qr','Fichar con QR',a.id,'primary'):'')+'</div>';
+ const acts='<div class="service-actions">'+status(a.status)+btn('detail','Ver detalles',a.id)+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Fichar',a.id,'primary'):'')+'</div>';
  return '<article class="service-card">'+dateTile+text+acts+'</article>';
 }
 function renderNav(){
@@ -121,14 +121,67 @@ function profilePage(){
  const w=worker();$('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+'</div>'+box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con Gestoría.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
 }
 
-function clockPage(){
- const as=myAssignments().filter(a=>a.status!=='rejected'&&a.status!=='cancelled').sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
- $('#employee-content').innerHTML='<div class="section-title"><h2>Control horario</h2><p class="muted">Entradas, salidas y QR temporal por servicio</p></div>'+
- '<div class="notice">Si el servicio dispone de un coordinador, muéstrale el QR para registrar entrada o salida. En los servicios sin coordinador podrás realizar el fichaje personal. Las horas se guardan en el servidor.</div>'+
- box('Mis fichajes',as.length?'<div class="service-list">'+as.map(a=>{
- const sv=service(a.serviceId),closed=a.checkOut||sv.status==='completed'||sv.status==='cancelled';
- return '<article class="service-card"><div class="date-tile"><strong>'+esc(a.date.slice(8))+'</strong><small>'+esc(a.date.slice(5,7))+'</small></div><div class="service-info"><strong>'+esc(sv.name||'Servicio')+'</strong><small>'+esc(a.start)+'–'+esc(a.end)+' · '+esc(a.role)+'</small><small>Entrada: '+stamp(a.checkIn)+' · Salida: '+stamp(a.checkOut)+'</small></div><div class="service-actions">'+(closed?'':btn('qr','Mostrar QR',a.id,'primary')+(sv.coordinatorId?'':btn('self-clock',a.checkIn?'Registrar salida':'Registrar entrada',a.id)))+'</div></article>';
- }).join('')+'</div>':'<div class="empty">No hay servicios para fichar.</div>');
+
+/* Original v15 clock opens as a modal, without replacing the current page. */
+let clockSelection='',clockCountdown=null;
+function clockAssignments(){
+ return myAssignments().filter(a=>a.status!=='rejected'&&a.status!=='cancelled').sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+}
+function closeClock(){
+ if(clockCountdown){clearInterval(clockCountdown);clockCountdown=null}
+ if($('#employee-modal').open)$('#employee-modal').close();
+}
+function clockPage(){openClockModal()}
+function openClockModal(preferredId=''){
+ stopQrCamera();
+ const all=clockAssignments();
+ const fallback=all.find(a=>a.checkIn&&!a.checkOut)||all.find(a=>a.date>=today()&&!a.checkOut)||all[0];
+ clockSelection=(all.find(a=>a.id===(preferredId||clockSelection))||fallback)?.id||'';
+ const options=all.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===clockSelection?'selected':'')+'>'+esc(service(a.serviceId).name||'Servicio')+' · '+esc(a.date)+' · '+esc(a.start)+'</option>').join('');
+ modal('Control horario · Fichaje con ubicación','<div class="clock-popup">'+
+ (all.length?'<label class="form-label">Servicio para fichar<select id="clock-service-picker" class="field">'+options+'</select></label><div id="clock-service-summary"></div>':
+ '<div class="empty">No tienes servicios asignados. Cuando Gestoría te asigne un turno aparecerá aquí para fichar.</div>')+'</div>');
+ $('#employee-modal').classList.add('clock-dialog');
+ const picker=$('#clock-service-picker');if(picker)picker.onchange=e=>{clockSelection=e.target.value;renderClockModal()};
+ renderClockModal();
+}
+function renderClockModal(){
+ const root=$('#clock-service-summary');if(!root)return;
+ const a=clockAssignments().find(x=>x.id===clockSelection);
+ if(!a){root.innerHTML='<p class="empty">No hay turnos para fichar.</p>';return}
+ const sv=service(a.serviceId),closed=!!a.checkOut||['completed','cancelled'].includes(sv.status);
+ const coordinator=!!sv.coordinatorId;
+ const remaining=Date.parse(a.date+'T'+a.start+':00')-Date.now();
+ const minutes=remaining>0?Math.ceil(remaining/60000):0;
+ const distanceEnabled=sv.venueLat!=null&&sv.venueLng!=null;
+ const insideWindow=remaining<=3600000;
+ root.innerHTML='<div class="clock-current"><span class="eyebrow">SERVICIO SELECCIONADO</span><h3>'+esc(sv.name||'Servicio')+'</h3><p class="muted">'+esc(sv.venue||'')+' · '+esc(a.role)+' · '+human(a.date)+' '+esc(a.start)+'–'+esc(a.end)+'</p></div>'+
+ '<div class="clock-location"><div><small>Ubicación del servicio</small><strong>'+esc(sv.venue||'Sin recinto')+'</strong><span>'+esc(distanceEnabled?Number(sv.radiusMeters||500)+' m de radio autorizado':'Sin restricción geográfica configurada')+'</span></div>'+
+ '<div class="clock-distance"><strong id="clock-distance">—</strong><small>distancia</small></div>'+
+ '<div><small>Tu ubicación</small><strong id="clock-my-location">'+(distanceEnabled?'Sin comprobar':'No requerida')+'</strong><span id="clock-location-detail">'+(distanceEnabled?'Pulsa comprobar ubicación':'Este servicio no exige GPS')+'</span></div></div>'+
+ (distanceEnabled?'<div class="clock-geo-note">'+btn('check-location','Comprobar mi ubicación',a.id)+'</div>':'')+
+ '<div class="clock-timing">'+(minutes>0?'Inicio previsto en '+minutes+' min. ':'')+'Entrada: <strong>'+stamp(a.checkIn)+'</strong> · Salida: <strong>'+stamp(a.checkOut)+'</strong></div>'+
+ (closed?'<div class="notice">El fichaje de este turno ya está cerrado.</div>':
+ '<div class="clock-popup-actions">'+
+ (coordinator?btn('qr','Mostrar QR de '+(a.checkIn?'salida':'entrada'),a.id,'primary'):
+ btn('self-clock',a.checkIn?'Registrar salida':'Registrar entrada',a.id,'primary'))+
+ '</div><p class="muted compact">'+(coordinator?'El coordinador debe escanear tu QR para confirmar el fichaje.':'Fichaje personal con hora del servidor.')+'</p>')+
+ (!insideWindow&&!a.checkIn?'<p class="muted compact">El turno todavía no está dentro de la hora previa al inicio. Revisa las condiciones de fichaje del servicio.</p>':'');
+}
+async function verifyClockPosition(id){
+ const a=clockAssignments().find(a=>a.id===id);if(!a)return;
+ const sv=service(a.serviceId);
+ try{
+  const coords=await attendanceLocation(a.serviceId);
+  const R=6371000,rad=Math.PI/180,lat1=coords.latitude*rad,lat2=Number(sv.venueLat)*rad;
+  const dlat=lat2-lat1,dlon=(Number(sv.venueLng)-coords.longitude)*rad;
+  const h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;
+  const metres=Math.round(R*2*Math.asin(Math.min(1,Math.sqrt(h))));
+  const badge=$('#clock-distance'),position=$('#clock-my-location'),detail=$('#clock-location-detail');
+  if(badge)badge.textContent=metres>=1000?(metres/1000).toFixed(1)+' km':metres+' m';
+  if(position)position.textContent=metres<=Number(sv.radiusMeters||500)?'Dentro del recinto':'Fuera del radio';
+  if(detail)detail.textContent='Ubicación comprobada para este fichaje';
+ }catch(e){error(e)}
 }
 function coordinationPage(){
  const services=list('services').filter(s=>s.coordinatorId===state.user.id);
@@ -285,7 +338,7 @@ async function showQR(id){
 async function detail(id){
  const a=myAssignments().find(x=>x.id===id);if(!a)return;const s=service(a.serviceId);
  const rows=[['Servicio',s.name],['Recinto',s.venue],['Fecha y hora',human(a.date)+' '+a.start+' → '+human(a.endDate)+' '+a.end],['Especialidad',a.role],['Equipo',a.team||'Por asignar'],['Horas previstas',a.hours+' h'],['Pausa',a.pause+' h'],['Estado',a.status],['Entrada',stamp(a.checkIn)],['Salida',stamp(a.checkOut)]];
- modal('Detalle de mi servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('qr','Mostrar QR de fichaje',a.id,'primary'):'')+'</div>');
+ modal('Detalle de mi servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Control horario',a.id,'primary'):'')+'</div>');
 }
 function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
@@ -298,8 +351,10 @@ function passwordModal(){
 document.addEventListener('click',async ev=>{
  const el=ev.target.closest('[data-page],[data-action]');if(!el)return;
  const p=el.dataset.page,action=el.dataset.action,id=el.dataset.id;
- if(p){stopQrCamera();page=p;render();$('.sidebar').classList.remove('open');return}
+ if(p){stopQrCamera();$('.sidebar').classList.remove('open');if(p==='clock')return openClockModal();page=p;render();return}
  if(action==='refresh')return load();
+ if(action==='check-location')return verifyClockPosition(id);
+ if(action==='open-clock')return openClockModal(id);
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
@@ -315,7 +370,7 @@ document.addEventListener('click',async ev=>{
  if(action==='payroll-month'){selectedPayrollMonth=el.dataset.month;return settlementsPage()}
  if(action==='download-payroll')return downloadPayroll();
  if(action==='training-ack')return mutation('training-ack',{documentId:id},'Formación marcada como leída');
- if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{return mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...await attendanceLocation(a.serviceId)},'Fichaje registrado')}catch(e){return error(e)}}}
+ if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{const location=await attendanceLocation(a.serviceId);await mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location},'Fichaje registrado');if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();}catch(e){error(e)}return}}
 
  if(action==='logout'){try{await api('logout',{})}catch{}state={};location.replace('/empleado.html');return}
  if(action==='detail')return detail(id);
@@ -336,7 +391,7 @@ $('#login-form').onsubmit=async e=>{
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
 $('#employee-content').addEventListener('change',e=>{if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;crewControlPage()}});
-$('#modal-close').onclick=()=>{stopQrCamera();$('#employee-modal').close()};$('#employee-modal').addEventListener('close',stopQrCamera);
+$('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();$('#employee-modal').classList.remove('clock-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 load();
 })();
