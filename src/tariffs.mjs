@@ -44,7 +44,7 @@ export const STANDARD_TARIFFS = [
  ['CREW HEAD','CREW HEAD · Coordinador de Personal','Operativo','hour',6,14.40],
  ['FORKLIFTER','FORKLIFTER · Operador/a Carretilla','Operativo','hour',5,10.80]
 ].map(([id,name,group,unit,minHours,workerRate])=>({
- id,name,group,unit,minHours,workerRate,clientRate:workerRate==null?null:Math.round(workerRate*200)/100,active:true,
+ id,name,group,schedule:'Tarifa estándar 2026',unit,minHours,workerRate,clientRate:workerRate==null?null:Math.round(workerRate*200)/100,active:true,
  source:group==='Operativo'?'operational':'PW-BCN-2026'
 }));
 export const STANDARD_EXCEPTIONS = [
