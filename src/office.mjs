@@ -85,7 +85,7 @@ async function view(db,actor){
   const allSlots=actor.role==='manager'?[]:await rows(db,'orderLines');
   const ownBlockIds=new Set(allBlocks.filter(b=>b.coordinatorId===actor.id&&!b.archived).map(b=>b.id));
   const ownAssignedServices=new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId)]);
-  const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId===actor.id||ownBlockIds.has(l.blockId))).map(l=>l.id));
+  const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId?l.coordinatorId===actor.id:ownBlockIds.has(l.blockId))).map(l=>l.id));
   const coordinatorBlocks=actor.role==='manager'?[]:allBlocks.filter(b=>!b.archived&&(ownAssignedServices.has(b.serviceId)||b.coordinatorId===actor.id)).map(b=>({id:b.id,serviceId:b.serviceId,date:b.date,endDate:b.endDate,start:b.start,end:b.end,serviceType:b.serviceType,team:b.team,placeId:b.placeId}));
   const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}});
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
