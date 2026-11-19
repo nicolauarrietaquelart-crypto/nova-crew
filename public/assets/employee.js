@@ -109,13 +109,25 @@ function availabilityPage(){
   const day=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===day),st=a?.status||'';
   html+='<button class="availability-cell '+esc(st)+'" data-action="availability" data-date="'+day+'"><strong>'+d+'</strong><small>'+esc(st==='unavailable'?'No disponible':st==='available'?'Disponible':'Sin indicar')+'</small></button>';
  }
- $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Configurar semana habitual','','primary')+'</div><div class="notice">Selecciona un día para indicar tu disponibilidad. Los cambios se guardan en tu perfil y los verá Gestoría.</div><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="availability-grid">'+html+'</div>';
+ $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Configurar semana habitual','','primary')+'</div><div class="notice">Selecciona un día para indicar tu disponibilidad. Los cambios se guardan en tu perfil y los verá la oficina.</div><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="availability-grid">'+html+'</div>';
 }
 function documentsPage(){
  const docs=list('documents');
- $('#employee-content').innerHTML=box('Mis documentos',docs.length?docs.map(d=>'<div class="document"><div><strong>'+esc(d.name)+'</strong><br><small>'+esc(d.type||'Documento')+(d.expires?' · Caduca '+human(d.expires):'')+'</small></div><a href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a></div>').join(''):'<div class="empty">Todavía no tienes documentos vinculados.</div>');
+ $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('document-upload','Subir o renovar documento','','primary')+'</div>'+
+ box('Mis documentos',docs.length?docs.map(d=>'<div class="document"><div><strong>'+esc(d.name)+'</strong><br><small>'+esc(d.type||'Documento')+(d.expires?' · Caduca '+human(d.expires):'')+(d.source==='employee'?' · Subido por ti':'')+'</small></div><a href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a></div>').join(''):'<div class="empty">Todavía no tienes documentos vinculados.</div>');
 }
-
+async function uploadPersonalDocument(){
+ modal('Subir documentación','<form id="personal-doc-form" style="display:grid;gap:12px"><p class="muted">Sube un documento para revisión. Los contratos oficiales solo los publica el responsable.</p><label class="form-label">Tipo de documento<select class="field" name="type"><option value="identity">Identificación</option><option value="medical">Aptitud / reconocimiento</option><option value="training">Formación / PRL</option><option value="other">Otro</option></select></label><label class="form-label">Archivo PDF o imagen (máx. 5 MB)<input class="field" type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required></label><label class="form-label">Fecha de caducidad (opcional)<input class="field" type="date" name="expires"></label><button class="primary" type="submit">Enviar documento</button></form>');
+ $('#personal-doc-form').onsubmit=async ev=>{
+  ev.preventDefault();const form=ev.target,file=form.elements.file.files[0];
+  if(!file||file.size>5*1024*1024)return error(new Error('El archivo debe ocupar menos de 5 MB.'));
+  try{
+   const content=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=()=>reject(new Error('Error al leer el archivo.'));reader.readAsDataURL(file)});
+   await api('employee-document-upload',{name:file.name,content,type:form.elements.type.value,expires:form.elements.expires.value});
+   $('#employee-modal').close();await load();notice('Documento enviado correctamente');
+  }catch(ex){error(ex)}
+ };
+}
 let selectedPayrollMonth='';
 function settlementsPage(){
  const all=myAssignments().filter(a=>a.status!=='rejected').sort((a,b)=>b.date.localeCompare(a.date));
@@ -138,7 +150,7 @@ function downloadPayroll(){
  a.href=url;a.download='NOVA_liquidacion_'+selectedPayrollMonth+'.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function profilePage(){
- const w=worker();$('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+'</div>'+box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con Gestoría.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
+ const w=worker();$('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+'</div>'+box('Datos personales','<div class="line"><span>Nombre</span><strong>'+esc(w.name||state.user.name)+'</strong></div><div class="line"><span>Especialidad</span><strong>'+esc(w.specialty||'—')+'</strong></div><div class="line"><span>Correo</span><strong>'+esc(w.email||'—')+'</strong></div><div class="line"><span>Móvil</span><strong>'+esc(w.phone||'—')+'</strong></div>')+box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar datos laborales, contacta con la oficina.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+btn('edit-profile','Editar perfil')+'</div>');
 }
 
 
@@ -160,7 +172,7 @@ function openClockModal(preferredId=''){
  const options=all.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===clockSelection?'selected':'')+'>'+esc(service(a.serviceId).name||'Servicio')+' · '+esc(a.date)+' · '+esc(a.start)+'</option>').join('');
  modal('Control horario · Fichaje con ubicación','<div class="clock-popup">'+
  (all.length?'<label class="form-label">Servicio para fichar<select id="clock-service-picker" class="field">'+options+'</select></label><div id="clock-service-summary"></div>':
- '<div class="empty">No tienes servicios asignados. Cuando Gestoría te asigne un turno aparecerá aquí para fichar.</div>')+'</div>');
+ '<div class="empty">No tienes servicios asignados. Cuando la oficina te asigne un turno aparecerá aquí para fichar.</div>')+'</div>');
  $('#employee-modal').classList.add('clock-dialog');
  const picker=$('#clock-service-picker');if(picker)picker.onchange=e=>{clockSelection=e.target.value;renderClockModal()};
  renderClockModal();
@@ -239,7 +251,12 @@ function crewTeamModal(id){
 }
 
 function companyPage(){
- $('#employee-content').innerHTML=box('Datos de empresa','<div class="line"><span>Empresa</span><strong>Penny Wise</strong></div><div class="line"><span>Delegación</span><strong>Barcelona</strong></div><div class="line"><span>Dirección de referencia</span><strong>Zamora 45-47, Barcelona</strong></div><p class="muted" style="margin-top:12px">Los datos de contacto y condiciones laborales deben confirmarse con Gestoría.</p>');
+ const c=state.company||{};
+ $('#employee-content').innerHTML=box('Información de la empresa',
+ '<div class="line"><span>Empresa</span><strong>'+esc(c.name||'No configurada')+'</strong></div>'+
+ '<div class="line"><span>Dirección</span><strong>'+esc(c.address||'No indicada')+'</strong></div>'+
+ '<div class="line"><span>Teléfono</span><strong>'+esc(c.phone||'No indicado')+'</strong></div>'+
+ '<div class="line"><span>Correo</span><strong>'+esc(c.email||'No indicado')+'</strong></div>');
 }
 function trainingPage(){
  const docs=list('documents').filter(d=>d.type==='training'),acks=state.trainingAcks||[];
@@ -247,13 +264,13 @@ function trainingPage(){
 }
 function contractsPage(){
  const docs=list('documents').filter(d=>d.type==='contract'),w=worker(),type=({eventual:'Eventual / por servicio',indefinite:'Indefinido',fixed_discontinuous:'Fijo discontinuo'})[w.contractType]||'Eventual / por servicio';
- $('#employee-content').innerHTML='<div class="notice">Modalidad registrada: <strong>'+esc(type)+'</strong>. Los documentos descargados son archivos almacenados por Gestoría; no implica firma electrónica.</div>'+
+ $('#employee-content').innerHTML='<div class="notice">Modalidad registrada: <strong>'+esc(type)+'</strong>. Los documentos descargados son archivos almacenados por la oficina; no implica firma electrónica.</div>'+
  box('Mis contratos',docs.length?docs.map(d=>'<div class="document"><div><strong>'+esc(d.name)+'</strong><br><small>Documento contractual</small></div><a href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a></div>').join(''):'<div class="empty">No hay contratos cargados en tu ficha.</div>');
 }
 const guides=[
  ['Fichaje por QR','Abre Control horario, muestra tu QR temporal al coordinador y espera la validación. El código caduca a los 90 segundos.'],
  ['Gestión de coordinación','En Coordinación, selecciona el servicio asignado, consulta el personal y valida los QR. Solo puedes gestionar los servicios que coordinas.'],
- ['Operativa Crew Head','Consulta la asistencia de cada equipo y corrige horarios dentro de las funciones autorizadas. Comunica las incidencias a Gestoría.'],
+ ['Operativa Crew Head','Consulta la asistencia de cada equipo y corrige horarios dentro de las funciones autorizadas. Comunica las incidencias a la oficina.'],
  ['Documentación','Descarga tus contratos, fichas y certificados desde Documentación y Contratos.'],
  ['Disponibilidad','Marca tu disponibilidad por día o define horarios semanales habituales.'],
  ['Liquidaciones','Consulta los importes brutos por servicio y los periodos confirmados, antes de retenciones.']
@@ -263,12 +280,12 @@ function tutorialsPage(){
 }
 function messagesPage(){
  const messages=state.messages||[],users=(state.users||[]).filter(u=>u.role==='manager');
- $('#employee-content').innerHTML=box('Mensajes a Gestoría','<div class="service-list">'+(messages.length?messages.map(m=>'<div class="document"><div><strong>'+(m.senderId===state.user.id?'Tú':'Gestoría')+'</strong><small> · '+stamp(m.createdAt)+'</small><p>'+esc(m.content)+'</p></div></div>').join(''):'<p class="muted">No hay mensajes.</p>')+'</div><form id="employee-message-form" style="display:grid;gap:12px;margin-top:18px"><label class="form-label">Enviar a<select class="field" name="recipientId" required>'+users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><label class="form-label">Mensaje<textarea name="content" class="field" maxlength="2000" required></textarea></label><button class="primary" type="submit">Enviar mensaje</button></form>');
+ $('#employee-content').innerHTML=box('Mensajes a la oficina','<div class="service-list">'+(messages.length?messages.map(m=>'<div class="document"><div><strong>'+(m.senderId===state.user.id?'Tú':'la oficina')+'</strong><small> · '+stamp(m.createdAt)+'</small><p>'+esc(m.content)+'</p></div></div>').join(''):'<p class="muted">No hay mensajes.</p>')+'</div><form id="employee-message-form" style="display:grid;gap:12px;margin-top:18px"><label class="form-label">Enviar a<select class="field" name="recipientId" required>'+users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><label class="form-label">Mensaje<textarea name="content" class="field" maxlength="2000" required></textarea></label><button class="primary" type="submit">Enviar mensaje</button></form>');
  $('#employee-message-form').onsubmit=async ev=>{ev.preventDefault();try{await api('message-send',Object.fromEntries(new FormData(ev.target)));await load();notice('Mensaje enviado')}catch(e){error(e)}};
 }
 
 function employeePhotoModal(){
- modal('Fotografía de perfil','<form id="employee-photo-form" style="display:grid;gap:12px"><p class="muted">Sube una fotografía PNG o JPEG de menos de 1 MB. Solo tú y Gestoría podrán consultarla.</p><label class="form-label">Fotografía<input type="file" name="photo" accept="image/png,image/jpeg" required></label><button class="primary" type="submit">Guardar fotografía</button></form>');
+ modal('Fotografía de perfil','<form id="employee-photo-form" style="display:grid;gap:12px"><p class="muted">Sube una fotografía PNG o JPEG de menos de 1 MB. Solo tú y la oficina podrán consultarla.</p><label class="form-label">Fotografía<input type="file" name="photo" accept="image/png,image/jpeg" required></label><button class="primary" type="submit">Guardar fotografía</button></form>');
  $('#employee-photo-form').onsubmit=async ev=>{
   ev.preventDefault();
   const file=ev.target.elements.photo.files[0];
@@ -317,7 +334,7 @@ async function scanQr(serviceId){
 }
 function incidentModal(serviceId){
  const people=(state.coordinatorRoster||[]).filter(a=>a.serviceId===serviceId),workers=state.coordinatorWorkers||[];
- modal('Nueva incidencia','<form id="incident-form" style="display:grid;gap:12px"><p class="muted">La incidencia quedará registrada con tu usuario y podrá consultarla Gestoría.</p><label class="form-label">Trabajador (opcional)<select class="field" name="workerId"><option value="">Incidencia general</option>'+people.map(a=>'<option value="'+esc(a.workerId)+'">'+esc(workers.find(w=>w.id===a.workerId)?.name||'Personal')+'</option>').join('')+'</select></label><label class="form-label">Descripción<textarea class="field" name="description" maxlength="2000" required></textarea></label><button class="primary" type="submit">Registrar incidencia</button></form>');
+ modal('Nueva incidencia','<form id="incident-form" style="display:grid;gap:12px"><p class="muted">La incidencia quedará registrada con tu usuario y podrá consultarla la oficina.</p><label class="form-label">Trabajador (opcional)<select class="field" name="workerId"><option value="">Incidencia general</option>'+people.map(a=>'<option value="'+esc(a.workerId)+'">'+esc(workers.find(w=>w.id===a.workerId)?.name||'Personal')+'</option>').join('')+'</select></label><label class="form-label">Descripción<textarea class="field" name="description" maxlength="2000" required></textarea></label><button class="primary" type="submit">Registrar incidencia</button></form>');
  $('#incident-form').onsubmit=async e=>{e.preventDefault();try{await api('incident-report',{serviceId,...Object.fromEntries(new FormData(e.target))});$('#employee-modal').close();await load();notice('Incidencia registrada')}catch(ex){error(ex)}};
 }
 function coordShift(id){
@@ -422,6 +439,7 @@ document.addEventListener('click',async ev=>{
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='edit-profile')return extendedProfile();
  if(action==='upload-photo')return employeePhotoModal();
+ if(action==='document-upload')return uploadPersonalDocument();
  if(action==='payroll-month'){selectedPayrollMonth=el.dataset.month;return settlementsPage()}
  if(action==='download-payroll')return downloadPayroll();
  if(action==='training-ack')return mutation('training-ack',{documentId:id},'Formación marcada como leída');
