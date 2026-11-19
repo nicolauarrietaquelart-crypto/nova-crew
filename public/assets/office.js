@@ -101,6 +101,7 @@ function quotePlanRowHTML(p={},i=0){
  '<label>Categoría de personal<select data-plan="categoryId" required>'+selectOptions(rates.map(r=>({id:r.id,name:r.name+(r.clientRate==null?' · Sin tarifa':' · '+euro(r.clientRate))})),p.categoryId)+'</select></label>'+
  f('quantity','N.º trabajadores',p.quantity||1,'number','min="1" max="100" step="1"')+
  f('team','Equipo / escenario',p.team||'')+
+ '<label>Coordinador de este día y tipo de servicio<select data-plan="coordinatorId">'+selectOptions(list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId),p.coordinatorId,'Sin asignar')+'</select></label>'+
  f('locationName','Ubicación / recinto',p.locationName||'')+
  f('locationAddress','Dirección del lugar',p.locationAddress||'')+
  f('pause','Pausa (horas)',p.pause??0,'number','min="0" max="24" step="0.5"')+
