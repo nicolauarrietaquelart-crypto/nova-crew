@@ -30,10 +30,10 @@ async function authScreen(){let status;try{status=await api('status');}catch(e){
  $('#auth-card').innerHTML=`<div class="eyebrow">${setup?'PRIMER ACCESO':'BIENVENIDO A NOVA'}</div><h2>${setup?'Crea tu espacio de trabajo':'Entrar en tu cuenta'}</h2><p>${setup?'Crea la primera cuenta de gestor. Después podrás dar acceso a tu equipo.':'Accede a tus servicios, tu equipo y tus operaciones.'}</p>${setup&&!status.setupAvailable?`<div class="notice">${status.setupState==='too_short'?'El secreto NOVA_SETUP_TOKEN ha llegado a Cloudflare, pero tiene menos de 24 caracteres. Actualiza su valor en GitHub con una clave privada de al menos 24 caracteres y ejecuta de nuevo el workflow.':'La clave de instalación todavía no está disponible en este despliegue. Añade NOVA_SETUP_TOKEN en los secretos del repositorio de GitHub y ejecuta de nuevo el workflow.'}</div>`:''}<form id="auth-form">${setup?field('setupToken','Clave de instalación de Cloudflare','','password','required autocomplete="off"')+field('name','Tu nombre','','text','required autocomplete="name"'):''}${field('username','Usuario o correo','','text','required autocomplete="username"')}<label>Contraseña<div class="password-wrap"><input name="password" id="auth-password" type="password" minlength="${setup?12:1}" maxlength="128" required autocomplete="${setup?'new-password':'current-password'}"><button type="button" class="icon-btn" data-action="show-password" aria-label="Mostrar contraseña">${icon('eye')}</button></div></label><div class="form-error" hidden role="alert"></div><button class="btn primary" type="submit" ${setup&&!status.setupAvailable?'disabled':''}>${setup?'Crear cuenta de gestor':'Acceder'}${icon('arrow')}</button></form><p class="footnote">${setup?'Contraseña de al menos 12 caracteres. La clave de instalación solo se utiliza para crear el primer gestor.':'Si has olvidado tu contraseña, solicita al gestor que la restablezca desde Usuarios y accesos.'}</p>`;
  $('#auth-form').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,b=f.querySelector('[type=submit]');b.disabled=true;const err=f.querySelector('.form-error');err.hidden=true;try{await api(setup?'setup':'login',Object.fromEntries(new FormData(f)));await load();}catch(ex){err.className='form-error error';err.hidden=false;err.textContent=ex.message;}finally{b.disabled=false;}};
 }
-async function load(){const state=await api('state');if(state.user?.role==='worker'){window.location.replace('/empleado.html');return;}data=state;$('#auth').hidden=true;$('#app').hidden=false;$('#account-name').textContent=data.user.name;$('#account-role').textContent=({manager:'Gestor',coordinator:'Coordinador',worker:'Trabajador'})[data.user.role];$('#avatar').textContent=data.user.name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();$('#workspace-name').textContent=data.settings?.name||'NOVA Crew';$('#sync').innerHTML='<span class="live-dot"></span>Actualizado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});renderNav();render();}
+async function load(){const state=await api('state');if(state.user?.role==='worker'){window.location.replace('/empleado.html');return;}data=state;$('#auth').hidden=true;$('#app').hidden=false;$('#account-name').textContent=data.user.name;$('#account-role').textContent=({manager:'Gestor',coordinator:'Coordinador',worker:'Trabajador'})[data.user.role];$('#avatar').textContent=data.user.name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();$('#workspace-name').textContent='NOVA Crew';$('#sync').innerHTML='<span class="live-dot"></span>Actualizado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(location.hash.startsWith('#/servicio/')){const id=decodeURIComponent(location.hash.slice(11));if(list('services').some(x=>x.id===id)){serviceFocus=id;page='service-workspace'}}renderNav();render();}
 function allowed(){return manager()?navs.map(x=>x[0]):isWorker()?['dashboard','services','calendar','assignments','documents','availability']:['dashboard','services','calendar','assignments','workers','documents','availability'];}
-function renderNav(){if(!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${page===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
-function render(){const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML=(!isWorker()&&page==='assignments')?button('scan','Escanear QR','shield','',''):'';
+function renderNav(){if(page!=='service-workspace'&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(page==='service-workspace'?'services':page)===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
+function render(){if(page==='service-workspace')return serviceWorkspacePage();const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML=(!isWorker()&&page==='assignments')?button('scan','Escanear QR','shield','',''):'';
  if(page==='tariffs')return tariffGroupsPage();if(page==='incidents')return managerIncidentsPage();if(page==='messages')return managerMessagesPage();if(page==='closed')return closedPage();if(page==='dashboard')return dashboard();if(page==='calendar')return calendar();if(page==='settings')return settingsPage();if(page==='availability')return availabilityPage();if(page==='audit')return auditPage();
  if(manager()&&['tariffs','services','clients','workers','invoices','quotes','expenses','users','assignments','documents'].includes(page)){
  const labels={tariffs:'Nueva categoría',services:'Crear servicio',clients:'Nuevo cliente',workers:'Nuevo trabajador',invoices:'Nueva factura',quotes:'Nuevo presupuesto',expenses:'Nuevo gasto',users:'Crear usuario',assignments:'Asignar personal',documents:'Subir documento'};
@@ -146,6 +146,195 @@ function serviceWizard(quoteId=''){
  };
 }
 
+
+let serviceFocus='',serviceTab='planning',blockCategoryRows=[{categoryId:'',quantity:1}],blockEditorId='',blockEditorService='';
+function openServicePage(id){
+ if(!find('services',id))return toast('Servicio no encontrado',true);
+ serviceFocus=id;serviceTab='planning';page='service-workspace';query='';filter='';
+ history.replaceState(null,'','#/servicio/'+encodeURIComponent(id));
+ renderNav();serviceWorkspacePage();
+}
+function servicePlaceName(id){return list('servicePlaces').find(x=>x.id===id)?.name||'Ubicación general'}
+function serviceRows(){
+ const sv=find('services',serviceFocus),days=list('serviceDays').filter(x=>x.serviceId===serviceFocus),
+ blocks=list('serviceBlocks').filter(x=>x.serviceId===serviceFocus),places=list('servicePlaces').filter(x=>x.serviceId===serviceFocus),
+ coordinators=list('serviceCoordinators').filter(x=>x.serviceId===serviceFocus),
+ positions=list('orderLines').filter(x=>x.serviceId===serviceFocus&&x.status!=='cancelled'),
+ assigned=list('assignments').filter(x=>x.serviceId===serviceFocus);
+ return {sv,days,blocks,places,coordinators,positions,assigned};
+}
+function servicePostTable(posts,assignments){
+ if(!posts.length)return '<div class="empty">Todavía no hay puestos en este bloque.</div>';
+ return '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Trabajador</th><th>Equipo / Horario</th><th></th></tr></thead><tbody>'+
+ posts.map(p=>{
+   const a=assignments.find(x=>x.orderLineId===p.id&&!x.archived);
+   return '<tr><td><strong>'+esc(p.role)+'</strong><small>'+esc(p.serviceType||'')+'</small></td>'+
+   '<td>'+(a?esc(name('workers',a.workerId)):'<span class="unfilled-tag">Sin cubrir</span>')+'</td>'+
+   '<td>'+esc(p.team||'—')+'<small>'+esc(p.start)+'–'+esc(p.end)+'</small></td><td><div class="row-actions">'+
+   (a?action('view','Ver trabajador',a.id,'assignments'):button('assign-slot','Asignar','plus','data-id="'+esc(p.id)+'"',''))+
+   action('edit','Editar puesto',p.id,'orderLines','edit')+'</div></td></tr>';
+ }).join('')+'</tbody></table></div>';
+}
+function serviceWorkspacePage(){
+ const {sv,days,blocks,places,coordinators,positions,assigned}=serviceRows();
+ if(!sv){page='services';return render()}
+ $('#page-title').textContent=sv.name;$('#breadcrumb').textContent='Servicios / '+sv.name;
+ $('#section-label').textContent='SERVICIO · '+esc(sv.status||'');
+ $('#page-description').textContent=fmt(sv.date)+' – '+fmt(sv.endDate)+' · '+sv.venue;
+ $('#page-actions').innerHTML=button('service-back','Volver a servicios','left','','')+
+ button('edit','Editar servicio','edit','data-kind="services" data-id="'+esc(sv.id)+'"','');
+ const totalUnfilled=positions.filter(p=>!assigned.some(a=>a.orderLineId===p.id&&!a.archived)).length;
+ const menu=[['planning','Jornadas y horarios'],['staff','Personal'],['places','Ubicaciones'],['coordinators','Coordinadores']];
+ const nav='<div class="service-workspace-nav">'+menu.map(([k,label])=>'<button class="'+(serviceTab===k?'selected':'')+'" type="button" data-action="service-tab" data-tab="'+k+'">'+label+'</button>').join('')+'</div>';
+ const top='<div class="service-overview"><div><span class="eyebrow">SERVICIO</span><h2>'+esc(sv.name)+'</h2><p>'+esc(name('clients',sv.clientId))+' · '+esc(sv.venue)+'</p>'+
+ '<div class="service-meta">'+badge(sv.status)+'<span>'+fmt(sv.date)+' — '+fmt(sv.endDate)+'</span></div></div>'+
+ '<div class="service-metrics"><div><strong>'+positions.length+'</strong><small>Puestos</small></div><div><strong>'+assigned.length+'</strong><small>Asignados</small></div><div><strong>'+totalUnfilled+'</strong><small>Sin cubrir</small></div><div><strong>'+places.length+'</strong><small>Ubicaciones</small></div></div></div>';
+ let body='';
+ if(serviceTab==='planning'){
+  const allDates=[...new Set([sv.date,...days.map(d=>d.date),...blocks.map(b=>b.date),...positions.map(l=>l.date)].filter(Boolean))].sort();
+  body='<div class="service-section-header"><div><h3>Jornadas y tipos de servicio</h3><p>Crea jornadas, añade horarios y organiza diferentes equipos en cada ubicación.</p></div>'+
+   button('service-day-new','Añadir jornada','plus','','')+'</div>'+
+   allDates.map(date=>{
+    const blocksOn=blocks.filter(b=>b.date===date).sort((a,b)=>a.start.localeCompare(b.start)),
+    legacy=positions.filter(p=>p.date===date&&!p.blockId);
+    const dayRecord=days.find(d=>d.date===date);
+    return '<section class="service-day-panel"><header><div><span class="eyebrow">JORNADA</span><h3>'+fmt(date)+'</h3><small>'+esc(dayRecord?.name||'Planificación del día')+'</small></div>'+
+    '<div class="service-day-actions">'+button('service-block-new','Añadir tipo / horario','plus','data-date="'+date+'"','')+
+    (dayRecord?button('service-day-edit','Editar jornada','edit','data-id="'+esc(dayRecord.id)+'"',''):'')+'</div></header>'+
+    blocksOn.map(block=>{
+     const posts=positions.filter(p=>p.blockId===block.id);
+     return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
+     '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+
+     (block.coordinatorId?' · Coord.: '+esc(name('users',block.coordinatorId)):'')+'</p></div>'+
+     '<div class="service-block-tools">'+button('service-block-add-positions','Añadir puestos','plus','data-id="'+esc(block.id)+'"','')+
+     button('service-block-edit','Editar bloque','edit','data-id="'+esc(block.id)+'"','')+
+     button('service-block-remove','Eliminar bloque','trash','data-id="'+esc(block.id)+'"','')+'</div></div>'+
+     servicePostTable(posts,assigned)+'</article>';
+    }).join('')+
+    (legacy.length?'<article class="service-block"><div class="service-block-heading"><div><h4>Puestos existentes</h4><p>Asignaciones anteriores no agrupadas por bloque</p></div></div>'+servicePostTable(legacy,assigned)+'</article>':'')+
+    (!blocksOn.length&&!legacy.length?'<p class="service-empty">Todavía no hay horarios para esta jornada.</p>':'')+
+    '</section>';
+   }).join('');
+ }else if(serviceTab==='staff'){
+  body='<div class="service-section-header"><div><h3>Personal del servicio</h3><p>Asigna cada trabajador a un puesto y categoría concreta.</p></div>'+
+  button('service-block-new','Crear bloque de personal','plus','','')+'</div>'+
+  (positions.length?servicePostTable(positions,assigned):'<div class="panel empty">Añade primero un bloque de horario y sus puestos.</div>');
+ }else if(serviceTab==='places'){
+  body='<div class="service-section-header"><div><h3>Ubicaciones</h3><p>Puedes tener varios recintos, escenarios o puntos de encuentro en un mismo servicio.</p></div>'+
+  button('service-place-new','Nueva ubicación','plus','','')+'</div>'+
+  (places.length?'<div class="service-place-grid">'+places.map(p=>{
+   const mapsLink=p.mapsUrl||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([p.name,p.address].filter(Boolean).join(', '));
+   const src='https://www.google.com/maps?q='+encodeURIComponent(p.lat!=null?p.lat+','+p.lng:(p.address||p.name))+'&output=embed';
+   return '<section class="service-place-card"><div><h4>'+esc(p.name)+'</h4><p>'+esc(p.address||'Sin dirección')+'</p>'+
+   '<small>'+esc(p.lat!=null?'Radio de fichaje: '+p.radiusMeters+' m · Coordenadas configuradas':'Sin geolocalización configurada')+'</small></div>'+
+   '<div class="service-place-actions"><a href="'+esc(mapsLink)+'" target="_blank" rel="noopener noreferrer">Abrir Google Maps</a>'+
+   button('service-place-edit','Editar','edit','data-id="'+esc(p.id)+'"','')+
+   button('service-place-remove','Eliminar','trash','data-id="'+esc(p.id)+'"','')+'</div>'+
+   '<details><summary>Ver mapa</summary><iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa de '+esc(p.name)+'" src="'+esc(src)+'"></iframe></details></section>';
+  }).join('')+'</div>':'<div class="panel empty">Añade tu primera ubicación. Puedes buscarla en Google Maps y guardar sus datos.</div>');
+ }else{
+  const allUsers=list('users').filter(u=>u.active);
+  body='<div class="service-section-header"><div><h3>Coordinación</h3><p>Asigna varios coordinadores al mismo servicio. También puedes asignar uno por bloque.</p></div>'+
+   button('service-coordinator-new','Añadir coordinador','plus','','')+'</div>'+
+   '<div class="panel"><div class="list-item"><span class="grow">Coordinador principal</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
+   button('edit','Cambiar','edit','data-kind="services" data-id="'+esc(sv.id)+'"','')+'</div>'+
+   coordinators.map(c=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',c.userId))+'</strong><small>Coordinador adicional</small></div>'+
+    button('service-coordinator-remove','Quitar','trash','data-id="'+esc(c.id)+'"','')+'</div>').join('')+'</div>';
+ }
+ $('#content').innerHTML=top+nav+body;
+}
+function serviceDayEditor(id=''){
+ const old=find('serviceDays',id),sv=find('services',serviceFocus);
+ const form=field('date','Día',old?.date||sv.date,'date','required')+
+ field('name','Nombre de la jornada',old?.name||'Jornada')+
+ notes(old?.notes||'','Observaciones');
+ modal(old?'Editar jornada':'Añadir jornada',formWrap(form));
+ formHandler(b=>api('service-day-save',{record:{...b,serviceId:serviceFocus,...(old?{id:old.id,revision:old.revision}:{})}}));
+}
+function servicePlaceEditor(id=''){
+ const old=find('servicePlaces',id);
+ const content=field('name','Nombre de la ubicación',old?.name||'','text','required',true)+
+ field('address','Dirección o punto de encuentro',old?.address||'','text','',true)+
+ field('mapsUrl','Enlace de Google Maps (opcional)',old?.mapsUrl||'','url','placeholder="https://www.google.com/maps/..."',true)+
+ field('lat','Latitud para fichaje (opcional)',old?.lat??'','number','step="any" min="-90" max="90"')+
+ field('lng','Longitud para fichaje (opcional)',old?.lng??'','number','step="any" min="-180" max="180"')+
+ field('radiusMeters','Radio de fichaje (m)',old?.radiusMeters||500,'number','min="100" max="5000"')+
+ '<p class="footnote wide">Busca la ubicación en Google Maps, copia el enlace y pégalo aquí. Si el enlace incluye coordenadas se completarán automáticamente; si es corto, puedes introducirlas manualmente. No se solicita acceso a tu cuenta Google.</p>'+
+ '<div class="wide">'+button('service-maps-search','Buscar en Google Maps','search','','')+'</div>';
+ modal(old?'Editar ubicación':'Añadir ubicación',formWrap(content));
+ const link=$('#editor [name=mapsUrl]');
+ link.addEventListener('change',()=>{
+  const m=link.value.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||link.value.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if(m){$('#editor [name=lat]').value=m[1];$('#editor [name=lng]').value=m[2];}
+ });
+ formHandler(b=>api('service-place-save',{record:{...b,serviceId:serviceFocus,...(old?{id:old.id,revision:old.revision}:{})}}));
+}
+function serviceBlockCategoryField(c={},i=0){
+ return '<div class="block-category-row" data-category-index="'+i+'">'+
+ '<label>Categoría<select data-cat="categoryId" required>'+selectOptions(list('tariffs').filter(t=>t.active).map(t=>({id:t.id,name:(t.schedule||'Tarifa estándar 2026')+' · '+t.name})),c.categoryId)+'</select></label>'+
+ '<label>N.º trabajadores<input data-cat="quantity" type="number" min="1" max="200" step="1" value="'+esc(c.quantity||1)+'"></label>'+
+ '<button type="button" class="btn" data-action="block-category-remove" data-index="'+i+'">Quitar</button></div>';
+}
+function captureBlockCategories(){
+ const root=$('#block-categories');if(!root)return;
+ blockCategoryRows=[...root.querySelectorAll('.block-category-row')].map(row=>Object.fromEntries([...row.querySelectorAll('[data-cat]')].map(el=>[el.dataset.cat,el.value])));
+}
+function drawBlockCategories(){
+ const root=$('#block-categories');if(root)root.innerHTML=blockCategoryRows.map(serviceBlockCategoryField).join('');
+}
+function serviceBlockEditor(id='',preDate=''){
+ const old=find('serviceBlocks',id),sv=find('services',serviceFocus),places=list('servicePlaces').filter(p=>p.serviceId===serviceFocus),
+ coordinators=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
+ blockEditorId=id;blockEditorService=serviceFocus;blockCategoryRows=[{categoryId:'',quantity:1}];
+ const fields=field('serviceType','Tipo de servicio (LOAD IN, SHOW CALL...)',old?.serviceType||'LOAD IN','text','required',true)+
+ field('date','Fecha inicio',old?.date||preDate||sv.date,'date','required')+
+ field('start','Hora inicio',old?.start||'08:00','time','required')+
+ field('endDate','Fecha fin',old?.endDate||preDate||sv.date,'date','required')+
+ field('end','Hora fin',old?.end||'18:00','time','required')+
+ select('placeId','Ubicación',places.map(p=>({id:p.id,name:p.name})),old?.placeId||'')+
+ select('coordinatorId','Coordinador de este bloque',coordinators,old?.coordinatorId||'')+
+ field('team','Equipo / escenario',old?.team||'')+
+ (!old?field('pause','Pausa prevista (h)',0,'number','min="0" max="24" step="0.5"'):'')+
+ notes(old?.notes||'','Notas de producción')+
+ (!old?'<div class="wide"><div class="subhead"><h3>Categorías y trabajadores requeridos</h3>'+
+ button('block-category-add','Añadir categoría','plus','type="button"','')+'</div><div id="block-categories"></div></div>':'');
+ modal(old?'Editar tipo de servicio':'Añadir tipo de servicio y horario',formWrap(fields,old?'Guardar cambios':'Crear bloque y puestos'));
+ if(!old)drawBlockCategories();
+ formHandler(async b=>{
+  if(!old){captureBlockCategories();if(!blockCategoryRows.length||blockCategoryRows.some(x=>!x.categoryId))throw Error('Selecciona las categorías del bloque.');}
+  return api('service-block-save',{record:{...b,serviceId:serviceFocus,...(old?{id:old.id,revision:old.revision}:{})},
+    ...(!old?{categories:blockCategoryRows}:{})});
+ });
+}
+function blockAddCategories(id){
+ const block=find('serviceBlocks',id);if(!block)return;
+ blockEditorId=id;blockCategoryRows=[{categoryId:'',quantity:1}];
+ modal('Añadir personal · '+block.serviceType,formWrap('<div class="wide"><div class="subhead"><h3>Puestos individuales por categoría</h3>'+
+ button('block-category-add','Añadir categoría','plus','type="button"','')+'</div><div id="block-categories"></div></div>','Crear puestos'));
+ drawBlockCategories();
+ formHandler(async()=>{
+  captureBlockCategories();if(!blockCategoryRows.length||blockCategoryRows.some(x=>!x.categoryId))throw Error('Selecciona al menos una categoría.');
+  return api('service-block-add-positions',{blockId:block.id,categories:blockCategoryRows});
+ });
+}
+function serviceCoordinatorEditor(){
+ const all=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
+ modal('Añadir coordinador',formWrap(select('userId','Trabajador que coordinará',all,'',true),'Asignar coordinador'));
+ formHandler(b=>api('service-coordinator-save',{record:{serviceId:serviceFocus,userId:b.userId}}));
+}
+function confirmServiceAction(type,id){
+ const conf={
+  place:{kind:'servicePlaces',label:'ubicación',op:'service-place-delete'},
+  day:{kind:'serviceDays',label:'jornada',op:'service-day-delete'},
+  block:{kind:'serviceBlocks',label:'bloque de servicio',op:'service-block-delete'},
+  coordinator:{kind:'serviceCoordinators',label:'coordinador',op:'service-coordinator-delete'}
+ }[type];if(!conf)return;
+ const record=find(conf.kind,id);if(!record)return;
+ modal('Eliminar '+conf.label,'<p>¿Quieres quitar este elemento? Si tiene trabajadores o puestos vinculados, el servidor impedirá eliminarlo.</p>'+
+ '<div class="form-footer">'+button('close','Cancelar','close','','')+
+ button('service-remove-confirm','Eliminar','trash','data-delete-type="'+type+'" data-id="'+esc(id)+'"','danger')+'</div>');
+}
+
 function ordersPage(){
  const slots=list('orderLines'),assigned=list('assignments');
  $('#page-actions').innerHTML=button('new','Nueva plaza','plus','data-kind="orderLines"')+button('service-wizard','Crear servicio','plus','data-kind="services"','');
@@ -163,7 +352,7 @@ function closedPage(){
 function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c.map(s=>`<td>${s}</td>`).join('')}</tr>`;
  if(page==='tariffs')html=table(['Categoría','Grupo / Unidad','Pago bruto','Cliente','Mínimo',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.id)}</small>`,esc(r.group)+'<small>'+esc(r.unit==='day'?'Por show/día':'Por hora')+'</small>',r.workerRate==null?'Pendiente':euro(r.workerRate),r.clientRate==null?'Pendiente':euro(r.clientRate),r.minHours+' h',action('edit','Modificar tarifa',r.id,'tariffs','edit')])));
   if(['clients','workers'].includes(page))html=table([page==='workers'?'Trabajador':'Cliente','Contacto',page==='workers'?'Especialidad':'NIF','Estado',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.email)}</small>`,esc(r.phone||'—'),esc(page==='workers'?r.specialty:r.taxId),badge(r.active===false?'unavailable':'available'),rowActions(r,page)])));
- if(page==='services')html=table(['Servicio','Cliente / Recinto','Fecha','Personal','Estado',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${r.start}–${r.end}</small>`,`${manager()?esc(name('clients',r.clientId))+'<small>':''}${esc(r.venue)}${manager()?'</small>':''}`,fmt(r.date),`${list('assignments').filter(a=>a.serviceId===r.id&&a.status!=='rejected').length}${manager()?' / '+r.required:''}`,badge(r.status),rowActions(r,page)])));
+ if(page==='services')html=table(['Servicio','Cliente / Recinto','Fecha','Personal','Estado',''],rows.map(r=>tr([`<button class="service-title-link" data-action="open-service" data-id="${esc(r.id)}">${esc(r.name)}</button><small>${r.start}–${r.end}</small>`,`${manager()?esc(name('clients',r.clientId))+'<small>':''}${esc(r.venue)}${manager()?'</small>':''}`,fmt(r.date),`${list('assignments').filter(a=>a.serviceId===r.id&&a.status!=='rejected').length}${manager()?' / '+r.required:''}`,badge(r.status),rowActions(r,page)])));
  if(page==='assignments')html=table(['Trabajador / Servicio','Horario','Equipo','Confirmación','Entrada / Salida',''],rows.map(r=>tr([`<strong>${esc(name('workers',r.workerId))}</strong><small>${esc(name('services',r.serviceId))}</small>`,`${fmt(r.date)}<small>${r.start}–${r.end} · ${r.hours} h</small>`,`${esc(r.team||'—')}<small>${esc(r.role)}</small>`,badge(r.status),`${stamp(r.checkIn)}<small>${stamp(r.checkOut)}</small>`,rowActions(r,page)])));
  if(['quotes','invoices'].includes(page))html=table(['Documento','Cliente','Fecha / Vencimiento','Total','Pendiente','Estado',''],rows.map(r=>tr([`<strong>${esc(r.number||'Borrador')}</strong><small>${esc(name('services',r.serviceId))}</small>`,esc(name('clients',r.clientId)),`${fmt(r.date)}<small>${fmt(r.dueDate)}</small>`,euro(r.total),page==='invoices'?euro(r.total-r.paid):'—',badge(page==='invoices'&&r.status!=='draft'&&r.paid<r.total&&r.dueDate<day()?'overdue':r.status),rowActions(r,page)])));
  if(page==='expenses')html=table(['Concepto','Proveedor','Fecha','Servicio','Importe','Estado',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong>`,esc(r.supplier),fmt(r.date),esc(name('services',r.serviceId)),euro(r.amount),badge(r.status),rowActions(r,page)])));
@@ -262,11 +451,41 @@ function importCSV(){const kind=page;modal('Importar '+(kind==='workers'?'trabaj
  $('#import-run').onclick=async e=>{e.target.disabled=true;let saved=0;try{for(const row of prepared){await api('save',{kind,record:{...row,active:true}});saved++;}$('#modal').close();await load();toast(saved+' fichas importadas');}catch(err){prepared=prepared.slice(saved);$('#import-preview').innerHTML=`<div class="error">${saved} fichas guardadas. ${esc(err.message)}. Quedan ${prepared.length} sin importar.</div>`;await load();}finally{e.target.disabled=false;}};}
 async function runMutation(op,b,msg){if(busy)return;busy=true;try{await api(op,b);$('#modal').close();await load();toast(msg);}finally{busy=false;}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-action],[data-page]');if(!el)return;const a=el.dataset.action,id=el.dataset.id,kind=el.dataset.kind;try{
- if(el.dataset.page){page=el.dataset.page;query='';filter='';document.body.classList.remove('nav-open');renderNav();render();if(!a||a==='navigate')return;}
+ if(el.dataset.page){if(page==='service-workspace')history.replaceState(null,'',location.pathname+location.search);page=el.dataset.page;query='';filter='';document.body.classList.remove('nav-open');renderNav();render();if(!a||a==='navigate')return;}
+ if(a==='open-service')return openServicePage(id);
+ if(a==='service-back'){history.replaceState(null,'',location.pathname+location.search);page='services';renderNav();return render()}
+
+ if(a==='service-day-new')return serviceDayEditor();
+ if(a==='service-day-edit')return serviceDayEditor(id);
+ if(a==='service-block-new')return serviceBlockEditor('',el.dataset.date||'');
+ if(a==='service-block-edit')return serviceBlockEditor(id);
+ if(a==='service-block-add-positions')return blockAddCategories(id);
+ if(a==='block-category-add'){captureBlockCategories();blockCategoryRows.push({categoryId:'',quantity:1});return drawBlockCategories()}
+ if(a==='block-category-remove'){captureBlockCategories();blockCategoryRows.splice(Number(el.dataset.index),1);return drawBlockCategories()}
+ if(a==='service-place-new')return servicePlaceEditor();
+ if(a==='service-place-edit')return servicePlaceEditor(id);
+ if(a==='service-maps-search'){
+  const q=[$('#editor [name=address]')?.value,$('#editor [name=name]')?.value].filter(Boolean).join(', ');
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q||'España'),'_blank','noopener,noreferrer');return;
+ }
+ if(a==='service-coordinator-new')return serviceCoordinatorEditor();
+ if(a==='service-place-remove')return confirmServiceAction('place',id);
+ if(a==='service-day-remove')return confirmServiceAction('day',id);
+ if(a==='service-block-remove')return confirmServiceAction('block',id);
+ if(a==='service-coordinator-remove')return confirmServiceAction('coordinator',id);
+ if(a==='service-remove-confirm'){
+  const type=el.dataset.deleteType,ops={place:'service-place-delete',day:'service-day-delete',block:'service-block-delete',coordinator:'service-coordinator-delete'};
+  const kinds={place:'servicePlaces',day:'serviceDays',block:'serviceBlocks',coordinator:'serviceCoordinators'};
+  if(!ops[type])return;const record=find(kinds[type],id);
+  return runMutation(ops[type],{id,revision:record.revision},'Elemento eliminado');
+ }
+
+ if(a==='service-tab'){serviceTab=el.dataset.tab;return serviceWorkspacePage()}
  if(a==='tariff-new-schedule')return newTariffSchedule();
   if(a==='service-wizard')return serviceWizard(el.dataset.quoteId||'');
   if(a==='new'&&kind==='services')return serviceWizard();
   if(a==='new'||a==='edit')return editor(kind,id);
+ if(a==='view'&&kind==='services')return openServicePage(id);
  if(a==='view')return detail(kind,id);
  if(a==='close')return $('#modal').close();
  if(a==='refresh'){await load();return toast('Datos actualizados');}
