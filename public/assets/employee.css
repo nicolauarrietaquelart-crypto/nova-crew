@@ -54,3 +54,12 @@ html,body{min-height:100%;max-width:100%;overflow-x:hidden}
  .employee-countdown{gap:6px}.employee-countdown div{min-width:51px}
 }
 @media(prefers-reduced-motion:no-preference){#employee-modal.clock-dialog[open]{animation:nova-clock-rise .24s cubic-bezier(.22,1,.36,1)}@keyframes nova-clock-rise{from{opacity:.4;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}}
+
+/* Legacy availability hour-range picker */
+.availability-hour-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;user-select:none;touch-action:none;margin:8px 0 16px}
+.availability-hour{min-width:0;min-height:39px;border:1px solid #e1e3e6;background:#f6f7f9;border-radius:9px;font-weight:700;font-size:11px;color:#686d76;transition:background .12s,border-color .12s,color .12s}
+.availability-hour.selected{background:#ffebd9;border-color:#ff9f57;color:#ad500f}
+.availability-hour:hover{border-color:#ff9f57}
+.availability-time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+#employee-modal .clock-popup-actions .primary{background:#ff7f1f}
+@media(max-width:650px){.availability-hour-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.availability-hour{min-height:42px}}
