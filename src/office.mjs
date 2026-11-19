@@ -670,7 +670,7 @@ export function createOfficeApi(storage,env={}){
    if(op==='qr-redeem'){
     if(actor.role==='worker'||actor.role==='coordinator'){const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket)fail('QR no válido o caducado.',409);const assignment=await record(db,'assignments',ticket.assignmentId);await canCoordinateAssignment(db,actor,assignment);}
     const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket||ticket.expires<Date.now())fail('QR caducado, utilizado o sustituido. Genera uno nuevo.',409);
-    const a=await record(db,'assignments',ticket.assignmentId);if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
+    const a=await record(db,'assignments',ticket.assignmentId);await canCoordinateAssignment(db,actor,a);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
     if(a.archived||service.archived||['completed','cancelled'].includes(service.status))fail('Servicio no disponible.',409);
     const effectivePlace=a.placeId?await db.get(key('servicePlaces',a.placeId)):null;
     validateGeofence(effectivePlace?.lat!=null?{venueLat:effectivePlace.lat,venueLng:effectivePlace.lng,radiusMeters:effectivePlace.radiusMeters}:service,b);
