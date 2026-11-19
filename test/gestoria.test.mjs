@@ -302,6 +302,8 @@ test('quote plan links multiple days, venue locations and categories when conver
  assert.equal(result.body.positions.length,3);
  assert.equal(result.body.days.length,2);
  assert.equal(result.body.places.length,2);
+ assert.equal(result.body.blocks.length,2);
+ assert.equal(new Set(result.body.positions.map(x=>x.blockId)).size,2);
  assert.equal(new Set(result.body.positions.map(x=>x.placeId)).size,2);
  const state=(await f.call('state')).body;
  assert.equal(state.quotes.find(x=>x.id===q.body.record.id).status,'accepted');
