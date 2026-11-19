@@ -261,8 +261,8 @@ let serviceFocus='',serviceTab='planning',blockCategoryRows=[{categoryId:'',quan
 function openServicePage(id){
  if(!find('services',id))return toast('Servicio no encontrado',true);
  serviceFocus=id;serviceTab='planning';page='service-workspace';query='';filter='';
- history.replaceState(null,'','#/servicio/'+encodeURIComponent(id));
- renderNav();serviceWorkspacePage();
+ if(location.hash!=='#/servicio/'+encodeURIComponent(id))history.pushState({serviceId:id},'','#/servicio/'+encodeURIComponent(id));
+ renderNav();serviceWorkspacePage();window.scrollTo({top:0,behavior:'auto'});
 }
 function servicePlaceName(id){return list('servicePlaces').find(x=>x.id===id)?.name||'Ubicación general'}
 function serviceRows(){
@@ -672,5 +672,10 @@ setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||polling|
 window.addEventListener('online',()=>{if(data.user)load().catch(e=>toast(e.message,true));});
 // Remove the previous demo service worker, if one was installed, so it cannot serve stale screens.
 if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+window.addEventListener('popstate',()=>{
+ const match=location.hash.match(/^#\/servicio\/(.+)$/);
+ if(match&&find('services',decodeURIComponent(match[1]))){serviceFocus=decodeURIComponent(match[1]);page='service-workspace';renderNav();serviceWorkspacePage();}
+ else if(data.user){page='services';renderNav();render();}
+});
 (async()=>{try{await load();}catch{await authScreen();}})();
 })();
