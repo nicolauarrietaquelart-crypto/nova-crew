@@ -507,12 +507,12 @@ export function createOfficeApi(storage,env={}){
       const name=required(b.name,'el nombre de la tarifa').slice(0,100);
       const catalog=await tariffCatalog(db);
       if(catalog.some(t=>(t.schedule||'Tarifa estándar 2026').toLowerCase()===name.toLowerCase()))fail('Ya existe una tarifa con este nombre.',409);
-      const source=text(b.source)||'Tarifa estándar 2026',base=catalog.filter(t=>(t.schedule||'Tarifa estándar 2026')===source&&t.active);
+      const source=text(b.source)||'Tarifa estándar 2026',base=catalog.filter(t=>(t.schedule||'Tarifa estándar 2026')===source&&t.active);const increase=number(b.increasePercent??0,0,500),applyTo=['client','worker','both'].includes(b.applyTo)?b.applyTo:'client';
       if(!base.length)fail('No hay categorías de la tarifa de origen.',409);
       if(base.length>100)fail('La tarifa supera 100 categorías.');
       const created=[];
       for(const item of base){
-        const id='cat-'+uid(),v={...item,id,schedule:name,source:'custom',revision:1,createdAt:now(),updatedAt:now()};
+        const id='cat-'+uid(),v={...item,id,schedule:name,source:'custom',workerRate:item.workerRate==null?null:money(item.workerRate*(applyTo==='client'?1:1+increase/100)),clientRate:item.clientRate==null?null:money(item.clientRate*(applyTo==='worker'?1:1+increase/100)),revision:1,createdAt:now(),updatedAt:now()};
         await db.put(key('tariffs',id),v);created.push(v);
       }
       await audit(db,actor,'tariff-schedule-create','tariffs',created[0].id);
