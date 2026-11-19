@@ -360,9 +360,43 @@ async function detail(id){
  const rows=[['Servicio',s.name],['Recinto',s.venue],['Fecha y hora',human(a.date)+' '+a.start+' → '+human(a.endDate)+' '+a.end],['Especialidad',a.role],['Equipo',a.team||'Por asignar'],['Horas previstas',a.hours+' h'],['Pausa',a.pause+' h'],['Estado',a.status],['Entrada',stamp(a.checkIn)],['Salida',stamp(a.checkOut)]];
  modal('Detalle de mi servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Control horario',a.id,'primary'):'')+'</div>');
 }
+
+let selectedAvailabilityStart=8,selectedAvailabilityEnd=23,availabilityDragFrom=null;
+function availabilityHoursPaint(){
+ const cells=[...document.querySelectorAll('#availability-time-grid [data-hour]')];
+ for(const el of cells){
+  const n=Number(el.dataset.hour),active=n>=selectedAvailabilityStart&&n<selectedAvailabilityEnd;
+  el.classList.toggle('selected',active);
+  el.setAttribute('aria-pressed',String(active));
+ }
+ const s=$('#available-start'),e=$('#available-end');
+ if(s)s.value=String(selectedAvailabilityStart).padStart(2,'0')+':00';
+ if(e)e.value=String(selectedAvailabilityEnd).padStart(2,'0')+':00';
+}
+function availabilityHoursSelect(from,to){
+ const lo=Math.max(0,Math.min(23,Math.min(from,to))),hi=Math.min(24,Math.max(from,to)+1);
+ selectedAvailabilityStart=lo;selectedAvailabilityEnd=hi;availabilityHoursPaint();
+}
 function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
- modal('Disponibilidad · '+human(date),'<p>Indica tu disponibilidad para esta fecha y, opcionalmente, una franja horaria:</p><label class="form-label">Desde<input type="time" class="field" id="available-start" value="'+esc(old?.start||'08:00')+'"></label><label class="form-label">Hasta<input type="time" class="field" id="available-end" value="'+esc(old?.end||'23:00')+'"></label><div class="actions-row">'+btn('set-available','Disponible',date,'primary')+btn('set-unavailable','No disponible',date)+'</div>');
+ selectedAvailabilityStart=Math.min(23,Math.max(0,Number((old?.start||'08:00').slice(0,2))));
+ selectedAvailabilityEnd=Math.max(selectedAvailabilityStart+1,Math.min(24,Number((old?.end||'23:00').slice(0,2))));
+ const grid=Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour" data-hour="'+h+'" aria-pressed="false">'+String(h).padStart(2,'0')+':00</button>').join('');
+ modal('Disponibilidad · '+human(date),'<p class="muted">Selecciona una franja arrastrando sobre las horas, o indica las horas de inicio y fin.</p>'+
+ '<div class="availability-hour-grid" id="availability-time-grid">'+grid+'</div>'+
+ '<div class="availability-time-inputs"><label class="form-label">Desde<input type="time" class="field" id="available-start" value="'+esc(old?.start||'08:00')+'"></label>'+
+ '<label class="form-label">Hasta<input type="time" class="field" id="available-end" value="'+esc(old?.end||'23:00')+'"></label></div>'+
+ '<div class="actions-row">'+btn('set-available','Disponible',date,'primary')+btn('set-unavailable','No disponible',date)+'</div>');
+ availabilityHoursPaint();
+ const gridEl=$('#availability-time-grid');
+ function commit(h){if(availabilityDragFrom!=null)availabilityHoursSelect(availabilityDragFrom,h)}
+ gridEl.addEventListener('pointerdown',e=>{const cell=e.target.closest('[data-hour]');if(!cell)return;availabilityDragFrom=Number(cell.dataset.hour);availabilityHoursSelect(availabilityDragFrom,availabilityDragFrom);gridEl.setPointerCapture(e.pointerId);e.preventDefault()});
+ gridEl.addEventListener('pointermove',e=>{if(availabilityDragFrom==null)return;const cell=document.elementFromPoint(e.clientX,e.clientY)?.closest('#availability-time-grid [data-hour]');if(cell)commit(Number(cell.dataset.hour))});
+ gridEl.addEventListener('pointerup',e=>{availabilityDragFrom=null;try{gridEl.releasePointerCapture(e.pointerId)}catch{}});
+ gridEl.addEventListener('pointercancel',()=>availabilityDragFrom=null);
+ gridEl.addEventListener('click',e=>{const cell=e.target.closest('[data-hour]');if(cell)availabilityHoursSelect(Number(cell.dataset.hour),Number(cell.dataset.hour))});
+ $('#available-start').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
+ $('#available-end').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
 }
 function passwordModal(){
  modal('Cambiar contraseña','<form id="password-form" style="display:grid;gap:12px"><label class="form-label">Contraseña actual<input class="field" name="current" type="password" required></label><label class="form-label">Nueva contraseña (12 caracteres mínimo)<input class="field" name="password" type="password" minlength="12" required></label><button class="primary">Cambiar contraseña</button></form>');
