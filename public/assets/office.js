@@ -94,7 +94,7 @@ function tariffGroupsPage(){
 }
 function newTariffSchedule(){
  const sources=[...new Set(list('tariffs').map(t=>t.schedule||'Tarifa estándar 2026'))];
- modal('Nueva tarifa',formWrap(field('name','Nombre de la tarifa','','text','required',true)+select('source','Copiar las categorías de',sources.map(name=>({id:name,name})),sources[0]),'Crear tarifa'));
+ modal('Duplicar tarifa',formWrap(field('name','Nombre de la nueva tarifa','','text','required',true)+select('source','Copiar todas las categorías de',sources.map(name=>({id:name,name})),sources[0])+field('increasePercent','Incremento (%)',0,'number','min="0" max="500" step="0.01"')+select('applyTo','Aplicar el incremento a',[{id:'client',name:'Tarifa cliente'},{id:'worker',name:'Pago trabajador'},{id:'both',name:'Ambos precios'}],'client')+'<p class="footnote wide">Se crea una copia independiente de todas las categorías y mínimos. No se modifica la tarifa original.</p>','Duplicar tarifa'));
  formHandler(b=>api('tariff-schedule-create',b));
 }
 let wizardPositions=[];
@@ -116,37 +116,54 @@ function captureWizardPositions(){
  const nodes=$('#wizard-positions .position-row');
  wizardPositions=nodes.map(el=>Object.fromEntries([...el.querySelectorAll('[data-position]')].map(input=>[input.dataset.position,input.value])));
 }
+
 function serviceWizard(quoteId=''){
  const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&(u.workerId||u.role==='manager'));
- wizardPositions=[{}];
+ wizardPositions=quote?.staffPlan?.length?[]:[{}];
  const eligible=list('quotes').filter(q=>['issued','accepted'].includes(q.status)&&(!q.serviceId||q.id===quoteId));
- const body='<form id="service-wizard-form"><div class="notice">Crea un servicio y sus puestos en un solo paso. Cada trabajador tiene categoría, horario y equipo propios.</div>'+
+ const start=quote?.planStartDate||day(),end=quote?.planEndDate||start;
+ const body='<form id="service-wizard-form"><div class="notice">Selecciona un presupuesto existente o crea un servicio nuevo. Los bloques de un presupuesto de personal se trasladarán automáticamente a sus jornadas y puestos.</div>'+
  '<div class="form-grid"><label class="wide">Presupuesto existente (opcional)<select name="quoteId" id="wizard-quote">'+selectOptions(eligible.map(q=>({id:q.id,name:(q.number||'Presupuesto')+' · '+name('clients',q.clientId)})),quoteId,'Crear sin presupuesto')+'</select></label>'+
- field('name','Nombre del servicio','','text','required',true)+
- select('clientId','Cliente',clients,quote?.clientId)+field('venue','Recinto / ubicación','','text','required')+
- field('date','Fecha',day(),'date','required')+field('start','Inicio','08:00','time','required')+
- field('endDate','Fecha de fin',day(),'date','required')+field('end','Fin','18:00','time','required')+
- select('coordinatorId','Trabajador que coordina',coordinators,'')+'</div>'+
+ field('name','Nombre del servicio',quote?.serviceName||'','text','required',true)+
+ select('clientId','Cliente',clients,quote?.clientId)+field('venue','Recinto principal',quote?.serviceVenue||'','text','required')+
+ field('date','Primer día',start,'date','required')+field('start','Hora de inicio','08:00','time','required')+
+ field('endDate','Último día',end,'date','required')+field('end','Hora de fin','23:59','time','required')+
+ select('coordinatorId','Coordinador principal',coordinators,'')+'</div>'+
+ '<div id="wizard-quote-preview"></div>'+
  '<div class="subhead"><h3>Puestos de trabajo</h3>'+button('wizard-add-position','Añadir puesto','plus','type="button"','')+'</div>'+
- '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio</button></div></form>';
- modal('Crear servicio',body);wizardRows();
- $('#wizard-quote').onchange=()=>{const q=find('quotes',$('#wizard-quote').value);if(q)$('#service-wizard-form [name=clientId]').value=q.clientId;};
+ '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio y jornadas</button></div></form>';
+ modal('Crear servicio',body);
+ function quotePreview(){
+  const q=find('quotes',$('#wizard-quote').value),area=$('#wizard-quote-preview');
+  area.innerHTML=q?.staffPlan?.length?'<div class="notice"><strong>'+q.staffPlan.length+' bloques presupuestados · '+q.staffPlan.reduce((a,r)=>a+r.quantity,0)+' puestos</strong><p>Se crearán las jornadas, horarios, categorías y ubicaciones exactamente desde el presupuesto. Puedes añadir más puestos después en la página del servicio.</p></div>':'';
+ }
+ wizardRows();quotePreview();
+ $('#wizard-quote').onchange=()=>{
+  const q=find('quotes',$('#wizard-quote').value);
+  if(q){
+   const form=$('#service-wizard-form');form.elements.clientId.value=q.clientId;
+   if(q.serviceName)form.elements.name.value=q.serviceName;
+   if(q.serviceVenue)form.elements.venue.value=q.serviceVenue;
+   if(q.planStartDate)form.elements.date.value=q.planStartDate;
+   if(q.planEndDate)form.elements.endDate.value=q.planEndDate;
+  }
+  captureWizardPositions();wizardPositions=q?.staffPlan?.length?[]:(wizardPositions.length?wizardPositions:[{}]);
+  wizardRows();quotePreview();
+ };
  const form=$('#service-wizard-form');
  form.onsubmit=async e=>{
- e.preventDefault();const submit=form.querySelector('[type=submit]'),err=form.querySelector('.form-error');
- err.hidden=true;captureWizardPositions();
- try{
-  const b=Object.fromEntries(new FormData(form)),positions=wizardPositions.filter(p=>p.categoryId);
-  if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada puesto, o elimina los puestos vacíos.');
-  submit.disabled=true;
-  const result=await api('service-create',{quoteId:b.quoteId,service:b,positions});
-  $('#modal').close();page='services';query='';filter='';await load();detail('services',result.record.id);
-  toast('Servicio creado con '+positions.length+' puestos individuales');
- }catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false}finally{submit.disabled=false}
+  e.preventDefault();const submit=form.querySelector('[type=submit]'),err=form.querySelector('.form-error');
+  err.hidden=true;captureWizardPositions();
+  try{
+   const b=Object.fromEntries(new FormData(form)),positions=wizardPositions.filter(p=>p.categoryId);
+   if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada puesto, o elimina los puestos vacíos.');
+   submit.disabled=true;
+   const result=await api('service-create',{quoteId:b.quoteId,service:b,positions});
+   $('#modal').close();await load();openServicePage(result.record.id);
+   toast('Servicio creado con '+result.positions.length+' puestos y '+result.days.length+' jornadas');
+  }catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false}finally{submit.disabled=false}
  };
 }
-
-
 let serviceFocus='',serviceTab='planning',blockCategoryRows=[{categoryId:'',quantity:1}],blockEditorId='',blockEditorService='';
 function openServicePage(id){
  if(!find('services',id))return toast('Servicio no encontrado',true);
