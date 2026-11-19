@@ -42,6 +42,26 @@ const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoiceP
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
 async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services'),a=await rows(db,'assignments'),coordinators=await rows(db,'serviceCoordinators'),blocks=await rows(db,'serviceBlocks');return new Set([...services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id),...a.filter(x=>x.workerId===actor.workerId).map(x=>x.serviceId),...coordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...blocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId)]);}
 async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId===actor.id)return;const allowed=(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===id&&c.userId===actor.id&&!c.archived)||(await rows(db,'serviceBlocks')).some(c=>c.serviceId===id&&c.coordinatorId===actor.id&&!c.archived);if(!allowed)fail('No coordinas este servicio.',403);}
+async function canCoordinateAssignment(db,actor,assignment){
+ if(actor.role==='manager')fail('El escaneo operativo QR corresponde a coordinadores trabajadores, no a Gestoría.',403);
+ if(actor.role!=='worker'||!actor.workerId)fail('Acceso de trabajador requerido.',403);
+ const service=await record(db,'services',assignment.serviceId);
+ const blocks=await rows(db,'serviceBlocks');
+ const slot=assignment.orderLineId?await db.get(key('orderLines',assignment.orderLineId)):null;
+ const ownBlock=slot?.blockId?blocks.find(b=>b.id===slot.blockId&&!b.archived):null;
+ if(slot?.coordinatorId){
+  if(slot.coordinatorId!==actor.id)fail('No coordinas esta línea de personal.',403);
+  return;
+ }
+ if(ownBlock?.coordinatorId){
+  if(ownBlock.coordinatorId!==actor.id)fail('Este fichaje pertenece a otro coordinador de turno.',403);
+  return;
+ }
+ if(blocks.some(b=>b.serviceId===service.id&&!b.archived&&b.date===assignment.date&&b.serviceType===slot?.serviceType&&b.coordinatorId)){
+  fail('El fichaje debe validarlo el coordinador del bloque.',403);
+ }
+ await canCoordinate(db,actor,service.id);
+}
 async function canService(db,actor,id){if(actor.role==='manager')return;const s=await scope(db,actor);if(!s.has(id))fail('No tienes acceso a ese servicio.',403);}
 function publicAssignment(a,actor){
  if(actor.role==='manager')return a;
@@ -62,7 +82,12 @@ async function view(db,actor){
  const allCoordinators=await rows(db,'serviceCoordinators'),allBlocks=await rows(db,'serviceBlocks');const coordinatorIds=new Set([...services.map(s=>s.coordinatorId),...allCoordinators.map(c=>c.userId),...allBlocks.map(c=>c.coordinatorId)].filter(Boolean));
  const directory=(await rows(db,'users')).filter(u=>u.active&&(coordinatorIds.has(u.id)||u.role==='manager')).map(u=>({id:u.id,name:u.name,role:u.role}));
  const assignedServices=[...new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...allBlocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId)])];
-  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>assignedServices.includes(a.serviceId)&&!a.archived).map(a=>({id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}));
+  const allSlots=actor.role==='manager'?[]:await rows(db,'orderLines');
+  const ownBlockIds=new Set(allBlocks.filter(b=>b.coordinatorId===actor.id&&!b.archived).map(b=>b.id));
+  const ownAssignedServices=new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId)]);
+  const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId?l.coordinatorId===actor.id:ownBlockIds.has(l.blockId))).map(l=>l.id));
+  const coordinatorBlocks=actor.role==='manager'?[]:allBlocks.filter(b=>!b.archived&&(ownAssignedServices.has(b.serviceId)||b.coordinatorId===actor.id)).map(b=>({id:b.id,serviceId:b.serviceId,date:b.date,endDate:b.endDate,start:b.start,end:b.end,serviceType:b.serviceType,team:b.team,placeId:b.placeId}));
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}});
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
@@ -70,7 +95,7 @@ async function view(db,actor){
   const hasProfilePhoto=!!(actor.workerId&&await db.get(key('employeePhotos',actor.workerId)));
   const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||assignedServices.includes(i.serviceId)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const companySettings=await settings(db);
-  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorWorkers,coordinatorServiceIds:assignedServices,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
+  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorServiceIds:assignedServices,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
  if(actor.role==='manager')Object.assign(result,{employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -101,7 +126,7 @@ async function saveEntity(db,actor,kind,b){
     if(startDate<service.date||endDate>service.endDate)fail('La plaza está fuera del periodo de la comanda. Amplía primero las fechas del servicio.');
     if(old&&old.serviceId!==service.id)fail('No se puede mover una plaza entre servicios.');
     if(b.placeId){const place=await record(db,'servicePlaces',b.placeId);if(place.serviceId!==service.id||place.archived)fail('Ubicación ajena al servicio.');}
-    if(b.coordinatorId){const coordinator=await record(db,'users',b.coordinatorId);if(!coordinator.active||!(coordinator.workerId||coordinator.role==='manager'))fail('Coordinador no válido.');}
+    if(b.coordinatorId){const coordinator=await record(db,'users',b.coordinatorId);if(!coordinator.active||coordinator.role!=='worker'||!coordinator.workerId)fail('El coordinador debe ser un trabajador activo, no un gestor de oficina.');}
     const assigned=(await rows(db,'assignments')).some(a=>a.orderLineId===old?.id&&!a.archived);
     if(assigned&&['categoryId','date','endDate','start','end'].some(k=>String(b[k]??old[k])!==String(old[k])))fail('Esta plaza ya está asignada: modifica primero el turno del trabajador.',409);
     data={serviceId:service.id,categoryId:tariff.id,role:text(b.role)||tariff.name,serviceType:text(b.serviceType)||'Montaje',team:text(b.team),placeId:text(b.placeId),coordinatorId:text(b.coordinatorId),date:startDate,endDate,start,end,pause:number(b.pause??0,0,24),notes:text(b.notes,1500),status:b.status==='cancelled'?'cancelled':'open'};
@@ -110,7 +135,7 @@ async function saveEntity(db,actor,kind,b){
  if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500)};
  if(kind==='services'){
   const client=await record(db,'clients',required(b.clientId,'el cliente'));if(!client.active||client.archived)fail('El cliente está inactivo.');
-  if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||!['manager','worker','coordinator'].includes(user.role))fail('Coordinador no válido.');if(user.role!=='manager'&&!user.workerId)fail('El coordinador debe tener una ficha de trabajador.');}
+  if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||user.role!=='worker'||!user.workerId)fail('El coordinador del servicio debe ser un trabajador, no un gestor de oficina.',403);}
   const startDate=date(b.date),endDate=date(b.endDate||b.date),start=time(b.start),end=time(b.end);
   if(endDate+'T'+end<=startDate+'T'+start)fail('El fin debe ser posterior al inicio. Para un turno nocturno elige el día siguiente.');
   const tariffSchedule=text(b.tariffSchedule)||old?.tariffSchedule||'Tarifa estándar 2026';
@@ -330,7 +355,7 @@ export function createOfficeApi(storage,env={}){
     if(op==='service-coordinator-save'){
       managerOnly(actor);const input=b.record||{},service=await record(db,'services',required(input.serviceId,'el servicio'));
       if(service.archived||service.settlementStatus==='confirmed')fail('Servicio no editable.',409);
-      const user=await record(db,'users',required(input.userId,'el coordinador'));if(!user.active||!(user.workerId||user.role==='manager'))fail('El coordinador debe ser un trabajador activo o gestor.',409);
+      const user=await record(db,'users',required(input.userId,'el coordinador'));if(!user.active||user.role!=='worker'||!user.workerId)fail('Solo un trabajador puede coordinar servicios.',409);
       const prev=(await rows(db,'serviceCoordinators')).find(x=>x.serviceId===service.id&&x.userId===user.id&&!x.archived);
       if(prev)return {record:prev};
       const value={id:uid(),serviceId:service.id,userId:user.id,createdAt:now(),revision:1};
@@ -352,7 +377,7 @@ export function createOfficeApi(storage,env={}){
       if(Date.parse(last+'T'+end+'Z')-Date.parse(d+'T'+start+'Z')>48*3600000)fail('Bloque de más de 48 h. Divide en jornadas.');
       const placeId=text(input.placeId),coordinatorId=text(input.coordinatorId);
       if(placeId){const place=await record(db,'servicePlaces',placeId);if(place.serviceId!==service.id||place.archived)fail('Ubicación ajena al servicio.');}
-      if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||!(u.workerId||u.role==='manager'))fail('Coordinador no válido.');}
+      if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador debe tener una ficha de trabajador.',409);}
       const serviceType=required(input.serviceType,'el tipo de servicio'),team=text(input.team);
       const slots=old?(await rows(db,'orderLines')).filter(l=>l.blockId===old.id&&!l.archived&&l.status!=='cancelled'):[];
       const changed=old&&['date','endDate','start','end','placeId','serviceType','team'].some(k=>
@@ -492,6 +517,7 @@ export function createOfficeApi(storage,env={}){
         const billable=tariff.unit==='day'?1:Math.max(span-pause,tariff.minHours);
         const unitPrice=money(tariff.clientRate*(1+(tariff.incrementPercent||0)/100));
         const locationName=text(raw.locationName,150);
+        if(raw.coordinatorId){const u=await record(db,'users',raw.coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador del bloque debe ser trabajador, no gestor de oficina.',403);}
         const detail={quantity:qty,categoryId:tariff.id,role:tariff.name,serviceType:text(raw.serviceType,100)||'Servicio',team:text(raw.team,100),
           date:d,endDate:last,start:from,end:to,pause,locationName,locationAddress:text(raw.locationAddress,400),
           placeMapsUrl:text(raw.placeMapsUrl,700),coordinatorId:text(raw.coordinatorId),unitPrice,billable};
@@ -571,6 +597,7 @@ export function createOfficeApi(storage,env={}){
         if(placeId&&!createdPlaces.some(p=>p.id===placeId))fail('La ubicación del puesto no pertenece al servicio.');
         const d=item.date||service.date,last=item.endDate||d,start=item.start||service.start,end=item.end||service.end;
         const serviceType=text(item.serviceType)||'Servicio',team=text(item.team),coordinatorId=text(item.coordinatorId);
+        if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador debe tener una ficha de trabajador.',403);}
         const blockKey=JSON.stringify([d,last,start,end,serviceType,team,placeId,coordinatorId]);
         if(!blockIds.has(blockKey)){
           const value={id:uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(item.notes,1000),revision:1,createdAt:now()};
@@ -644,9 +671,9 @@ export function createOfficeApi(storage,env={}){
     await db.put('office/qr/'+hash,{assignmentId:a.id,expires:Date.now()+90000,action:a.checkIn?'out':'in'});await db.put('office/qr-active/'+a.id,hash);return {token,expiresAt:Date.now()+90000,action:a.checkIn?'out':'in'};
    }
    if(op==='qr-redeem'){
-    if(actor.role==='worker'||actor.role==='coordinator'){const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket)fail('QR no válido o caducado.',409);const assignment=await record(db,'assignments',ticket.assignmentId);await canCoordinate(db,actor,assignment.serviceId);}
+    if(actor.role==='worker'||actor.role==='coordinator'){const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket)fail('QR no válido o caducado.',409);const assignment=await record(db,'assignments',ticket.assignmentId);await canCoordinateAssignment(db,actor,assignment);}
     const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket||ticket.expires<Date.now())fail('QR caducado, utilizado o sustituido. Genera uno nuevo.',409);
-    const a=await record(db,'assignments',ticket.assignmentId);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
+    const a=await record(db,'assignments',ticket.assignmentId);await canCoordinateAssignment(db,actor,a);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
     if(a.archived||service.archived||['completed','cancelled'].includes(service.status))fail('Servicio no disponible.',409);
     const effectivePlace=a.placeId?await db.get(key('servicePlaces',a.placeId)):null;
     validateGeofence(effectivePlace?.lat!=null?{venueLat:effectivePlace.lat,venueLng:effectivePlace.lng,radiusMeters:effectivePlace.radiusMeters}:service,b);
@@ -656,7 +683,7 @@ export function createOfficeApi(storage,env={}){
    }
    if(op==='coordinator-control'){
      const a=await record(db,'assignments',b.id);revision(a,b);
-     if(actor.role!=='manager')await canCoordinate(db,actor,a.serviceId);
+     if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);
      const service=await record(db,'services',a.serviceId);
      if(service.archived||['completed','cancelled'].includes(service.status))fail('Servicio cerrado.',409);
      const update={};
@@ -669,7 +696,7 @@ export function createOfficeApi(storage,env={}){
     }
     if(op==='coordinator-shift'){
      if(actor.role==='manager')fail('Usa Gestoría para modificar turnos.');
-     const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinate(db,actor,a.serviceId);
+     const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinateAssignment(db,actor,a);
      const service=await record(db,'services',a.serviceId);
      if(service.settlementStatus==='confirmed'||service.status==='completed'||service.status==='cancelled')fail('Servicio cerrado.',409);
      if(a.checkOut)fail('No se modifica un turno ya fichado y finalizado.',409);

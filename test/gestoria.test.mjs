@@ -347,3 +347,39 @@ test('worker coordinating a block sees its location and cannot clock outside tha
  assert.equal(await attempt(42,2.17),403);
  assert.equal(await attempt(41.387,2.17),200);
 });
+
+test('different workers coordinate independent day/type blocks without office privileges or cross-shift QR access',async()=>{
+ const f=await setup();
+ const worker1=await f.save('workers',{name:'Coordinador LOAD IN',specialty:'HAND',createAccess:false,costRate:12});
+ const worker2=await f.save('workers',{name:'Coordinador SHOW CALL',specialty:'HAND',createAccess:false,costRate:12});
+ const user1=(await f.call('user',{record:{username:'loadin-coord',name:'Coord A',role:'worker',workerId:worker1.id,password:'long-pass-coord-a'}})).body.record;
+ const user2=(await f.call('user',{record:{username:'showcall-coord',name:'Coord B',role:'worker',workerId:worker2.id,password:'long-pass-coord-b'}})).body.record;
+ const a=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'LOAD IN',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'10:00',coordinatorId:user1.id},categories:[{categoryId:'HAND B',quantity:1}]});
+ const b=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'11:00',end:'12:00',coordinatorId:user2.id},categories:[{categoryId:'HAND B',quantity:1}]});
+ assert.equal(a.status,200,JSON.stringify(a.body));
+ assert.equal(b.status,200,JSON.stringify(b.body));
+ const slot1=a.body.positions[0],slot2=b.body.positions[0];
+ const turn1=await f.save('assignments',{serviceId:f.service.id,orderLineId:slot1.id,categoryId:'HAND B',workerId:f.worker.id,date:'2027-02-01',start:'09:00',endDate:'2027-02-01',end:'10:00',costRate:9.3,chargeRate:18.6});
+ const turn2=await f.save('assignments',{serviceId:f.service.id,orderLineId:slot2.id,categoryId:'HAND B',workerId:f.worker.id,date:'2027-02-01',start:'11:00',endDate:'2027-02-01',end:'12:00',costRate:9.3,chargeRate:18.6});
+ assert.equal(turn1.orderLineId,slot1.id);
+ const employee=(await f.call('user',{record:{username:'hand-for-blocks',name:'Hand',role:'worker',workerId:f.worker.id,password:'long-pass-hand-worker'}})).body.record;
+ const api=createOfficeApi(f.db,{});
+ const login=async(username,password)=>{
+  const res=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username,password})}));
+  assert.equal(res.status,200);return res.headers.get('set-cookie').split(';')[0];
+ };
+ const cookie1=await login('loadin-coord','long-pass-coord-a'),cookie2=await login('showcall-coord','long-pass-coord-b'),handCookie=await login('hand-for-blocks','long-pass-hand-worker');
+ const call=async(op,input,cookie)=>{
+  const response=await api(new Request('https://nova.test/api/office/'+op,{method:input?'POST':'GET',headers:{cookie,...(input?{origin:'https://nova.test','content-type':'application/json'}:{})},body:input?JSON.stringify(input):undefined}));
+  return {status:response.status,body:await response.json()};
+ };
+ const state1=(await call('state',null,cookie1)).body,state2=(await call('state',null,cookie2)).body;
+ assert.deepEqual(state1.coordinatorRoster.map(x=>x.id),[turn1.id]);
+ assert.deepEqual(state2.coordinatorRoster.map(x=>x.id),[turn2.id]);
+ assert.equal((await call('coordinator-control',{id:turn2.id,revision:turn2.revision,field:'contacted',value:true},cookie1)).status,403);
+ assert.equal((await call('coordinator-control',{id:turn1.id,revision:turn1.revision,field:'contacted',value:true},cookie1)).status,200);
+ const qr=await call('qr-issue',{id:turn2.id},handCookie);assert.equal(qr.status,200);
+ assert.equal((await call('qr-redeem',{token:qr.body.token},cookie1)).status,403);
+ assert.equal((await f.call('qr-redeem',{token:qr.body.token})).status,403);
+ assert.equal((await call('qr-redeem',{token:qr.body.token},cookie2)).status,200);
+});
