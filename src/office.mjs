@@ -153,7 +153,7 @@ async function saveEntity(db,actor,kind,b){
    const effectiveCostRate=money(costRate*(1+supplement/100)),effectiveChargeRate=money(chargeRate*(1+supplement/100));
    const workerHours=noShow?0:Math.max(minimum,actualHours??hours),billableHours=noShow&&!noShowChargeApproved?0:Math.max(minimum,clientHours??hours);
    const workerUnits=tariff?.unit==='day'?(noShow?0:1):workerHours,clientUnits=tariff?.unit==='day'?(billableHours>0?1:0):billableHours;
-   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,workerUnits,clientUnits,rateUnit:tariff?.unit||'hour',noShow,noShowChargeApproved,categoryId:tariff?.id||text(b.categoryId),orderLineId:line?.id||'',incrementPercent:supplement,baseCostRate:costRate,baseChargeRate:chargeRate,costRate:effectiveCostRate,chargeRate:effectiveChargeRate,settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
+   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),placeId:line?.placeId||text(b.placeId),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,workerUnits,clientUnits,rateUnit:tariff?.unit||'hour',noShow,noShowChargeApproved,categoryId:tariff?.id||text(b.categoryId),orderLineId:line?.id||'',incrementPercent:supplement,baseCostRate:costRate,baseChargeRate:chargeRate,costRate:effectiveCostRate,chargeRate:effectiveChargeRate,settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
   if(old?.checkIn&&(data.workerId!==old.workerId||data.serviceId!==old.serviceId))fail('No se puede trasladar un fichaje a otra persona o servicio.',409);
  }
  if(kind==='invoices'||kind==='quotes'){
@@ -371,6 +371,44 @@ export function createOfficeApi(storage,env={}){
       await db.put(key('serviceDays',value.id),{...value,archived:true,revision:value.revision+1});
       await audit(db,actor,'day-delete','serviceDays',value.id);return {};
     }
+    
+    if(op==='quote-plan-save'){
+      managerOnly(actor);
+      const input=b.record||{},old=input.id?await record(db,'quotes',input.id):null;
+      if(old&&old.status!=='draft')fail('Solo puedes modificar presupuestos en borrador.',409);
+      const plan=Array.isArray(input.staffPlan)?input.staffPlan:[];
+      if(plan.length<1||plan.length>100)fail('Incluye entre 1 y 100 bloques de personal.');
+      const client=await record(db,'clients',required(input.clientId,'el cliente'));
+      if(!client.active||client.archived)fail('Cliente inactivo.');
+      const rates=await tariffCatalog(db),lines=[],validated=[],config=await settings(db);
+      const chosenSchedule=text(input.schedule)||'Tarifa estándar 2026';
+      for(const raw of plan){
+        const tariff=rates.find(x=>x.id===text(raw.categoryId));
+        if(!tariff||!tariff.active)fail('Categoría no disponible.');
+        if((tariff.schedule||'Tarifa estándar 2026')!==chosenSchedule)fail('La categoría no pertenece a la tarifa seleccionada.');
+        if(tariff.clientRate==null)fail('Configura el precio cliente de '+tariff.name+' antes de presupuestar.');
+        const qty=number(raw.quantity??1,1,100);if(!Number.isInteger(qty))fail('Número de personas no válido.');
+        const d=date(raw.date),last=date(raw.endDate||raw.date),from=time(raw.start),to=time(raw.end);
+        const span=(Date.parse(last+'T'+to+':00Z')-Date.parse(d+'T'+from+':00Z'))/3600000;
+        const pause=number(raw.pause??0,0,24);if(span<=pause||span>48)fail('Horario del bloque incorrecto.');
+        const billable=tariff.unit==='day'?1:Math.max(span-pause,tariff.minHours);
+        const unitPrice=money(tariff.clientRate*(1+(tariff.incrementPercent||0)/100));
+        const locationName=text(raw.locationName,150);
+        const detail={quantity:qty,categoryId:tariff.id,role:tariff.name,serviceType:text(raw.serviceType,100)||'Servicio',team:text(raw.team,100),
+          date:d,endDate:last,start:from,end:to,pause,locationName,locationAddress:text(raw.locationAddress,400),
+          placeMapsUrl:text(raw.placeMapsUrl,700),coordinatorId:text(raw.coordinatorId),unitPrice,billable};
+        validated.push(detail);
+        lines.push({description:detail.serviceType+' · '+tariff.name+' · '+d+' '+from+'–'+to+(locationName?' · '+locationName:''),
+          quantity:money(qty*billable),price:unitPrice,vat:config.vat});
+      }
+      const dates=validated.flatMap(x=>[x.date,x.endDate]).sort();
+      const record={id:old?.id,revision:old?.revision,clientId:client.id,date:input.date||now().slice(0,10),
+        dueDate:input.dueDate||input.date||now().slice(0,10),notes:input.notes||'',lines};
+      const saved=await saveEntity(db,actor,'quotes',record);
+      const full={...saved,staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),planStartDate:dates[0],planEndDate:dates[dates.length-1]};
+      await db.put(key('quotes',full.id),full);
+      await audit(db,actor,'quote-plan-save','quotes',full.id);return {record:full};
+    }
     if(op==='tariff-schedule-create'){
       managerOnly(actor);
       const name=required(b.name,'el nombre de la tarifa').slice(0,100);
@@ -476,7 +514,8 @@ export function createOfficeApi(storage,env={}){
     const ticket=await db.get('office/qr/'+b.qrHash);if(!ticket||ticket.expires<Date.now())fail('QR caducado, utilizado o sustituido. Genera uno nuevo.',409);
     const a=await record(db,'assignments',ticket.assignmentId);await canService(db,actor,a.serviceId);const service=await record(db,'services',a.serviceId);
     if(a.archived||service.archived||['completed','cancelled'].includes(service.status))fail('Servicio no disponible.',409);
-    validateGeofence(service,b);
+    const effectivePlace=a.placeId?await db.get(key('servicePlaces',a.placeId)):null;
+    validateGeofence(effectivePlace?.lat!=null?{venueLat:effectivePlace.lat,venueLng:effectivePlace.lng,radiusMeters:effectivePlace.radiusMeters}:service,b);
      const stamp=now();if(ticket.action==='in'&&a.checkIn||ticket.action==='out'&&(!a.checkIn||a.checkOut))fail('El estado del fichaje ha cambiado. Genera otro QR.',409);
     await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed'}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
     await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
@@ -531,7 +570,8 @@ export function createOfficeApi(storage,env={}){
     const a=await record(db,'assignments',b.id);revision(a,b);const s=await record(db,'services',a.serviceId);
     if(a.archived||s.archived||['cancelled','completed'].includes(s.status))fail('El servicio no admite fichajes.',409);
      if(actor.role!=='manager'&&s.coordinatorId&&actor.workerId===a.workerId)fail('Este servicio requiere fichaje QR validado por coordinación.',403);
-     validateGeofence(s,b);
+     const effectivePlace=a.placeId?await db.get(key('servicePlaces',a.placeId)):null;
+     validateGeofence(effectivePlace?.lat!=null?{venueLat:effectivePlace.lat,venueLng:effectivePlace.lng,radiusMeters:effectivePlace.radiusMeters}:s,b);
     if(actor.role!=='manager'&&a.workerId!==actor.workerId)fail('No puedes fichar a otra persona.',403);await canService(db,actor,a.serviceId);
     const stamp=now();let update={};if(b.action==='in'){if(a.checkIn)fail('Ya hay una entrada registrada.',409);if(a.status==='rejected')fail('La asignación está rechazada.');update={checkIn:stamp,status:'confirmed'};}
     else if(b.action==='out'){if(!a.checkIn||a.checkOut)fail('Debe existir una entrada abierta.',409);update={checkOut:stamp};}
