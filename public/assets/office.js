@@ -35,9 +35,9 @@ function allowed(){return manager()?navs.map(x=>x[0]):isWorker()?['dashboard','s
 function renderNav(){if(page!=='service-workspace'&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(page==='service-workspace'?'services':page)===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
 function render(){if(page==='service-workspace')return serviceWorkspacePage();const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML=(!isWorker()&&page==='assignments')?button('scan','Escanear QR','shield','',''):'';
  if(page==='tariffs')return tariffGroupsPage();if(page==='incidents')return managerIncidentsPage();if(page==='messages')return managerMessagesPage();if(page==='closed')return closedPage();if(page==='dashboard')return dashboard();if(page==='calendar')return calendar();if(page==='settings')return settingsPage();if(page==='availability')return availabilityPage();if(page==='audit')return auditPage();
- if(manager()&&['tariffs','services','clients','workers','invoices','quotes','expenses','users','assignments','documents'].includes(page)){
+ if(manager()&&['tariffs','services','clients','workers','invoices','quotes','users','assignments','documents'].includes(page)){
  const labels={tariffs:'Nueva categoría',services:'Crear servicio',clients:'Nuevo cliente',workers:'Nuevo trabajador',invoices:'Nueva factura',quotes:'Nuevo presupuesto',expenses:'Nuevo gasto',users:'Crear usuario',assignments:'Asignar personal',documents:'Subir documento'};
- $('#page-actions').innerHTML+=(["workers",'clients'].includes(page)?button('import','Importar CSV','upload','', ''):'')+(page==='services'?button('service-wizard','Crear servicio','plus'):button('new',labels[page],'plus',`data-kind="${page}"`));
+ $('#page-actions').innerHTML+=(["workers",'clients'].includes(page)?button('import','Importar CSV','upload','', ''):'')+(page==='services'?button('service-wizard','Crear servicio','plus'):page==='quotes'?button('quote-plan-new','Nuevo presupuesto de personal','plus'):button('new',labels[page],'plus',`data-kind="${page}"`));
  }
  collection();}
 function stat(label,value,detail,ico='chart',orange=false){return `<div class="stat ${orange?'orange':''}"><div class="stat-icon">${icon(ico)}</div><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`;}
@@ -79,6 +79,98 @@ function boxMessages(msgs,userName){
 }
 
 
+
+
+let planRows=[],planQuoteId='';
+function quoteScheduleNames(){return [...new Set(list('tariffs').filter(t=>t.active).map(t=>t.schedule||'Tarifa estándar 2026'))]}
+function quotePlanRates(){
+ const form=$('#quote-plan-form'),schedule=form?.elements.schedule.value||'Tarifa estándar 2026';
+ return list('tariffs').filter(t=>t.active&&(t.schedule||'Tarifa estándar 2026')===schedule);
+}
+function quotePlanRowHTML(p={},i=0){
+ const rates=quotePlanRates(),date=$('#quote-plan-form')?.elements.date?.value||day();
+ const f=(key,label,value='',type='text',attr='')=>'<label>'+label+'<input data-plan="'+key+'" value="'+esc(value)+'" type="'+type+'" '+attr+'></label>';
+ return '<section class="quote-plan-row" data-plan-index="'+i+'"><header><strong>Bloque '+(i+1)+'</strong><div class="row-actions">'+
+ button('quote-plan-duplicate','Duplicar','plus','data-index="'+i+'" type="button"','')+
+ button('quote-plan-remove','Eliminar','trash','data-index="'+i+'" type="button"','')+'</div></header>'+
+ '<div class="quote-plan-grid">'+
+ f('serviceType','Tipo de servicio',p.serviceType||'LOAD IN')+
+ f('date','Día',p.date||date,'date','required')+f('start','Inicio',p.start||'08:00','time','required')+
+ f('endDate','Día final',p.endDate||p.date||date,'date','required')+f('end','Fin',p.end||'18:00','time','required')+
+ '<label>Categoría de personal<select data-plan="categoryId" required>'+selectOptions(rates.map(r=>({id:r.id,name:r.name+(r.clientRate==null?' · Sin tarifa':' · '+euro(r.clientRate))})),p.categoryId)+'</select></label>'+
+ f('quantity','N.º trabajadores',p.quantity||1,'number','min="1" max="100" step="1"')+
+ f('team','Equipo / escenario',p.team||'')+
+ f('locationName','Ubicación / recinto',p.locationName||'')+
+ f('locationAddress','Dirección del lugar',p.locationAddress||'')+
+ f('pause','Pausa (horas)',p.pause??0,'number','min="0" max="24" step="0.5"')+
+ '</div></section>';
+}
+function captureQuotePlanRows(){
+ const root=$('#quote-plan-rows');if(!root)return;
+ planRows=[...root.querySelectorAll('.quote-plan-row')].map(row=>
+  Object.fromEntries([...row.querySelectorAll('[data-plan]')].map(el=>[el.dataset.plan,el.value])));
+}
+function drawQuotePlanRows(){const root=$('#quote-plan-rows');if(root)root.innerHTML=planRows.map(quotePlanRowHTML).join('');quotePlanEstimate()}
+function quotePlanEstimate(){
+ const root=$('#quote-plan-estimate');if(!root)return;
+ const config=data.settings||{vat:21},rates=quotePlanRates();let base=0,invalid=0,crew=0;
+ for(const p of [...$('#quote-plan-rows .quote-plan-row')].map(row=>
+   Object.fromEntries([...row.querySelectorAll('[data-plan]')].map(el=>[el.dataset.plan,el.value])))){
+  if(!p.categoryId)continue;
+  const t=rates.find(x=>x.id===p.categoryId),n=Number(p.quantity),pause=Number(p.pause||0);
+  const from=Date.parse(p.date+'T'+p.start+':00Z'),to=Date.parse(p.endDate+'T'+p.end+':00Z');
+  if(!t||t.clientRate==null||!Number.isFinite(from)||!Number.isFinite(to)||to<=from||!Number.isInteger(n)||n<1){invalid++;continue}
+  const units=t.unit==='day'?1:Math.max((to-from)/3600000-pause,t.minHours);
+  if(units<=0){invalid++;continue}
+  base+=Math.round(n*units*t.clientRate*(1+(t.incrementPercent||0)/100)*100)/100;crew+=n;
+ }
+ root.innerHTML='<div class="quote-plan-total"><div><small>Personal presupuestado</small><strong>'+crew+'</strong></div>'+
+ '<div><small>Base estimada</small><strong>'+euro(base)+'</strong></div>'+
+ '<div><small>Con IVA ('+esc(config.vat??21)+'%)</small><strong>'+euro(base*(1+Number(config.vat??21)/100))+'</strong></div></div>'+
+ (invalid?'<p class="error">Revisa '+invalid+' bloques: categoría sin precio, fechas u horas incorrectas.</p>':'');
+}
+function quotePlanEditor(id=''){
+ const q=id?find('quotes',id):null;if(q&&q.status!=='draft')return toast('Solo puedes editar un presupuesto en borrador.',true);
+ planQuoteId=id;
+ const schedules=quoteScheduleNames(),chosen=q?.schedule||schedules[0]||'Tarifa estándar 2026';
+ const d=q?.date||day(),due=q?.dueDate||new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+ planRows=q?.staffPlan?.length?q.staffPlan.map(x=>({...x})):[{quantity:1,date:d,endDate:d,start:'08:00',end:'18:00',pause:0,serviceType:'LOAD IN'}];
+ const form='<form id="quote-plan-form"><div class="form-grid">'+
+ field('serviceName','Nombre del evento / servicio',q?.serviceName||'','text','required',true)+
+ select('clientId','Cliente',list('clients').filter(c=>c.active),q?.clientId)+
+ select('schedule','Tarifa aplicable',schedules.map(name=>({id:name,name})),chosen)+
+ field('serviceVenue','Ubicación principal (opcional)',q?.serviceVenue||'')+
+ field('date','Fecha del presupuesto',d,'date','required')+field('dueDate','Válido hasta',due,'date','required')+
+ '<label class="wide">Observaciones<textarea name="notes">'+esc(q?.notes||'')+'</textarea></label></div>'+
+ '<div class="subhead"><div><h3>Jornadas, tipos de servicio y personal</h3><p>Añade un bloque por horario, ubicación y categoría. Puedes duplicar bloques para otros días.</p></div>'+
+ button('quote-plan-add','Añadir bloque','plus','type="button"','')+'</div>'+
+ '<div id="quote-plan-rows"></div><div id="quote-plan-estimate"></div>'+
+ '<div class="form-error" role="alert" hidden></div>'+
+ '<div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button type="submit" class="btn primary">Guardar presupuesto</button></div></form>';
+ modal(q?'Editar planificación del presupuesto':'Nuevo presupuesto de personal',form);
+ drawQuotePlanRows();
+ const formEl=$('#quote-plan-form');
+ formEl.elements.schedule.addEventListener('change',()=>{
+  const previous=planRows.map(x=>({...x}));captureQuotePlanRows();
+  const rates=quotePlanRates();
+  planRows=planRows.map((r,i)=>{const oldRate=list('tariffs').find(x=>x.id===r.categoryId);
+   return {...r,categoryId:rates.find(t=>t.name===oldRate?.name)?.id||''};
+  });drawQuotePlanRows();
+ });
+ formEl.addEventListener('input',e=>{if(e.target.closest('.quote-plan-row'))quotePlanEstimate()});
+ formEl.onsubmit=async e=>{
+  e.preventDefault();const submit=formEl.querySelector('[type=submit]'),err=formEl.querySelector('.form-error');
+  captureQuotePlanRows();err.hidden=true;
+  try{
+   if(planRows.some(p=>!p.categoryId||!p.quantity))throw Error('Todos los bloques necesitan categoría y cantidad.');
+   submit.disabled=true;
+   const record={...Object.fromEntries(new FormData(formEl)),staffPlan:planRows,...(q?{id:q.id,revision:q.revision}:{})};
+   const result=await api('quote-plan-save',{record});
+   $('#modal').close();page='quotes';await load();detail('quotes',result.record.id);
+   toast('Presupuesto guardado · '+planRows.length+' bloques');
+  }catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false}finally{submit.disabled=false}
+ };
+}
 
 function tariffGroupsPage(){
  const rates=filtered('tariffs'),schedules=[...new Set(rates.map(r=>r.schedule||'Tarifa estándar 2026'))];
@@ -429,8 +521,11 @@ function detail(kind,id){const r=find(kind,id);if(!r)return;const detailItem=(l,
   }
  }else if(kind==='assignments'){
  html=`<div class="detail-grid">${detailItem('Trabajador',name('workers',r.workerId))}${detailItem('Servicio',name('services',r.serviceId))}${detailItem('Horario',fmt(r.date)+' '+r.start+' → '+fmt(r.endDate)+' '+r.end)}${detailItem('Equipo / función',r.team+' · '+r.role)}${detailItem('Horas previstas / pausa',r.hours+' h / '+r.pause+' h')}${manager()?detailItem('Horas trabajador / facturables',(r.workerHours??r.hours)+' h / '+(r.billableHours??r.hours)+' h')+detailItem('Asistencia',r.noShow?(r.noShowChargeApproved?'No presentado · cancelación autorizada':'No presentado · no facturable'):'Prevista / registrada'):''}${detailItem('Entrada',stamp(r.checkIn))}${detailItem('Salida',stamp(r.checkOut))}<div><small>Confirmación</small>${badge(r.status)}</div></div>${manager()?`<div class="metric-row"><span>Coste/h: ${euro(r.costRate)}</span><span>Tarifa/h: ${euro(r.chargeRate)}</span></div>`:''}<div class="detail-actions">${(manager()||r.workerId===data.user.workerId)&&!r.checkIn?button('confirm','Confirmar','check',`data-id="${id}" data-status="confirmed"`)+button('confirm','Rechazar','close',`data-id="${id}" data-status="rejected"`,''):''}${!r.checkOut?button('clock',r.checkIn?'Registrar salida':'Registrar entrada','clock',`data-id="${id}" data-clock="${r.checkIn?'out':'in'}"`,'dark'):''}${r.workerId===data.user.workerId&&!r.checkOut?button('qr','Mostrar mi QR','shield',`data-id="${id}"`,''):''}${manager()?button('attendance-adjust','Corregir fichaje','edit',`data-id="${id}"`,''):''}</div><p class="footnote">Los fichajes se registran con la hora del servidor y quedan en el historial de actividad.</p>`;
- }else if(['invoices','quotes'].includes(kind)){
- html=`${paper(r,kind)}<div class="detail-actions">${r.status==='draft'?button('issue',kind==='invoices'?'Emitir factura':'Emitir presupuesto','check',`data-kind="${kind}" data-id="${id}"`):button('print','Imprimir / Guardar PDF','download',`data-id="${id}" data-kind="${kind}"`,'')}${kind==='invoices'&&r.status!=='draft'&&r.paid<r.total?button('payment','Registrar cobro','wallet',`data-id="${id}"`):''}${kind==='quotes'&&r.status==='issued'?button('quote-status','Aceptar y crear servicio','check',`data-id="${id}" data-status="accepted"`,'')+button('quote-status','Rechazado','close',`data-id="${id}" data-status="rejected"`,''):''}</div>${kind==='quotes'&&r.status==='accepted'&&!r.serviceId?button('service-wizard','Crear servicio desde presupuesto','plus',`data-quote-id="${id}"`,''):kind==='quotes'&&r.serviceId?button('view','Ver servicio vinculado','briefcase',`data-kind="services" data-id="${r.serviceId}"`,''):''}${r.payments?.length?`<h3>Cobros registrados</h3>${table(['Fecha','Importe','Referencia'],r.payments.map(p=>`<tr><td>${fmt(p.date)}</td><td>${euro(p.amount)}</td><td>${esc(p.reference)}</td></tr>`))}`:''}`;
+  }else if(['invoices','quotes'].includes(kind)){
+ if(kind==='quotes'&&r.staffPlan?.length)html='<div class="subhead"><h3>Planificación de personal · '+r.staffPlan.length+' bloques</h3>'+
+ (r.status==='draft'?button('quote-plan-edit','Editar jornadas y categorías','edit','data-id="'+esc(r.id)+'"',''):'')+'</div>'+
+ table(['Día / Horario','Tipo / ubicación','Categoría','Personas','Importe base'],r.staffPlan.map(p=>'<tr><td>'+esc(p.date)+'<small>'+esc(p.start)+'–'+esc(p.end)+'</small></td><td>'+esc(p.serviceType)+'<small>'+esc(p.locationName||r.serviceVenue||'Sin ubicación')+'</small></td><td>'+esc(p.role)+'</td><td>'+p.quantity+'</td><td>'+euro(p.quantity*p.billable*p.unitPrice)+'</td></tr>'))+'<div class="subhead"><h3>Documento</h3></div>';
+ html+=`${paper(r,kind)}<div class="detail-actions">${r.status==='draft'?button('issue',kind==='invoices'?'Emitir factura':'Emitir presupuesto','check',`data-kind="${kind}" data-id="${id}"`):button('print','Imprimir / Guardar PDF','download',`data-id="${id}" data-kind="${kind}"`,'')}${kind==='invoices'&&r.status!=='draft'&&r.paid<r.total?button('payment','Registrar cobro','wallet',`data-id="${id}"`):''}${kind==='quotes'&&r.status==='issued'?button('quote-status','Aceptar y crear servicio','check',`data-id="${id}" data-status="accepted"`,'')+button('quote-status','Rechazado','close',`data-id="${id}" data-status="rejected"`,''):''}</div>${kind==='quotes'&&r.status==='accepted'&&!r.serviceId?button('service-wizard','Crear servicio desde presupuesto','plus',`data-quote-id="${id}"`,''):kind==='quotes'&&r.serviceId?button('view','Ver servicio vinculado','briefcase',`data-kind="services" data-id="${r.serviceId}"`,''):''}${r.payments?.length?`<h3>Cobros registrados</h3>${table(['Fecha','Importe','Referencia'],r.payments.map(p=>`<tr><td>${fmt(p.date)}</td><td>${euro(p.amount)}</td><td>${esc(p.reference)}</td></tr>`))}`:''}`;
  }else{
  const labels={name:'Nombre',username:'Usuario',taxId:'NIF / DNI',email:'Correo',phone:'Móvil',address:'Dirección',specialty:'Especialidad',contact:'Contacto',iban:'IBAN',emergency:'Emergencias',startDate:'Alta',endDate:'Fin de contrato',costRate:'Coste/h',role:'Rol',supplier:'Proveedor',amount:'Importe',date:'Fecha',notes:'Notas'};
  html=`<div class="detail-grid">${Object.entries(labels).filter(([k])=>r[k]!==undefined&&r[k]!=='').map(([k,l])=>detailItem(l,k==='amount'||k==='costRate'?euro(r[k]):r[k])).join('')}</div>`;
@@ -498,9 +593,15 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  }
 
  if(a==='service-tab'){serviceTab=el.dataset.tab;return serviceWorkspacePage()}
+ if(a==='quote-plan-new')return quotePlanEditor();
+ if(a==='quote-plan-edit')return quotePlanEditor(id);
+ if(a==='quote-plan-add'){captureQuotePlanRows();planRows.push({...planRows.at(-1),quantity:1,categoryId:''});return drawQuotePlanRows()}
+ if(a==='quote-plan-duplicate'){captureQuotePlanRows();planRows.splice(Number(el.dataset.index)+1,0,{...planRows[Number(el.dataset.index)]});return drawQuotePlanRows()}
+ if(a==='quote-plan-remove'){captureQuotePlanRows();planRows.splice(Number(el.dataset.index),1);return drawQuotePlanRows()}
  if(a==='tariff-new-schedule')return newTariffSchedule();
   if(a==='service-wizard')return serviceWizard(el.dataset.quoteId||'');
   if(a==='new'&&kind==='services')return serviceWizard();
+ if(a==='edit'&&kind==='quotes'&&find('quotes',id)?.staffPlan?.length)return quotePlanEditor(id);
   if(a==='new'||a==='edit')return editor(kind,id);
  if(a==='view'&&kind==='services')return openServicePage(id);
  if(a==='view')return detail(kind,id);
