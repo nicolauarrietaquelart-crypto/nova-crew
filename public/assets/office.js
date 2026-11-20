@@ -200,12 +200,12 @@ let wizardPositions=[],serviceCreateQuoteId='';
 function wizardPositionRow(p={},index=0){
  const chosen=$('#service-wizard-form [name=tariffSchedule]')?.value||'Tarifa estándar 2026',tariffs=list('tariffs').filter(t=>t.active&&(t.schedule||'Tarifa estándar 2026')===chosen),workers=list('workers').filter(w=>w.active);
  const f=(key,label,value='',type='text')=>'<label>'+label+'<input data-position="'+key+'" type="'+type+'" value="'+esc(value)+'"></label>';
- return '<section class="position-row" data-position-index="'+index+'"><header><strong>Puesto '+(index+1)+'</strong><button type="button" data-action="wizard-remove-position" data-index="'+index+'" class="btn">Eliminar</button></header><div class="form-grid">'+
+ return '<section class="position-row" data-position-index="'+index+'"><header><strong>Línea '+(index+1)+'</strong><div class="row-actions">'+button('wizard-duplicate-position','Duplicar','plus','data-index="'+index+'" type="button"','')+'<button type="button" data-action="wizard-remove-position" data-index="'+index+'" class="btn">Eliminar</button></div></header><div class="form-grid">'+
  '<label>Categoría individual<select data-position="categoryId" required>'+selectOptions(tariffs.map(t=>({id:t.id,name:(t.schedule||'Tarifa estándar 2026')+' · '+t.name})),p.categoryId)+'</select></label>'+
  '<label>Trabajador (opcional)<select data-position="workerId">'+selectOptions(workers.map(w=>({id:w.id,name:w.name})),p.workerId,'Dejar sin asignar')+'</select></label>'+
- f('serviceType','Tipo de servicio',p.serviceType||'Montaje')+f('team','Equipo / escenario',p.team)+
- f('date','Fecha',p.date||'','date')+f('start','Inicio',p.start||'','time')+
- f('endDate','Fecha de fin',p.endDate||'','date')+f('end','Fin',p.end||'','time')+
+ f('serviceType','Tipo de servicio',p.serviceType||'Montaje')+f('quantity','N.º puestos con esta categoría',p.quantity||1,'number')+f('team','Equipo / escenario',p.team)+
+ f('date','Fecha',p.date||$('#service-wizard-form [name=date]')?.value||'','date')+f('start','Inicio',p.start||'08:00','time')+
+ f('endDate','Fecha de fin',p.endDate||p.date||$('#service-wizard-form [name=date]')?.value||'','date')+f('end','Fin',p.end||'18:00','time')+
  f('pause','Pausa (h)',p.pause??0,'number')+
  f('locationName','Ubicación',p.locationName||'')+f('locationAddress','Dirección',p.locationAddress||'')+
  '<label>Coordinador de este puesto<select data-position="coordinatorId">'+selectOptions(list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId),p.coordinatorId,'Sin asignar')+'</select></label></div></section>';
@@ -236,7 +236,7 @@ function serviceWizard(quoteId='',refresh=false){
  field('endDate','Último día',end,'date','required')+field('end','Hora de fin','23:59','time','required')+
  select('coordinatorId','Coordinador principal',coordinators,'')+'</div>'+
  '<div id="wizard-quote-preview"></div>'+
- '<div class="subhead"><div><h3>Jornadas, horarios y puestos</h3><p>Una fila corresponde a un trabajador, con su categoría, ubicación y coordinador.</p></div>'+button('wizard-add-position','Añadir puesto','plus','type="button"','')+'</div>'+
+ '<div class="subhead"><div><h3>Jornadas, horarios y puestos</h3><p>Una línea genera puestos individuales según la cantidad. Cada trabajador se podrá asignar por separado.</p></div><div class="row-actions">'+button('wizard-add-day','Añadir otro día','calendar','type="button"','')+button('wizard-add-position','Añadir línea','plus','type="button"','')+'</div></div>'+
  '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio y jornadas</button></div></form>';
  $('#content').innerHTML=body;
  window.scrollTo({top:0,behavior:'auto'});
@@ -263,8 +263,10 @@ function serviceWizard(quoteId='',refresh=false){
   e.preventDefault();const submit=form.querySelector('[type=submit]'),err=form.querySelector('.form-error');
   err.hidden=true;captureWizardPositions();
   try{
-   const b=Object.fromEntries(new FormData(form)),positions=wizardPositions.filter(p=>p.categoryId);
-   if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada puesto, o elimina los puestos vacíos.');
+   const b=Object.fromEntries(new FormData(form));
+   if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada línea, o elimina las líneas vacías.');
+   const positions=[];for(const row of wizardPositions){const qty=Number(row.quantity||1);if(!Number.isInteger(qty)||qty<1||qty>100)throw Error('Cada línea debe tener entre 1 y 100 puestos.');if(qty>1&&row.workerId)throw Error('Para asignar un trabajador concreto, utiliza una línea de un solo puesto.');for(let i=0;i<qty;i++)positions.push({...row,quantity:1});}
+   if(positions.length>300)throw Error('El máximo es de 300 puestos por servicio. Divide el evento en varios servicios.');
    submit.disabled=true;
    const result=await api('service-create',{quoteId:b.quoteId,service:b,positions});
    await load();openServicePage(result.record.id);
@@ -649,6 +651,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='add-line'){$('#invoice-lines').insertAdjacentHTML('beforeend',lineHTML({description:'',quantity:1,price:0,vat:data.settings.vat}));lineTotal();return;}
  if(a==='remove-line'){if($$('.invoice-line').length>1)el.closest('.invoice-line').remove();lineTotal();return;}
  if(a==='wizard-add-position'){captureWizardPositions();wizardPositions.push({});return wizardRows()}
+  if(a==='wizard-duplicate-position'){captureWizardPositions();const i=Number(el.dataset.index);wizardPositions.splice(i+1,0,{...wizardPositions[i],workerId:''});return wizardRows()}
+  if(a==='wizard-add-day'){captureWizardPositions();const last=wizardPositions.at(-1)||{};const source=last.date||$('#service-wizard-form [name=date]')?.value||day();const next=new Date(source+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);const date=next.toISOString().slice(0,10);wizardPositions.push({...last,date,endDate:date,workerId:''});return wizardRows()}
   if(a==='wizard-remove-position'){captureWizardPositions();wizardPositions.splice(Number(el.dataset.index),1);return wizardRows()}
   if(a==='add-slot')return editor('orderLines','',{serviceId:id});
   if(a==='assign-slot')return editor('assignments','',{orderLineId:id,serviceId:find('orderLines',id)?.serviceId});
@@ -704,7 +708,7 @@ $('#modal').addEventListener('close',stopCamera);
 document.addEventListener('input',e=>{if(e.target.closest('#invoice-lines'))lineTotal();});
 $('#close-modal').innerHTML=icon('close');$('#close-modal').onclick=()=>$('#modal').close();$('#refresh').innerHTML=icon('refresh');$('#menu').innerHTML=icon('menu');$('#logout').innerHTML=icon('logout');$('#menu').onclick=()=>document.body.classList.toggle('nav-open');$('#shade').onclick=()=>document.body.classList.remove('nav-open');
 $('#account').onclick=()=>{modal('Cambiar mi contraseña',formWrap(field('current','Contraseña actual','','password','required autocomplete="current-password"',true)+field('password','Nueva contraseña (mínimo 12 caracteres)','','password','required minlength="12" maxlength="128" autocomplete="new-password"',true)));formHandler(async b=>{await api('password',b);data={};$('#app').hidden=true;$('#auth').hidden=false;await authScreen();});};
-setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||polling||busy||$('#search')===document.activeElement)return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
+setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||$('#search')===document.activeElement)return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
 window.addEventListener('online',()=>{if(data.user)load().catch(e=>toast(e.message,true));});
 // Remove the previous demo service worker, if one was installed, so it cannot serve stale screens.
 if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
