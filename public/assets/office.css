@@ -192,3 +192,4 @@
 .gs-item svg{color:#c3631f}.gs-item strong{display:block;font-size:13px}.gs-item small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
 @media(max-width:850px){.search-trigger{min-width:0;padding:8px}.search-trigger span,.search-trigger kbd{display:none}}
 @media(max-width:600px){.list-link{flex-wrap:wrap;row-gap:10px}.list-link .grow{flex:1 1 calc(100% - 120px)}.list-link>svg{display:none}.today-count{flex:1;min-width:0}.list-link .progress-cell{flex:1 1 100%;max-width:none;order:5}.quick-grid{grid-template-columns:1fr}.segmented{display:flex}.segmented button{flex:1;justify-content:center;padding:8px}}
+td small.sev-high{color:#b44232;font-weight:700}td small.sev-medium{color:#a35514}

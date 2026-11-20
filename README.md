@@ -1,5 +1,13 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v19 · Crew Head, coordinadores y página del servicio
+
+- **Crew Control solo para el Crew Head** asignado a un turno del servicio, y solo con el personal de ese servicio en los días en que es Crew Head. Puede ajustar horarios y operar el día (asistencia manual con motivo, equipos y chalecos, pausas, dietas, valoración, contacto), exportar el CSV del día y **cerrar el día** (bloquea cambios; Gestoría puede reabrirlo).
+- **No puede cambiar categorías**: abre una incidencia de «Cambio de categoría» y Gestoría la aplica desde Incidencias. Tampoco puede renombrar bloques.
+- **Coordinadores de tipo de servicio**: solo ven al personal de los turnos que coordinan ese día, validan QR y registran incidencias (con tipo, gravedad y medida tomada).
+- **Liquidaciones del empleado**: el importe no aparece hasta que Gestoría **certifica** la liquidación del servicio (también en el servidor).
+- **Página «Resumen del servicio»** para el trabajador (no ventana): aviso obligatorio de la empresa, observaciones para el personal, documentación del servicio (plan de autoprotección/PRL), referencia, tipo de servicio, hora de llamada, inicio y fin, recinto, fichaje y teléfono de guardia. Gestoría los configura en Ajustes, en la ficha del servicio y en Ubicaciones → Documentación para el personal.
+
 ## Novedades v18 (gestión y empleado)
 
 **Gestor**

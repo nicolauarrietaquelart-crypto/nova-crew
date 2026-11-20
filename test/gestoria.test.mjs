@@ -118,7 +118,14 @@ test('employee portal receives own gross liquidations but not customer rates',as
  assert.equal(payload.user.role,'worker');
  assert.equal(payload.assignments.length,1);
  const item=payload.assignments[0];
- assert.equal(item.grossPay,37.2);
+ // The amount stays hidden until Gestoría certifies the settlement.
+ assert.equal(item.grossPay,null);
+ assert.equal(item.payStatus,'pending');
+ const done=await f.save('services',{...f.service,status:'completed'});
+ assert.equal((await f.call('settlement-confirm',{serviceId:done.id,revision:done.revision})).status,200);
+ const certified=(await (await api(new Request('https://nova.test/api/office/state',{headers:{cookie:session}}))).json()).assignments[0];
+ assert.equal(certified.grossPay,37.2);
+ assert.equal(certified.payStatus,'confirmed');
  assert.equal(item.chargeRate,undefined);
  assert.equal(item.baseChargeRate,undefined);
  assert.equal(item.clientHours,undefined);
@@ -191,9 +198,10 @@ test('a worker can coordinate one service and validate QR without a third global
  assert.equal(redeem.body.action,'in');
  const refreshed=(await call('state',null,coordCookie)).body;
  const entry=refreshed.coordinatorRoster[0];
+ // A general coordinator validates QR but Crew Control changes are reserved to the Crew Head.
  const contact=await call('coordinator-control',{id:entry.id,revision:entry.revision,field:'contacted',value:true},coordCookie);
- assert.equal(contact.status,200);
- const blocked=await call('coordinator-control',{id:entry.id,revision:entry.revision+1,field:'team',value:'Main Stage'},handCookie);
+ assert.equal(contact.status,403);
+ const blocked=await call('coordinator-control',{id:entry.id,revision:entry.revision,field:'team',value:'Main Stage'},handCookie);
  assert.equal(blocked.status,403);
 });
 test('venue geofencing is checked at the clock event, without storing coordinates on the assignment',async()=>{
@@ -377,7 +385,7 @@ test('different workers coordinate independent day/type blocks without office pr
  assert.deepEqual(state1.coordinatorRoster.map(x=>x.id),[turn1.id]);
  assert.deepEqual(state2.coordinatorRoster.map(x=>x.id),[turn2.id]);
  assert.equal((await call('coordinator-control',{id:turn2.id,revision:turn2.revision,field:'contacted',value:true},cookie1)).status,403);
- assert.equal((await call('coordinator-control',{id:turn1.id,revision:turn1.revision,field:'contacted',value:true},cookie1)).status,200);
+ assert.equal((await call('coordinator-control',{id:turn1.id,revision:turn1.revision,field:'contacted',value:true},cookie1)).status,403);
  const qr=await call('qr-issue',{id:turn2.id},handCookie);assert.equal(qr.status,200);
  assert.equal((await call('qr-redeem',{token:qr.body.token},cookie1)).status,403);
  assert.equal((await f.call('qr-redeem',{token:qr.body.token})).status,403);
@@ -442,12 +450,15 @@ test('Crew Head delegation is bounded to assigned service block and never grants
  const helperState=(await call('state',null,hc)).body;
  assert.equal(helperState.coordinatorBlocks.find(b=>b.id===block.body.record.id).lead,false);
  assert.equal(helperState.coordinatorRoster.length,1);
- const updated=await call('service-block-lead-update',{id:block.body.record.id,revision:block.body.record.revision,serviceType:'SHOW CALL',team:'Escenario B'},lc);
- assert.equal(updated.status,200,JSON.stringify(updated.body));
- assert.equal((await call('service-block-lead-update',{id:block.body.record.id,revision:updated.body.record.revision,serviceType:'LOAD OUT',team:''},hc)).status,403);
- const control=await call('coordinator-control',{id:turn.id,revision:turn.revision,field:'vestColor',value:'Naranja'},hc);
+ // The Crew Head adjusts schedules but cannot rename blocks; a normal coordinator only sees.
+ assert.equal((await call('service-block-lead-update',{id:block.body.record.id,revision:block.body.record.revision,serviceType:'SHOW CALL',team:'Escenario B'},lc)).status,403);
+ assert.equal((await call('coordinator-control',{id:turn.id,revision:turn.revision,field:'vestColor',value:'Naranja'},hc)).status,403);
+ const control=await call('coordinator-control',{id:turn.id,revision:turn.revision,field:'vestColor',value:'Naranja'},lc);
  assert.equal(control.status,200,JSON.stringify(control.body));
  assert.equal((await call('coordinator-shift',{id:turn.id,revision:control.body.record.revision,date:'2027-02-01',endDate:'2027-02-01',start:'07:00',end:'12:00'},hc)).status,403);
+ const shifted=await call('coordinator-shift',{id:turn.id,revision:control.body.record.revision,date:'2027-02-01',endDate:'2027-02-01',start:'08:30',end:'13:00'},lc);
+ assert.equal(shifted.status,200,JSON.stringify(shifted.body));
+ assert.equal((await call('coordinator-shift',{id:turn.id,revision:shifted.body.record.revision,date:'2027-02-03',endDate:'2027-02-03',start:'08:30',end:'13:00'},lc)).status,403);
  const incident=await call('incident-report',{serviceId:f.service.id,workerId:outsider.id,description:'Incorrecto'},lc);
  assert.equal(incident.status,403);
  const operatorRemove=await call('service-block-operator-remove',{id:grant.body.record.id,revision:grant.body.record.revision},hc);
@@ -460,12 +471,14 @@ test('Crew Control team planning and bulk operations are isolated to assigned bl
  const outsideWorker=await f.save('workers',{name:'Otro coordinador',specialty:'HAND B',costRate:9.3,createAccess:false});
  const account1=(await f.call('user',{record:{username:'crew-control-1',name:'Operador 1',role:'worker',workerId:coordinatorWorker.id,password:'test-crew-control-1'}})).body.record;
  const account2=(await f.call('user',{record:{username:'crew-control-2',name:'Operador 2',role:'worker',workerId:outsideWorker.id,password:'test-crew-control-2'}})).body.record;
- const first=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'LOAD IN',date:'2027-02-01',endDate:'2027-02-01',start:'08:00',end:'11:00',coordinatorId:account1.id},categories:[{categoryId:'HAND B',quantity:1}]});
- const second=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'12:00',end:'15:00',coordinatorId:account2.id},categories:[{categoryId:'HAND B',quantity:1}]});
+ await f.save('services',{...f.service,endDate:'2027-02-02'});
+ const first=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'LOAD IN',date:'2027-02-01',endDate:'2027-02-01',start:'08:00',end:'11:00'},categories:[{categoryId:'HAND B',quantity:1}]});
+ const second=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-02',endDate:'2027-02-02',start:'12:00',end:'15:00',coordinatorId:account2.id},categories:[{categoryId:'HAND B',quantity:1}]});
  assert.equal(first.status,200,JSON.stringify(first.body));assert.equal(second.status,200,JSON.stringify(second.body));
+ assert.equal((await f.call('service-block-operator-save',{record:{blockId:first.body.record.id,userId:account1.id,kind:'crew_head'}})).status,200);
  const t1=await f.save('assignments',{serviceId:f.service.id,orderLineId:first.body.positions[0].id,workerId:f.worker.id,categoryId:'HAND B'});
  const w2=await f.save('workers',{name:'Otro HAND',specialty:'HAND B',costRate:9.3,createAccess:false});
- const t2=await f.save('assignments',{serviceId:f.service.id,orderLineId:second.body.positions[0].id,workerId:w2.id,categoryId:'HAND B'});
+ const t2=await f.save('assignments',{serviceId:f.service.id,orderLineId:second.body.positions[0].id,workerId:w2.id,categoryId:'HAND B',date:'2027-02-02',endDate:'2027-02-02',start:'12:00',end:'15:00'});
  const api=createOfficeApi(f.db,{});
  const login=async(username,password)=>{const response=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username,password})}));assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0]};
  const cookie1=await login('crew-control-1','test-crew-control-1');
@@ -480,13 +493,23 @@ test('Crew Control team planning and bulk operations are isolated to assigned bl
  assert.equal((await call('crew-bulk-control',{field:'team',value:'Secundario',items:[{id:t1.id,revision:batch.body.records[0].revision},{id:t2.id,revision:t2.revision}]})).status,403);
  assert.equal((await call('crew-team-delete',{id:team.body.record.id,revision:team.body.record.revision})).status,409);
  assert.equal((await call('crew-team-save',{record:{blockId:second.body.record.id,name:'Intruso',capacity:1}})).status,403);
+ assert.deepEqual(data.crewHeadDays,[{serviceId:f.service.id,date:'2027-02-01'}]);
+ // The coordinator of the second day's block only sees, never edits through Crew Control.
+ const cookie2=await login('crew-control-2','test-crew-control-2');
+ const call2=async(op,data)=>{const r=await api(new Request('https://nova.test/api/office/'+op,{method:data?'POST':'GET',headers:{cookie:cookie2,...(data?{origin:'https://nova.test','content-type':'application/json'}:{})},body:data?JSON.stringify(data):undefined}));return {status:r.status,body:await r.json()}};
+ const coordState=(await call2('state')).body;
+ assert.deepEqual(coordState.coordinatorRoster.map(x=>x.id),[t2.id]);
+ assert.equal(coordState.crewHeadDays.length,0);
+ assert.equal((await call2('crew-team-save',{record:{blockId:second.body.record.id,name:'Propio',capacity:1}})).status,403);
+ assert.equal((await call2('crew-bulk-control',{field:'team',value:'X',items:[{id:t2.id,revision:t2.revision}]})).status,403);
  const state=(await f.call('state')).body;assert.equal(state.assignments.find(x=>x.id===t1.id).team,'Principal');assert.equal(state.assignments.find(x=>x.id===t2.id).team||'', '');
 });
 test('manual Crew Control attendance requires assigned coordinator and logs corrections',async()=>{
  const f=await setup();
  const w=await f.save('workers',{name:'Coordinador turno',specialty:'HAND B',costRate:9.3,createAccess:false});
  const user=(await f.call('user',{record:{username:'crew-attendance',name:'Operador',role:'worker',workerId:w.id,password:'test-crew-attendance'}})).body.record;
- const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'08:00',end:'12:00',coordinatorId:user.id},categories:[{categoryId:'HAND B',quantity:1}]});
+ const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'08:00',end:'12:00'},categories:[{categoryId:'HAND B',quantity:1}]});
+ assert.equal((await f.call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:user.id,kind:'crew_head'}})).status,200);
  assert.equal(block.status,200);const a=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,orderLineId:block.body.positions[0].id,categoryId:'HAND B'});
  const api=createOfficeApi(f.db,{});
  const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'crew-attendance',password:'test-crew-attendance'})}));
