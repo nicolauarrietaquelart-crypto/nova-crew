@@ -78,3 +78,19 @@
 .block-category-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,.25fr) auto;gap:9px;align-items:end;padding:10px 0;border-top:1px solid #e8ebef}
 @media(max-width:1100px){.service-overview{grid-template-columns:1fr}.service-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.quote-plan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.service-overview,.service-day-panel{padding:14px}.service-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.service-section-header h3{font-size:18px}.service-block-heading{padding:12px}.service-workspace-nav{overflow:auto;flex-wrap:nowrap}.service-workspace-nav button{font-size:11px}.quote-plan-grid{grid-template-columns:1fr}#modal:has(#quote-plan-form){max-width:100vw;width:100vw;max-height:95dvh;border-radius:20px 20px 0 0}#modal:has(#quote-plan-form) #modal-content{max-height:calc(95dvh - 90px)}.quote-plan-total{grid-template-columns:1fr}.block-category-row{grid-template-columns:1fr 105px}.block-category-row button{grid-column:1/-1}.service-place-grid{grid-template-columns:1fr}}
+
+
+/* Full-page service and staffing proposal editors. */
+.service-create-intro{padding:19px 22px 21px;margin:0 0 17px;border-radius:20px;background:linear-gradient(145deg,#fff,#f8f9fc);border:1px solid #fff;box-shadow:0 12px 29px rgba(30,41,54,.05)}
+.service-create-intro h2{font-size:25px;margin:0 0 8px;letter-spacing:-.6px}
+.service-create-intro p{font-size:12px;color:#78808a}
+#service-wizard-form,#quote-plan-form{background:linear-gradient(155deg,#fff,#f7f8fa);border:1px solid #fff;box-shadow:0 12px 32px rgba(30,41,54,.05);border-radius:23px;padding:24px;max-width:none;margin-bottom:25px}
+#service-wizard-form>.notice{margin-bottom:20px}
+#service-wizard-form .position-row{margin:14px 0;padding:20px}
+#service-wizard-form .position-row .form-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#service-wizard-form .position-row .form-grid>*{min-width:0}
+#service-wizard-form .position-row input,#service-wizard-form .position-row select{max-width:100%;min-width:0}
+#service-wizard-form .form-footer,#quote-plan-form .form-footer{position:sticky;bottom:-24px;z-index:1;background:rgba(255,255,255,.96);padding:17px 0;box-shadow:0 -12px 28px rgba(255,255,255,.9)}
+.service-operator-list{margin:14px 0}
+@media(max-width:1100px){#service-wizard-form .position-row .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){#service-wizard-form,#quote-plan-form{padding:14px;border-radius:18px}#service-wizard-form .position-row .form-grid{grid-template-columns:1fr}.service-create-intro{padding:15px}.service-create-intro h2{font-size:21px}}

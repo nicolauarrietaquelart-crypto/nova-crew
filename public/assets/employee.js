@@ -109,12 +109,20 @@ function calendarPage(){
  $('#employee-content').innerHTML='<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+first.toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="calendar-grid">'+cells+'</div></div>';
 }
 function availabilityPage(){
- const [y,m]=month.split('-').map(Number),last=new Date(y,m,0).getDate(),records=list('availability');let html='';
+ const [y,m]=month.split('-').map(Number),last=new Date(y,m,0).getDate(),records=list('availability');
+ const offset=(new Date(y,m-1,1).getDay()+6)%7;
+ const dayNames=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+ let html=dayNames.map(d=>'<div class="availability-day-heading">'+d+'</div>').join('');
+ html+=Array.from({length:offset},()=>'<div class="availability-cell-spacer" aria-hidden="true"></div>').join('');
  for(let d=1;d<=last;d++){
-  const day=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===day),st=a?.status||'';
-  html+='<button class="availability-cell '+esc(st)+'" data-action="availability" data-date="'+day+'"><strong>'+d+'</strong><small>'+esc(st==='unavailable'?'No disponible':st==='available'?'Disponible':'Sin indicar')+'</small></button>';
+  const date=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===date),st=a?.status||'';
+  const selected=a?.slots?.length?a.slots.length+' h disponibles':st==='unavailable'?'No disponible':st==='available'?'Disponible':'Sin indicar';
+  html+='<button class="availability-cell '+esc(st)+'" data-action="availability" data-date="'+date+'"><strong>'+d+'</strong><small>'+selected+'</small></button>';
  }
- $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Configurar semana habitual','','primary')+'</div><div class="notice">Selecciona un día para indicar tu disponibilidad. Los cambios se guardan en tu perfil y los verá la oficina.</div><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="availability-grid">'+html+'</div>';
+ $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Semana habitual · L–D','','primary')+'</div>'+
+ '<div class="notice">Selecciona un día para marcar las horas disponibles. Puedes elegir horas sueltas o varias franjas arrastrando.</div>'+
+ '<div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div>'+
+ '<div class="availability-grid">'+html+'</div>';
 }
 function documentsPage(){
  const docs=list('documents');
@@ -241,30 +249,81 @@ function coordinationPage(){
  roster.filter(a=>a.serviceId===s.id).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.date)+' · '+esc(a.serviceType||'Servicio')+' · '+esc(a.start)+'–'+esc(a.end)+'</td><td>'+status(a.status)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida registrada':'')+'</td><td>'+btn('edit-coord-shift','Horario',a.id)+'</td></tr>').join('')+'</tbody></table></div>')).join(''):'<div class="panel empty">No coordinas ningún servicio actualmente. Un gestor de oficina puede asignarte como coordinador de un día y tipo de servicio.</div>');
 }
 
-let selectedCrewService='',crewFilter='all';
+
+let selectedCrewService='',selectedCrewBlock='all',crewFilter='all';
 function crewControlPage(){
  const svcs=coordinatingServices();
- if(!svcs.length){$('#employee-content').innerHTML='<div class="panel empty">No tienes servicios bajo tu coordinación.</div>';return}
+ if(!svcs.length){$('#employee-content').innerHTML='<div class="panel empty">Aún no tienes turnos asignados para coordinar.</div>';return}
  if(!svcs.some(s=>s.id===selectedCrewService))selectedCrewService=svcs[0].id;
- const sv=service(selectedCrewService),records=(state.coordinatorRoster||[]).filter(a=>a.serviceId===selectedCrewService),people=state.coordinatorWorkers||[];
+ const sv=service(selectedCrewService),blocks=(state.coordinatorBlocks||[]).filter(x=>x.serviceId===selectedCrewService),
+ all=(state.coordinatorRoster||[]).filter(a=>a.serviceId===selectedCrewService),people=state.coordinatorWorkers||[];
+ if(selectedCrewBlock!=='all'&&!blocks.some(b=>b.id===selectedCrewBlock))selectedCrewBlock='all';
+ const records=all.filter(a=>selectedCrewBlock==='all'||a.blockId===selectedCrewBlock);
  const person=id=>people.find(w=>w.id===id)?.name||'Personal';
  const present=records.filter(a=>a.checkIn&&!a.checkOut).length,absent=records.filter(a=>!a.checkIn).length,contacted=records.filter(a=>a.contacted).length,noTeam=records.filter(a=>!a.team).length;
  const matches=a=>crewFilter==='all'||(crewFilter==='present'&&a.checkIn&&!a.checkOut)||(crewFilter==='absent'&&!a.checkIn)||(crewFilter==='contacted'&&a.contacted)||(crewFilter==='no-team'&&!a.team);
- $('#employee-content').innerHTML='<div class="section-title"><h2>Crew Control</h2><p class="muted">Panel operativo del servicio asignado · no muestra salarios ni facturación</p></div>'+
- '<div class="panel"><div class="panel-head"><h2>'+esc(sv.name)+'</h2>'+btn('scan-qr','Escanear QR',sv.id,'primary')+'</div>'+
- '<label class="form-label">Servicio<select class="field" id="crew-service-select">'+svcs.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===selectedCrewService?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label></div>'+
- '<div class="stats">'+[['Todos',records.length,'all'],['Presentes',present,'present'],['No presentados',absent,'absent'],['Contactados',contacted,'contacted']].map(([label,count,f])=>'<button class="stat '+(crewFilter===f?'orange':'')+'" data-action="crew-filter" data-filter="'+f+'" style="text-align:left;cursor:pointer"><span class="muted">'+label+'</span><strong>'+count+'</strong></button>').join('')+'</div>'+
- '<div class="actions-row" style="margin-bottom:14px">'+btn('crew-filter','Sin equipo ('+noTeam+')','','secondary')+btn('incident-report','Registrar incidencia',sv.id)+'</div>'+
- box('Plantilla · '+records.filter(matches).length+' trabajadores',records.filter(matches).length?
- '<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Personal</th><th>Equipo</th><th>Turno</th><th>Fichaje</th><th>Contacto</th><th>Acciones</th></tr></thead><tbody>'+
- records.filter(matches).map(a=>'<tr><td><strong>'+esc(person(a.workerId))+'</strong><br><small>'+esc(a.role)+'</small></td><td>'+esc(a.team||'Sin equipo')+'</td><td>'+esc(a.date)+' · '+esc(a.serviceType||'Servicio')+' · '+esc(a.start)+'–'+esc(a.end)+'</td><td>'+esc(a.checkIn?'Presente':'Pendiente')+(a.checkOut?' · Salida':'')+'</td><td>'+esc(a.contacted?'Contactado':'Pendiente')+'</td><td><div class="actions-row">'+btn('crew-contact',a.contacted?'Desmarcar contacto':'Contactado',a.id)+btn('crew-team','Equipo',a.id)+btn('edit-coord-shift','Horario',a.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay trabajadores con este filtro.</div>');
+ const leadBlocks=blocks.filter(b=>b.lead),delegates=leadBlocks.length?
+ '<section class="panel" style="margin-bottom:15px"><div class="panel-head"><h2>Crew Head · mis bloques</h2></div>'+
+ leadBlocks.map(block=>'<div class="line"><span>'+esc(block.date)+' · '+esc(block.serviceType)+' · '+esc(block.start)+'–'+esc(block.end)+'</span>'+
+ '<div class="actions-row">'+btn('crew-block-edit','Tipo / equipo',block.id)+btn('crew-delegate','Añadir coordinador',block.id,'secondary')+'</div></div>').join('')+'</section>':'';
+ const slots=blocks.map(b=>'<option value="'+esc(b.id)+'" '+(selectedCrewBlock===b.id?'selected':'')+'>'+esc(b.date+' · '+b.serviceType+' · '+b.start+'–'+b.end)+(b.lead?' · Crew Head':'')+'</option>').join('');
+ const stats='<div class="stats">'+[['Todos',records.length,'all'],['Presentes',present,'present'],['No presentados',absent,'absent'],['Contactados',contacted,'contacted']].map(([label,count,f])=>'<button class="stat '+(crewFilter===f?'orange':'')+'" data-action="crew-filter" data-filter="'+f+'" style="text-align:left;cursor:pointer"><span class="muted">'+label+'</span><strong>'+count+'</strong></button>').join('')+'</div>';
+ const table=records.filter(matches).length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Equipo / chaleco</th><th>Turno</th><th>Asistencia</th><th>Operativa</th></tr></thead><tbody>'+
+ records.filter(matches).map(a=>'<tr><td><strong>'+esc(person(a.workerId))+'</strong><small>'+esc(a.role)+'</small></td>'+
+ '<td>'+esc(a.team||'Sin equipo')+'<small>'+esc(a.vestColor||'Sin chaleco')+'</small></td>'+
+ '<td>'+esc(a.date)+' · '+esc(a.serviceType||'Servicio')+'<small>'+esc(a.start)+'–'+esc(a.end)+'</small></td>'+
+ '<td>'+esc(a.checkOut?'Salida registrada':a.checkIn?'Presente':'Pendiente')+'<small>'+esc(a.contacted?'Contactado':'Sin contactar')+'</small></td>'+
+ '<td><div class="actions-row">'+btn('crew-contact',a.contacted?'Quitar contacto':'Contactado',a.id)+btn('crew-team','Equipo',a.id)+btn('crew-details','Pausa / chaleco / dieta',a.id)+btn('edit-coord-shift','Horario',a.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay trabajadores con este filtro.</div>';
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Crew Control</h2><p class="muted">Personal, fichajes, equipos y pausas solo de los turnos que coordinas.</p></div>'+
+ '<div class="panel"><div class="panel-head"><h2>'+esc(sv.name)+'</h2><div class="actions-row">'+btn('scan-qr','Escanear QR',sv.id,'primary')+btn('redeem-qr','Introducir código',sv.id)+'</div></div>'+
+ '<div class="crew-filters"><label class="form-label">Servicio<select class="field" id="crew-service-select">'+svcs.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===selectedCrewService?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label>'+
+ '<label class="form-label">Día, tipo de servicio y horario<select class="field" id="crew-block-select"><option value="all">Todos mis turnos autorizados</option>'+slots+'</select></label></div></div>'+
+ stats+'<div class="actions-row" style="margin-bottom:14px">'+btn('crew-filter','Sin equipo ('+noTeam+')','','secondary')+btn('incident-report','Registrar incidencia',sv.id)+'</div>'+
+ delegates+box('Plantilla · '+records.filter(matches).length+' trabajadores',table);
 }
 function crewTeamModal(id){
- const a=(state.coordinatorRoster||[]).find(a=>a.id===id);if(!a)return;
- modal('Cambiar equipo','<form id="crew-team-form" style="display:grid;gap:12px"><label class="form-label">Equipo del trabajador<input class="field" name="team" maxlength="100" value="'+esc(a.team||'')+'"></label><button class="primary" type="submit">Guardar equipo</button></form>');
+ const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(!a)return;
+ modal('Equipo del trabajador','<form id="crew-team-form" style="display:grid;gap:12px"><label class="form-label">Equipo / escenario<input class="field" name="team" maxlength="100" value="'+esc(a.team||'')+'"></label><button class="primary" type="submit">Guardar equipo</button></form>');
  $('#crew-team-form').onsubmit=async e=>{e.preventDefault();try{await api('coordinator-control',{id,revision:a.revision,field:'team',value:e.target.elements.team.value});$('#employee-modal').close();await load();notice('Equipo actualizado')}catch(ex){error(ex)}};
 }
-
+function crewOperationalModal(id){
+ const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(!a)return;
+ modal('Control operativo','<form id="crew-details-form" style="display:grid;gap:12px"><p class="muted">Estos ajustes operativos no sustituyen la liquidación laboral de Gestoría.</p>'+
+ '<label class="form-label">Chaleco<input class="field" name="vestColor" maxlength="30" value="'+esc(a.vestColor||'')+'"></label>'+
+ '<label class="form-label">Horas de pausa previstas<select class="field" name="pauseScheduledHours">'+[0,1,2,3].map(n=>'<option value="'+n+'" '+(Number(a.pauseScheduledHours)===n?'selected':'')+'>'+n+' h</option>').join('')+'</select></label>'+
+ '<label class="form-label">Dietas<select class="field" name="dietCount">'+[0,1,2,3].map(n=>'<option value="'+n+'" '+(Number(a.dietCount)===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label>'+
+ '<label class="form-label">Valoración (0–5)<select class="field" name="rating">'+[0,1,2,3,4,5].map(n=>'<option value="'+n+'" '+(Number(a.rating)===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button class="primary" type="submit">Guardar control operativo</button></form>');
+ $('#crew-details-form').onsubmit=async ev=>{
+  ev.preventDefault();const data=Object.fromEntries(new FormData(ev.target));
+  try{
+   let revision=a.revision;
+   for(const [field,value] of Object.entries(data)){
+    const result=await api('coordinator-control',{id,revision,field,value:field==='vestColor'?value:Number(value)});
+    revision=result.record.revision;
+   }
+   $('#employee-modal').close();await load();notice('Control operativo guardado');
+  }catch(e){error(e)}
+ };
+}
+function crewLeadBlockEditor(blockId){
+ const block=(state.coordinatorBlocks||[]).find(b=>b.id===blockId&&b.lead);if(!block)return;
+ modal('Crew Head · gestionar bloque','<form id="crew-block-form" style="display:grid;gap:12px"><div class="notice">'+esc(block.date+' · '+block.start+'–'+block.end)+'<p>Solo puedes modificar el tipo de servicio y equipo del bloque autorizado. Las horas de cada trabajador se modifican desde su ficha en Crew Control.</p></div>'+
+ '<label class="form-label">Tipo de servicio<input class="field" name="serviceType" required maxlength="150" value="'+esc(block.serviceType)+'"></label>'+
+ '<label class="form-label">Equipo / escenario<input class="field" name="team" maxlength="100" value="'+esc(block.team||'')+'"></label>'+
+ '<button type="submit" class="primary">Guardar bloque</button></form>');
+ $('#crew-block-form').onsubmit=async e=>{e.preventDefault();try{await api('service-block-lead-update',{id:block.id,revision:block.revision,...Object.fromEntries(new FormData(e.target))});$('#employee-modal').close();await load();notice('Bloque actualizado')}catch(ex){error(ex)}};
+}
+function crewDelegateModal(blockId){
+ const block=(state.coordinatorBlocks||[]).find(b=>b.id===blockId&&b.lead);if(!block)return;
+ const roster=(state.coordinatorRoster||[]).filter(a=>a.blockId===blockId),allowedIds=new Set(roster.map(a=>a.workerId));
+ const candidates=(state.coordinatorCandidates||[]).filter(u=>allowedIds.has(u.workerId));
+ const operators=block.operators||[];
+ modal('Coordinadores de '+block.serviceType,'<div class="notice">'+esc(block.date+' · '+block.start+'–'+block.end)+'<p>Como Crew Head puedes designar coordinadores normales de este bloque, pero no conceder permisos sobre otros turnos.</p></div>'+
+ operators.filter(o=>o.kind==='coordinator').map(o=>'<div class="line"><strong>'+esc((state.coordinatorCandidates||[]).find(u=>u.id===o.userId)?.name||'Coordinador')+'</strong>'+btn('crew-remove-delegate','Quitar',o.id)+'</div>').join('')+
+ '<form id="crew-delegate-form" style="display:grid;gap:13px"><label class="form-label">Trabajador del bloque<select class="field" name="userId" required><option value="">Seleccionar</option>'+
+ candidates.filter(u=>!operators.some(o=>o.userId===u.id)).map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><button class="primary" type="submit">Añadir coordinador normal</button></form>');
+ $('#crew-delegate-form').onsubmit=async e=>{e.preventDefault();try{await api('service-block-operator-save',{record:{blockId,userId:e.target.elements.userId.value,kind:'coordinator'}});$('#employee-modal').close();await load();notice('Coordinador añadido')}catch(err){error(err)}};
+}
 function companyPage(){
  const c=state.company||{};
  $('#employee-content').innerHTML=box('Información de la empresa',
@@ -320,14 +379,46 @@ function extendedProfile(){
  modal('Editar mi perfil', '<form id="employee-profile-form" style="display:grid;gap:12px;grid-template-columns:1fr 1fr">'+fields+'<button class="primary" style="grid-column:1/-1" type="submit">Guardar cambios</button></form>');
  $('#employee-profile-form').onsubmit=async ev=>{ev.preventDefault();const input=Object.fromEntries(new FormData(ev.target));for(const k of ['languages','skills','education'])input[k]=input[k].split(',').map(x=>x.trim()).filter(Boolean);input.revision=p.revision;try{await api('employee-profile',{record:input});$('#employee-modal').close();await load();notice('Perfil actualizado')}catch(e){error(e)}};
 }
+
+function hoursFromLegacy(value){if(Array.isArray(value?.slots))return new Set(value.slots.map(Number));if(!value?.available)return new Set();const start=Number((value.start||'08:00').slice(0,2)),end=Number((value.end||'23:00').slice(0,2));return new Set(Array.from({length:Math.max(0,end-start)},(_,i)=>i+start))}
+function availabilityHourCells(key,selected){
+ return Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour '+(selected.has(h)?'selected':'')+'" data-weekday="'+key+'" data-hour="'+h+'" aria-pressed="'+selected.has(h)+'">'+String(h).padStart(2,'0')+'</button>').join('');
+}
+function bindHourDrag(container,selected,paint){
+ let dragging=false,start=0,mode=true,original=null,activeKey='';
+ const cellAt=e=>document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-hour]');
+ container.addEventListener('pointerdown',e=>{
+  const cell=e.target.closest('[data-hour]');if(!cell)return;
+  activeKey=cell.dataset.weekday||'date';const picked=selected[activeKey];if(!picked)return;
+  start=Number(cell.dataset.hour);mode=!picked.has(start);original=new Set(picked);dragging=true;
+  try{container.setPointerCapture(e.pointerId)}catch{}
+  apply(start);e.preventDefault();
+ });
+ function apply(end){
+  const set=new Set(original);
+  for(let n=Math.min(start,end);n<=Math.max(start,end);n++)mode?set.add(n):set.delete(n);
+  selected[activeKey]=set;paint();
+ }
+ container.addEventListener('pointermove',e=>{if(!dragging)return;const cell=cellAt(e);if(cell&&(cell.dataset.weekday||'date')===activeKey)apply(Number(cell.dataset.hour))});
+ container.addEventListener('pointerup',e=>{dragging=false;try{container.releasePointerCapture(e.pointerId)}catch{}});
+ container.addEventListener('pointercancel',()=>dragging=false);
+ container.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(!cell)return;const key=cell.dataset.weekday||'date',set=selected[key];if(set.has(Number(cell.dataset.hour)))set.delete(Number(cell.dataset.hour));else set.add(Number(cell.dataset.hour));paint()});
+}
 function weeklyAvailabilityModal(){
  const current=state.weeklyAvailability?.days||{};
  const days={mon:'Lunes',tue:'Martes',wed:'Miércoles',thu:'Jueves',fri:'Viernes',sat:'Sábado',sun:'Domingo'};
- modal('Disponibilidad semanal','<form id="weekly-form" style="display:grid;gap:12px">'+Object.entries(days).map(([key,label])=>{
-  const val=current[key]||{available:false,start:'08:00',end:'23:00'};
-  return '<div class="line" style="align-items:center;gap:8px"><label style="flex:1"><input type="checkbox" name="'+key+'_available" '+(val.available?'checked':'')+'> '+label+'</label><input class="field" style="width:100px" aria-label="Inicio '+label+'" name="'+key+'_start" type="time" value="'+esc(val.start)+'"><input class="field" style="width:100px" aria-label="Fin '+label+'" name="'+key+'_end" type="time" value="'+esc(val.end)+'"></div>'
- }).join('')+'<button class="primary" type="submit">Guardar semana habitual</button></form>');
- $('#weekly-form').onsubmit=async e=>{e.preventDefault();const f=e.target,input=Object.fromEntries(new FormData(f)),data={};for(const key of Object.keys(days))data[key]={available:!!input[key+'_available'],start:input[key+'_start'],end:input[key+'_end']};try{await api('availability-weekly',{days:data});$('#employee-modal').close();await load();notice('Semana guardada')}catch(ex){error(ex)}};
+ const selected=Object.fromEntries(Object.keys(days).map(key=>[key,hoursFromLegacy(current[key])]));
+ const headers='<div class="hour-row-label">Día / hora</div>'+Array.from({length:24},(_,h)=>'<span class="availability-hour-heading">'+String(h).padStart(2,'0')+'</span>').join('');
+ const rows=Object.entries(days).map(([key,label])=>'<div class="hour-row-label">'+label+'</div>'+availabilityHourCells(key,selected[key])).join('');
+ modal('Disponibilidad semanal · lunes a domingo','<p class="muted">Arrastra para seleccionar o quitar cada hora. Puedes marcar varias franjas separadas en el mismo día.</p>'+
+ '<div class="weekly-hours-scroll"><div id="weekly-hour-grid" class="weekly-hour-grid">'+headers+rows+'</div></div>'+
+ '<div class="actions-row" style="margin-top:14px"><button type="button" class="secondary" id="week-all">Toda la semana</button><button type="button" class="secondary" id="week-clear">Limpiar</button><button type="button" class="primary" id="week-save">Guardar disponibilidad semanal</button></div>');
+ const grid=$('#weekly-hour-grid');
+ const paint=()=>grid.querySelectorAll('[data-hour]').forEach(el=>{const on=selected[el.dataset.weekday].has(Number(el.dataset.hour));el.classList.toggle('selected',on);el.setAttribute('aria-pressed',String(on))});
+ bindHourDrag(grid,selected,paint);
+ $('#week-all').onclick=()=>{for(const d of Object.keys(days))selected[d]=new Set(Array.from({length:24},(_,i)=>i));paint()};
+ $('#week-clear').onclick=()=>{for(const d of Object.keys(days))selected[d].clear();paint()};
+ $('#week-save').onclick=async()=>{try{const data=Object.fromEntries(Object.keys(days).map(key=>[key,{slots:[...selected[key]].sort((a,b)=>a-b)}]));await api('availability-weekly',{days:data});$('#employee-modal').close();await load();notice('Semana guardada')}catch(e){error(e)}};
 }
 function redeemQr(serviceId){
  modal('Validar QR de personal','<form id="qr-redeem-form" style="display:grid;gap:12px"><p class="muted">Introduce el código temporal que muestra el trabajador.</p><label class="form-label">Código QR<input class="field" name="token" required autocomplete="off"></label><button class="primary" type="submit">Registrar fichaje</button></form>');
@@ -393,42 +484,22 @@ async function detail(id){
  modal('Detalle de mi servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Control horario',a.id,'primary'):'')+'</div>');
 }
 
-let selectedAvailabilityStart=8,selectedAvailabilityEnd=23,availabilityDragFrom=null;
-function availabilityHoursPaint(){
- const cells=[...document.querySelectorAll('#availability-time-grid [data-hour]')];
- for(const el of cells){
-  const n=Number(el.dataset.hour),active=n>=selectedAvailabilityStart&&n<selectedAvailabilityEnd;
-  el.classList.toggle('selected',active);
-  el.setAttribute('aria-pressed',String(active));
- }
- const s=$('#available-start'),e=$('#available-end');
- if(s)s.value=String(selectedAvailabilityStart).padStart(2,'0')+':00';
- if(e)e.value=String(selectedAvailabilityEnd).padStart(2,'0')+':00';
-}
-function availabilityHoursSelect(from,to){
- const lo=Math.max(0,Math.min(23,Math.min(from,to))),hi=Math.min(24,Math.max(from,to)+1);
- selectedAvailabilityStart=lo;selectedAvailabilityEnd=hi;availabilityHoursPaint();
-}
+
+let selectedAvailabilitySlots={date:new Set()};
 function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
- selectedAvailabilityStart=Math.min(23,Math.max(0,Number((old?.start||'08:00').slice(0,2))));
- selectedAvailabilityEnd=Math.max(selectedAvailabilityStart+1,Math.min(24,Number((old?.end||'23:00').slice(0,2))));
+ selectedAvailabilitySlots={date:hoursFromLegacy(old)};
  const grid=Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour" data-hour="'+h+'" aria-pressed="false">'+String(h).padStart(2,'0')+':00</button>').join('');
- modal('Disponibilidad · '+human(date),'<p class="muted">Selecciona una franja arrastrando sobre las horas, o indica las horas de inicio y fin.</p>'+
- '<div class="availability-hour-grid" id="availability-time-grid">'+grid+'</div>'+
- '<div class="availability-time-inputs"><label class="form-label">Desde<input type="time" class="field" id="available-start" value="'+esc(old?.start||'08:00')+'"></label>'+
- '<label class="form-label">Hasta<input type="time" class="field" id="available-end" value="'+esc(old?.end||'23:00')+'"></label></div>'+
- '<div class="actions-row">'+btn('set-available','Disponible',date,'primary')+btn('set-unavailable','No disponible',date)+'</div>');
- availabilityHoursPaint();
- const gridEl=$('#availability-time-grid');
- function commit(h){if(availabilityDragFrom!=null)availabilityHoursSelect(availabilityDragFrom,h)}
- gridEl.addEventListener('pointerdown',e=>{const cell=e.target.closest('[data-hour]');if(!cell)return;availabilityDragFrom=Number(cell.dataset.hour);availabilityHoursSelect(availabilityDragFrom,availabilityDragFrom);gridEl.setPointerCapture(e.pointerId);e.preventDefault()});
- gridEl.addEventListener('pointermove',e=>{if(availabilityDragFrom==null)return;const cell=document.elementFromPoint(e.clientX,e.clientY)?.closest('#availability-time-grid [data-hour]');if(cell)commit(Number(cell.dataset.hour))});
- gridEl.addEventListener('pointerup',e=>{availabilityDragFrom=null;try{gridEl.releasePointerCapture(e.pointerId)}catch{}});
- gridEl.addEventListener('pointercancel',()=>availabilityDragFrom=null);
- gridEl.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(cell)availabilityHoursSelect(Number(cell.dataset.hour),Number(cell.dataset.hour))});
- $('#available-start').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
- $('#available-end').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
+ modal('Disponibilidad · '+human(date),'<p class="muted">Selecciona o deselecciona horas sueltas, o arrastra para marcar varias horas. Se pueden crear franjas separadas.</p>'+
+ '<div id="availability-time-grid" class="availability-hour-grid">'+grid+'</div>'+
+ '<p class="muted" id="availability-hours-count"></p><div class="actions-row">'+
+ btn('set-available','Guardar horas disponibles',date,'primary')+btn('set-unavailable','Marcar no disponible',date)+'</div>');
+ const root=$('#availability-time-grid');
+ const paint=()=>{
+  root.querySelectorAll('[data-hour]').forEach(el=>{const checked=selectedAvailabilitySlots.date.has(Number(el.dataset.hour));el.classList.toggle('selected',checked);el.setAttribute('aria-pressed',String(checked))});
+  $('#availability-hours-count').textContent=selectedAvailabilitySlots.date.size+' horas seleccionadas';
+ };
+ bindHourDrag(root,selectedAvailabilitySlots,paint);paint();
 }
 function passwordModal(){
  modal('Cambiar contraseña','<form id="password-form" style="display:grid;gap:12px"><label class="form-label">Contraseña actual<input class="field" name="current" type="password" required></label><label class="form-label">Nueva contraseña (12 caracteres mínimo)<input class="field" name="password" type="password" minlength="12" required></label><button class="primary">Cambiar contraseña</button></form>');
@@ -449,6 +520,10 @@ document.addEventListener('click',async ev=>{
  if(action==='crew-filter'){crewFilter=el.dataset.filter||'no-team';return crewControlPage()}
  if(action==='crew-contact'){const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(a)return mutation('coordinator-control',{id,revision:a.revision,field:'contacted',value:!a.contacted},'Estado de contacto actualizado')}
  if(action==='crew-team')return crewTeamModal(id);
+ if(action==='crew-details')return crewOperationalModal(id);
+ if(action==='crew-block-edit')return crewLeadBlockEditor(id);
+ if(action==='crew-delegate')return crewDelegateModal(id);
+ if(action==='crew-remove-delegate'){const block=(state.coordinatorBlocks||[]).find(b=>b.lead&&b.operators?.some(o=>o.id===id));const record=block?.operators.find(o=>o.id===id);if(record)return mutation('service-block-operator-remove',{id,revision:record.revision},'Coordinador retirado')}
  if(action==='incident-report')return incidentModal(id);
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
@@ -467,8 +542,9 @@ document.addEventListener('click',async ev=>{
  if(action==='qr')return showQR(id);
  if(action==='availability')return availabilityModal(el.dataset.date);
  if(action==='set-available'||action==='set-unavailable'){
-  const a=list('availability').find(x=>x.date===id);const start=$('#available-start')?.value,end=$('#available-end')?.value;$('#employee-modal').close();
-  return mutation('availability',{date:id,status:action==='set-available'?'available':'unavailable',start,end,...(a?{revision:a.revision}:{})},'Disponibilidad actualizada');
+  const a=list('availability').find(x=>x.date===id),slots=action==='set-available'?[...selectedAvailabilitySlots.date].sort((x,y)=>x-y):[];
+  if(action==='set-available'&&!slots.length)return error(new Error('Selecciona al menos una hora disponible.'));
+  $('#employee-modal').close();return mutation('availability',{date:id,status:action==='set-available'?'available':'unavailable',slots,...(a?{revision:a.revision}:{})},'Disponibilidad actualizada');
  }
  if(action==='prev-month'||action==='next-month'){
   const [y,m]=month.split('-').map(Number),d=new Date(y,m-1+(action==='next-month'?1:-1),1);month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');return render();
@@ -479,7 +555,7 @@ $('#login-form').onsubmit=async e=>{
  e.preventDefault();const b=e.target.querySelector('button[type=submit]'),err=$('#login-error');b.disabled=true;err.hidden=true;
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
-$('#employee-content').addEventListener('change',e=>{if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;crewControlPage()}});
+$('#employee-content').addEventListener('change',e=>{if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;selectedCrewBlock='all';crewControlPage()}if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}});
 $('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();$('#employee-modal').classList.remove('clock-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 load();

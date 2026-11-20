@@ -33,8 +33,8 @@ async function authScreen(){let status;try{status=await api('status');}catch(e){
 }
 async function load(){const state=await api('state');if(state.user?.role==='worker'){window.location.replace('/empleado.html');return;}data=state;$('#auth').hidden=true;$('#app').hidden=false;$('#account-name').textContent=data.user.name;$('#account-role').textContent=({manager:'Gestor',coordinator:'Coordinador',worker:'Trabajador'})[data.user.role];$('#avatar').textContent=data.user.name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();$('#workspace-name').textContent='NOVA Crew';$('#sync').innerHTML='<span class="live-dot"></span>Actualizado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(location.hash.startsWith('#/servicio/')){const id=decodeURIComponent(location.hash.slice(11));if(list('services').some(x=>x.id===id)){serviceFocus=id;page='service-workspace'}}renderNav();render();}
 function allowed(){return manager()?navs.map(x=>x[0]):isWorker()?['dashboard','services','calendar','assignments','documents','availability']:['dashboard','services','calendar','assignments','workers','documents','availability'];}
-function renderNav(){if(page!=='service-workspace'&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(page==='service-workspace'?'services':page)===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
-function render(){if(page==='service-workspace')return serviceWorkspacePage();const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML='';
+function renderNav(){if(!['service-workspace','service-create','quote-create'].includes(page)&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(['service-workspace','service-create'].includes(page)?'services':page==='quote-create'?'quotes':page)===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
+function render(){if(page==='service-workspace')return serviceWorkspacePage();if(page==='service-create')return serviceWizard(serviceCreateQuoteId,true);if(page==='quote-create')return quotePlanEditor(planQuoteId,true);const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML='';
  if(page==='tariffs')return tariffGroupsPage();if(page==='incidents')return managerIncidentsPage();if(page==='messages')return managerMessagesPage();if(page==='closed')return closedPage();if(page==='dashboard')return dashboard();if(page==='calendar')return calendar();if(page==='settings')return settingsPage();if(page==='availability')return availabilityPage();if(page==='audit')return auditPage();
  if(manager()&&['tariffs','services','clients','workers','invoices','quotes','users','assignments','documents'].includes(page)){
  const labels={tariffs:'Nueva categoría',services:'Crear servicio',clients:'Nuevo cliente',workers:'Nuevo trabajador',invoices:'Nueva factura',quotes:'Nuevo presupuesto',expenses:'Nuevo gasto',users:'Crear usuario',assignments:'Asignar personal',documents:'Subir documento'};
@@ -131,7 +131,12 @@ function quotePlanEstimate(){
  '<div><small>Con IVA ('+esc(config.vat??21)+'%)</small><strong>'+euro(base*(1+Number(config.vat??21)/100))+'</strong></div></div>'+
  (invalid?'<p class="error">Revisa '+invalid+' bloques: categoría sin precio, fechas u horas incorrectas.</p>':'');
 }
-function quotePlanEditor(id=''){
+function quotePlanEditor(id='',refresh=false){
+ if(!refresh)planQuoteId=id;
+ page='quote-create';renderNav();$('#page-title').textContent=id?'Editar presupuesto':'Nuevo presupuesto';
+ $('#breadcrumb').textContent='Presupuestos / '+(id?'Editar':'Nuevo');$('#section-label').textContent='PLANIFICACIÓN DE PERSONAL';
+ $('#page-description').textContent='Jornadas, tipos de servicio, horarios, ubicaciones y categorías.';
+ $('#page-actions').innerHTML=button('quote-create-cancel','Volver a presupuestos','left');
  const q=id?find('quotes',id):null;if(q&&q.status!=='draft')return toast('Solo puedes editar un presupuesto en borrador.',true);
  planQuoteId=id;
  const schedules=quoteScheduleNames(),chosen=q?.schedule||schedules[0]||'Tarifa estándar 2026';
@@ -149,7 +154,7 @@ function quotePlanEditor(id=''){
  '<div id="quote-plan-rows"></div><div id="quote-plan-estimate"></div>'+
  '<div class="form-error" role="alert" hidden></div>'+
  '<div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button type="submit" class="btn primary">Guardar presupuesto</button></div></form>';
- modal(q?'Editar planificación del presupuesto':'Nuevo presupuesto de personal',form);
+ $('#content').innerHTML='<div class="service-create-intro"><h2>'+esc(q?'Editar presupuesto':'Presupuesto de personal')+'</h2><p>Organiza las líneas por jornada y tipo de servicio.</p></div>'+form;window.scrollTo({top:0,behavior:'auto'});
  drawQuotePlanRows();
  const formEl=$('#quote-plan-form');
  formEl.elements.schedule.addEventListener('change',()=>{
@@ -168,7 +173,7 @@ function quotePlanEditor(id=''){
    submit.disabled=true;
    const record={...Object.fromEntries(new FormData(formEl)),staffPlan:planRows,...(q?{id:q.id,revision:q.revision}:{})};
    const result=await api('quote-plan-save',{record});
-   $('#modal').close();page='quotes';await load();detail('quotes',result.record.id);
+   page='quotes';await load();detail('quotes',result.record.id);
    toast('Presupuesto guardado · '+planRows.length+' bloques');
   }catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false}finally{submit.disabled=false}
  };
@@ -191,17 +196,19 @@ function newTariffSchedule(){
  modal('Duplicar tarifa',formWrap(field('name','Nombre de la nueva tarifa','','text','required',true)+select('source','Copiar todas las categorías de',sources.map(name=>({id:name,name})),sources[0])+field('increasePercent','Incremento (%)',0,'number','min="0" max="500" step="0.01"')+select('applyTo','Aplicar el incremento a',[{id:'client',name:'Tarifa cliente'},{id:'worker',name:'Pago trabajador'},{id:'both',name:'Ambos precios'}],'client')+'<p class="footnote wide">Se crea una copia independiente de todas las categorías y mínimos. No se modifica la tarifa original.</p>','Duplicar tarifa'));
  formHandler(b=>api('tariff-schedule-create',b));
 }
-let wizardPositions=[];
+let wizardPositions=[],serviceCreateQuoteId='';
 function wizardPositionRow(p={},index=0){
  const chosen=$('#service-wizard-form [name=tariffSchedule]')?.value||'Tarifa estándar 2026',tariffs=list('tariffs').filter(t=>t.active&&(t.schedule||'Tarifa estándar 2026')===chosen),workers=list('workers').filter(w=>w.active);
  const f=(key,label,value='',type='text')=>'<label>'+label+'<input data-position="'+key+'" type="'+type+'" value="'+esc(value)+'"></label>';
- return '<section class="position-row" data-position-index="'+index+'"><header><strong>Puesto '+(index+1)+'</strong><button type="button" data-action="wizard-remove-position" data-index="'+index+'" class="btn">Eliminar</button></header><div class="form-grid">'+
+ return '<section class="position-row" data-position-index="'+index+'"><header><strong>Línea '+(index+1)+'</strong><div class="row-actions">'+button('wizard-duplicate-position','Duplicar','plus','data-index="'+index+'" type="button"','')+'<button type="button" data-action="wizard-remove-position" data-index="'+index+'" class="btn">Eliminar</button></div></header><div class="form-grid">'+
  '<label>Categoría individual<select data-position="categoryId" required>'+selectOptions(tariffs.map(t=>({id:t.id,name:(t.schedule||'Tarifa estándar 2026')+' · '+t.name})),p.categoryId)+'</select></label>'+
  '<label>Trabajador (opcional)<select data-position="workerId">'+selectOptions(workers.map(w=>({id:w.id,name:w.name})),p.workerId,'Dejar sin asignar')+'</select></label>'+
- f('serviceType','Tipo de servicio',p.serviceType||'Montaje')+f('team','Equipo / escenario',p.team)+
- f('date','Fecha',p.date||'','date')+f('start','Inicio',p.start||'','time')+
- f('endDate','Fecha de fin',p.endDate||'','date')+f('end','Fin',p.end||'','time')+
- f('pause','Pausa (h)',p.pause??0,'number')+'</div></section>';
+ f('serviceType','Tipo de servicio',p.serviceType||'Montaje')+f('quantity','N.º puestos con esta categoría',p.quantity||1,'number')+f('team','Equipo / escenario',p.team)+
+ f('date','Fecha',p.date||$('#service-wizard-form [name=date]')?.value||'','date')+f('start','Inicio',p.start||'08:00','time')+
+ f('endDate','Fecha de fin',p.endDate||p.date||$('#service-wizard-form [name=date]')?.value||'','date')+f('end','Fin',p.end||'18:00','time')+
+ f('pause','Pausa (h)',p.pause??0,'number')+
+ f('locationName','Ubicación',p.locationName||'')+f('locationAddress','Dirección',p.locationAddress||'')+
+ '<label>Coordinador de este puesto<select data-position="coordinatorId">'+selectOptions(list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId),p.coordinatorId,'Sin asignar')+'</select></label></div></section>';
 }
 function wizardRows(){
  const root=$('#wizard-positions');if(root)root.innerHTML=wizardPositions.map(wizardPositionRow).join('');
@@ -211,12 +218,17 @@ function captureWizardPositions(){
  wizardPositions=nodes.map(el=>Object.fromEntries([...el.querySelectorAll('[data-position]')].map(input=>[input.dataset.position,input.value])));
 }
 
-function serviceWizard(quoteId=''){
+function serviceWizard(quoteId='',refresh=false){
+ if(!refresh)serviceCreateQuoteId=quoteId;
+ page='service-create';renderNav();
+ $('#page-title').textContent='Crear servicio';$('#breadcrumb').textContent='Servicios / Nuevo servicio';$('#section-label').textContent='PLANIFICACIÓN OPERATIVA';
+ $('#page-description').textContent='Organiza jornadas, tipos de servicio, horarios, personal y ubicaciones en una página.';
+ $('#page-actions').innerHTML=button('service-create-cancel','Volver a servicios','left');
  const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  wizardPositions=quote?.staffPlan?.length?[]:[{}];
  const eligible=list('quotes').filter(q=>['issued','accepted'].includes(q.status)&&(!q.serviceId||q.id===quoteId));
  const start=quote?.planStartDate||day(),end=quote?.planEndDate||start;
- const body='<form id="service-wizard-form"><div class="notice">Selecciona un presupuesto existente o crea un servicio nuevo. Los bloques de un presupuesto de personal se trasladarán automáticamente a sus jornadas y puestos.</div>'+
+ const body='<div class="service-create-intro"><h2>Datos generales y planificación</h2><p>Configura el servicio y añade tantos puestos individuales como necesites.</p></div><form id="service-wizard-form"><div class="notice">Selecciona un presupuesto existente o crea un servicio nuevo. Los bloques de un presupuesto de personal se trasladarán automáticamente a sus jornadas y puestos.</div>'+
  '<div class="form-grid"><label class="wide">Presupuesto existente (opcional)<select name="quoteId" id="wizard-quote">'+selectOptions(eligible.map(q=>({id:q.id,name:(q.number||'Presupuesto')+' · '+name('clients',q.clientId)})),quoteId,'Crear sin presupuesto')+'</select></label>'+
  field('name','Nombre del servicio',quote?.serviceName||'','text','required',true)+
  select('clientId','Cliente',clients,quote?.clientId)+select('tariffSchedule','Tarifa aplicable',quoteScheduleNames().map(name=>({id:name,name})),quote?.schedule||quoteScheduleNames()[0]||'Tarifa estándar 2026')+field('venue','Recinto principal',quote?.serviceVenue||'','text','required')+
@@ -224,9 +236,10 @@ function serviceWizard(quoteId=''){
  field('endDate','Último día',end,'date','required')+field('end','Hora de fin','23:59','time','required')+
  select('coordinatorId','Coordinador principal',coordinators,'')+'</div>'+
  '<div id="wizard-quote-preview"></div>'+
- '<div class="subhead"><h3>Puestos de trabajo</h3>'+button('wizard-add-position','Añadir puesto','plus','type="button"','')+'</div>'+
+ '<div class="subhead"><div><h3>Jornadas, horarios y puestos</h3><p>Una línea genera puestos individuales según la cantidad. Cada trabajador se podrá asignar por separado.</p></div><div class="row-actions">'+button('wizard-add-day','Añadir otro día','calendar','type="button"','')+button('wizard-add-position','Añadir línea','plus','type="button"','')+'</div></div>'+
  '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio y jornadas</button></div></form>';
- modal('Crear servicio',body);
+ $('#content').innerHTML=body;
+ window.scrollTo({top:0,behavior:'auto'});
  function quotePreview(){
   const q=find('quotes',$('#wizard-quote').value),area=$('#wizard-quote-preview');
   area.innerHTML=q?.staffPlan?.length?'<div class="notice"><strong>'+q.staffPlan.length+' bloques presupuestados · '+q.staffPlan.reduce((a,r)=>a+r.quantity,0)+' puestos</strong><p>Se crearán las jornadas, horarios, categorías y ubicaciones exactamente desde el presupuesto. Puedes añadir más puestos después en la página del servicio.</p></div>':'';
@@ -250,11 +263,13 @@ function serviceWizard(quoteId=''){
   e.preventDefault();const submit=form.querySelector('[type=submit]'),err=form.querySelector('.form-error');
   err.hidden=true;captureWizardPositions();
   try{
-   const b=Object.fromEntries(new FormData(form)),positions=wizardPositions.filter(p=>p.categoryId);
-   if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada puesto, o elimina los puestos vacíos.');
+   const b=Object.fromEntries(new FormData(form));
+   if(wizardPositions.some(p=>!p.categoryId))throw Error('Elige una categoría para cada línea, o elimina las líneas vacías.');
+   const positions=[];for(const row of wizardPositions){const qty=Number(row.quantity||1);if(!Number.isInteger(qty)||qty<1||qty>100)throw Error('Cada línea debe tener entre 1 y 100 puestos.');if(qty>1&&row.workerId)throw Error('Para asignar un trabajador concreto, utiliza una línea de un solo puesto.');for(let i=0;i<qty;i++)positions.push({...row,quantity:1});}
+   if(positions.length>300)throw Error('El máximo es de 300 puestos por servicio. Divide el evento en varios servicios.');
    submit.disabled=true;
    const result=await api('service-create',{quoteId:b.quoteId,service:b,positions});
-   $('#modal').close();await load();openServicePage(result.record.id);
+   await load();openServicePage(result.record.id);
    toast('Servicio creado con '+result.positions.length+' puestos y '+result.days.length+' jornadas');
   }catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false}finally{submit.disabled=false}
  };
@@ -296,7 +311,7 @@ function serviceWorkspacePage(){
  $('#page-actions').innerHTML=button('service-back','Volver a servicios','left','','')+
  button('edit','Editar servicio','edit','data-kind="services" data-id="'+esc(sv.id)+'"','');
  const totalUnfilled=positions.filter(p=>!assigned.some(a=>a.orderLineId===p.id&&!a.archived)).length;
- const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Coordinadores']];
+ const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Responsables y permisos']];
  const nav='<div class="service-workspace-nav">'+menu.map(([k,label])=>'<button class="'+(serviceTab===k?'selected':'')+'" type="button" data-action="service-tab" data-tab="'+k+'">'+label+'</button>').join('')+'</div>';
  const top='<div class="service-overview"><div><span class="eyebrow">SERVICIO</span><h2>'+esc(sv.name)+'</h2><p>'+esc(name('clients',sv.clientId))+' · '+esc(sv.venue)+'</p>'+
  '<div class="service-meta">'+badge(sv.status)+'<span>'+fmt(sv.date)+' — '+fmt(sv.endDate)+'</span><span>Tarifa: '+esc(sv.tariffSchedule||'Estándar')+'</span></div></div>'+
@@ -318,6 +333,7 @@ function serviceWorkspacePage(){
      return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
      '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+'</p><p><strong>Coordinador del turno:</strong> '+esc(block.coordinatorId?name('users',block.coordinatorId):'Sin asignar')+'</p></div>'+
      '<div class="service-block-tools">'+button('service-block-add-positions','Añadir puestos','plus','data-id="'+esc(block.id)+'"','')+
+     button('service-block-operators','Crew Head y coordinadores','users','data-id="'+esc(block.id)+'"','')+
      button('service-block-edit','Editar bloque','edit','data-id="'+esc(block.id)+'"','')+
      button('service-block-remove','Eliminar bloque','trash','data-id="'+esc(block.id)+'"','')+'</div></div>'+
      servicePostTable(posts,assigned)+'</article>';
@@ -345,9 +361,9 @@ function serviceWorkspacePage(){
   }).join('')+'</div>':'<div class="panel empty">Añade tu primera ubicación. Puedes buscarla en Google Maps y guardar sus datos.</div>');
  }else{
   const allUsers=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
-  body='<div class="service-section-header"><div><h3>Coordinación</h3><p>Asigna varios coordinadores al mismo servicio. También puedes asignar uno por bloque.</p></div>'+
+  body='<div class="service-section-header"><div><h3>Coordinación por día y turno</h3><p>Asigna Crew Heads y coordinadores normales desde cada tipo de servicio. Los permisos se limitan al bloque elegido.</p></div>'+
    button('service-coordinator-new','Añadir coordinador','plus','','')+'</div>'+
-   '<div class="panel"><div class="list-item"><span class="grow">Coordinador principal</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
+   '<div class="panel"><div class="list-item"><span class="grow">Coordinador general (opcional)</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
    button('edit','Cambiar','edit','data-kind="services" data-id="'+esc(sv.id)+'"','')+'</div>'+
    coordinators.map(c=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',c.userId))+'</strong><small>Coordinador adicional</small></div>'+
     button('service-coordinator-remove','Quitar','trash','data-id="'+esc(c.id)+'"','')+'</div>').join('')+'</div>';
@@ -427,6 +443,22 @@ function blockAddCategories(id){
   captureBlockCategories();if(!blockCategoryRows.length||blockCategoryRows.some(x=>!x.categoryId))throw Error('Selecciona al menos una categoría.');
   return api('service-block-add-positions',{blockId:block.id,categories:blockCategoryRows});
  });
+}
+function serviceBlockOperatorsEditor(blockId){
+ const block=find('serviceBlocks',blockId);if(!block)return;
+ const operators=list('serviceBlockOperators').filter(o=>o.blockId===block.id),staff=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
+ const people='<div class="service-operator-list">'+operators.map(o=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',o.userId))+'</strong><small>'+esc(o.kind==='crew_head'?'Crew Head · responsable del bloque':'Coordinador de este bloque')+'</small></div>'+
+ button('block-operator-remove','Quitar','trash','data-id="'+esc(o.id)+'"','')+'</div>').join('')+'</div>';
+ const form='<form id="block-operator-form"><div class="notice"><strong>'+esc(block.date)+' · '+esc(block.serviceType)+' · '+esc(block.start)+'–'+esc(block.end)+'</strong><p>Los permisos se limitan a este bloque; Crew Head puede añadir coordinadores normales sin ser gestor de oficina.</p></div>'+
+ people+'<div class="form-grid">'+select('userId','Trabajador',staff,'',true)+select('kind','Permiso del bloque',[{id:'crew_head',name:'Crew Head (responsable)'},{id:'coordinator',name:'Coordinador normal'}],'coordinator')+'</div>'+
+ '<div class="form-footer"><button type="button" class="btn" data-action="close">Cerrar</button><button type="submit" class="btn primary">Asignar al bloque</button></div><div class="form-error" hidden></div></form>';
+ modal('Personal que coordina este turno',form);
+ $('#block-operator-form').onsubmit=async e=>{
+  e.preventDefault();const form=e.currentTarget,err=form.querySelector('.form-error'),submit=form.querySelector('[type=submit]');submit.disabled=true;err.hidden=true;
+  try{await api('service-block-operator-save',{record:{...Object.fromEntries(new FormData(form)),blockId}});await load();serviceBlockOperatorsEditor(blockId);toast('Permiso asignado')}
+  catch(ex){err.textContent=ex.message;err.className='form-error error';err.hidden=false}
+  finally{submit.disabled=false}
+ };
 }
 function serviceCoordinatorEditor(){
  const all=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
@@ -575,6 +607,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='service-block-new')return serviceBlockEditor('',el.dataset.date||'');
  if(a==='service-block-edit')return serviceBlockEditor(id);
  if(a==='service-block-add-positions')return blockAddCategories(id);
+ if(a==='service-block-operators')return serviceBlockOperatorsEditor(id);
+ if(a==='block-operator-remove'){const o=find('serviceBlockOperators',id);if(!o)return;return runMutation('service-block-operator-remove',{id:o.id,revision:o.revision},'Coordinador retirado')}
  if(a==='block-category-add'){captureBlockCategories();blockCategoryRows.push({categoryId:'',quantity:1});return drawBlockCategories()}
  if(a==='block-category-remove'){captureBlockCategories();blockCategoryRows.splice(Number(el.dataset.index),1);return drawBlockCategories()}
  if(a==='service-place-new')return servicePlaceEditor();
@@ -596,13 +630,15 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  }
 
  if(a==='service-tab'){serviceTab=el.dataset.tab;return serviceWorkspacePage()}
+ if(a==='quote-create-cancel'){page='quotes';renderNav();return render()}
  if(a==='quote-plan-new')return quotePlanEditor();
  if(a==='quote-plan-edit')return quotePlanEditor(id);
  if(a==='quote-plan-add'){captureQuotePlanRows();planRows.push({...planRows.at(-1),quantity:1,categoryId:''});return drawQuotePlanRows()}
  if(a==='quote-plan-duplicate'){captureQuotePlanRows();planRows.splice(Number(el.dataset.index)+1,0,{...planRows[Number(el.dataset.index)]});return drawQuotePlanRows()}
  if(a==='quote-plan-remove'){captureQuotePlanRows();planRows.splice(Number(el.dataset.index),1);return drawQuotePlanRows()}
  if(a==='tariff-new-schedule')return newTariffSchedule();
-  if(a==='service-wizard')return serviceWizard(el.dataset.quoteId||'');
+  if(a==='service-create-cancel'){page='services';renderNav();return render()}
+ if(a==='service-wizard')return serviceWizard(el.dataset.quoteId||'');
   if(a==='new'&&kind==='services')return serviceWizard();
  if(a==='edit'&&kind==='quotes'&&find('quotes',id)?.staffPlan?.length)return quotePlanEditor(id);
   if(a==='new'||a==='edit')return editor(kind,id);
@@ -615,6 +651,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='add-line'){$('#invoice-lines').insertAdjacentHTML('beforeend',lineHTML({description:'',quantity:1,price:0,vat:data.settings.vat}));lineTotal();return;}
  if(a==='remove-line'){if($$('.invoice-line').length>1)el.closest('.invoice-line').remove();lineTotal();return;}
  if(a==='wizard-add-position'){captureWizardPositions();wizardPositions.push({});return wizardRows()}
+  if(a==='wizard-duplicate-position'){captureWizardPositions();const i=Number(el.dataset.index);wizardPositions.splice(i+1,0,{...wizardPositions[i],workerId:''});return wizardRows()}
+  if(a==='wizard-add-day'){captureWizardPositions();const last=wizardPositions.at(-1)||{};const source=last.date||$('#service-wizard-form [name=date]')?.value||day();const next=new Date(source+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);const date=next.toISOString().slice(0,10);wizardPositions.push({...last,date,endDate:date,workerId:''});return wizardRows()}
   if(a==='wizard-remove-position'){captureWizardPositions();wizardPositions.splice(Number(el.dataset.index),1);return wizardRows()}
   if(a==='add-slot')return editor('orderLines','',{serviceId:id});
   if(a==='assign-slot')return editor('assignments','',{orderLineId:id,serviceId:find('orderLines',id)?.serviceId});
@@ -670,7 +708,7 @@ $('#modal').addEventListener('close',stopCamera);
 document.addEventListener('input',e=>{if(e.target.closest('#invoice-lines'))lineTotal();});
 $('#close-modal').innerHTML=icon('close');$('#close-modal').onclick=()=>$('#modal').close();$('#refresh').innerHTML=icon('refresh');$('#menu').innerHTML=icon('menu');$('#logout').innerHTML=icon('logout');$('#menu').onclick=()=>document.body.classList.toggle('nav-open');$('#shade').onclick=()=>document.body.classList.remove('nav-open');
 $('#account').onclick=()=>{modal('Cambiar mi contraseña',formWrap(field('current','Contraseña actual','','password','required autocomplete="current-password"',true)+field('password','Nueva contraseña (mínimo 12 caracteres)','','password','required minlength="12" maxlength="128" autocomplete="new-password"',true)));formHandler(async b=>{await api('password',b);data={};$('#app').hidden=true;$('#auth').hidden=false;await authScreen();});};
-setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||polling||busy||$('#search')===document.activeElement)return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
+setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||$('#search')===document.activeElement)return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
 window.addEventListener('online',()=>{if(data.user)load().catch(e=>toast(e.message,true));});
 // Remove the previous demo service worker, if one was installed, so it cannot serve stale screens.
 if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
