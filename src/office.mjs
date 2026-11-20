@@ -735,6 +735,28 @@ export function createOfficeApi(storage,env={}){
     await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
    }
    
+    if(op==='crew-attendance'){
+      if(actor.role!=='worker'||!actor.workerId)fail('Solo coordinadores trabajadores.',403);
+      const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinateAssignment(db,actor,a);
+      const service=await record(db,'services',a.serviceId);
+      if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
+      const reason=required(b.reason,'el motivo del fichaje manual').slice(0,400);
+      const event=b.event;
+      if(!['in','out','undo-in','undo-out'].includes(event))fail('Acción de fichaje inválida.');
+      if(event==='in'&&a.checkIn)fail('Entrada ya registrada.',409);
+      if(event==='out'&&(!a.checkIn||a.checkOut))fail('Registra primero una entrada abierta.',409);
+      if(event==='undo-in'&&(!a.checkIn||a.checkOut))fail('No puede deshacerse esta entrada.',409);
+      if(event==='undo-out'&&!a.checkOut)fail('No hay salida registrada.',409);
+      const next={...a,revision:a.revision+1,updatedAt:now()};
+      if(event==='in')next.checkIn=now();
+      if(event==='out')next.checkOut=now();
+      if(event==='undo-in')next.checkIn='';
+      if(event==='undo-out')next.checkOut='';
+      await db.put(key('assignments',a.id),next);
+      await audit(db,actor,'crew-attendance-'+event,'assignments',a.id);
+      const id=uid();await db.put('office/crewAttendanceAudit/'+id,{id,assignmentId:a.id,actorId:actor.id,reason,event,before:{checkIn:a.checkIn,checkOut:a.checkOut},after:{checkIn:next.checkIn,checkOut:next.checkOut},createdAt:now()});
+      return {record:publicAssignment(next,actor)};
+    }
     if(op==='crew-team-save'){
       if(actor.role!=='worker'||!actor.workerId)fail('Solo trabajadores coordinadores.',403);
       const data=b.record||{},block=await record(db,'serviceBlocks',required(data.blockId,'el turno'));
