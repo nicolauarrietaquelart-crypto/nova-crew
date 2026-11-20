@@ -77,6 +77,64 @@ async function requireCoordinatorEdit(db,actor,a){
  await canCoordinateAssignment(db,actor,a);
  if(await crewDayClosed(db,a))fail('Este día ya está cerrado. Gestoría puede reabrirlo.',409);
 }
+/* Cambios de coordinación sobre un turno (presente, contactado, no presentado, horarios, pausa, dietas, valoraciones y notas). */
+const MADRID_HM=new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false});
+const MADRID_DAY=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid'});
+const madridHM=iso=>iso?MADRID_HM.format(new Date(iso)):'';
+const madridDay=iso=>MADRID_DAY.format(new Date(iso));
+const addDay=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
+function madridISO(day,t){for(const off of [1,2]){const d=new Date(Date.parse(day+'T'+t+':00Z')-off*3600000);if(madridHM(d.toISOString())===t&&madridDay(d.toISOString())===day)return d.toISOString();}return new Date(Date.parse(day+'T'+t+':00Z')-3600000).toISOString();}
+function coordApply(a,c,all){
+ const next={...a},events=[],hm=v=>{const t=String(v??'');if(t&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(t))fail('Hora incorrecta.');return t;};
+ if(c.status!=null){
+  const st=c.status;if(!['pending','contacted','present','absent'].includes(st))fail('Estado incorrecto.');
+  if(st==='present'){if(!c.realIn&&!a.checkIn)c={...c,realIn:madridHM(new Date().toISOString())};c={...c,absent:false};}
+  else c={...c,realIn:'',realOut:'',absent:st==='absent',...(st==='contacted'?{contacted:true}:st==='pending'?{contacted:false}:{})};
+ }
+ if(c.start!=null||c.end!=null){
+  const start=hm(c.start??a.start),end=hm(c.end??a.end);
+  if(!start||!end)fail('Indica inicio y fin.');
+  if(start!==a.start||end!==a.end){
+   if(a.checkOut)fail('No se modifica el horario previsto de un turno ya finalizado.',409);
+   const endDate=end<=start?addDay(a.date,1):a.date,span=(Date.parse(endDate+'T'+end+':00Z')-Date.parse(a.date+'T'+start+':00Z'))/3600000;
+   if(span<=0||span>24)fail('Horario incorrecto.');
+   for(const o of all)if(o.workerId===a.workerId&&o.id!==a.id&&a.date+'T'+start<(o.endDate||o.date)+'T'+o.end&&endDate+'T'+end>o.date+'T'+o.start)fail('Ya tiene otro turno en ese horario.',409);
+   const hours=money(span-Number(a.pause||0));if(hours<=0)fail('La pausa supera la duración del turno.');
+   Object.assign(next,{start,end,endDate,hours});events.push('horario '+a.start+'–'+a.end+' → '+start+'–'+end);
+  }
+ }
+ if(c.realIn!=null){
+  const t=hm(c.realIn);
+  if(t){if(madridHM(a.checkIn)!==t){next.checkIn=madridISO(next.date,t);next.noShow=false;if(next.status==='pending')next.status='confirmed';events.push('entrada '+t);}}
+  else if(a.checkIn){next.checkIn='';next.checkOut='';events.push('deshace entrada');}
+ }
+ if(c.realOut!=null){
+  const t=hm(c.realOut);
+  if(t){if(!next.checkIn)fail('Registra primero la entrada.',409);const inT=madridHM(next.checkIn),inDay=madridDay(next.checkIn);if(madridHM(a.checkOut)!==t||!a.checkOut||next.checkIn!==a.checkIn){next.checkOut=madridISO(t<=inT?addDay(inDay,1):inDay,t);events.push('salida '+t);}}
+  else if(next.checkOut){next.checkOut='';events.push('deshace salida');}
+ }
+ if(c.absent!=null){
+  const absent=c.absent===true;
+  if(absent&&!a.noShow){if(next.checkIn)fail('Tiene entrada registrada. Quita la entrada antes de marcar No presentado.',409);Object.assign(next,{noShow:true,workerHours:0,workerUnits:0});events.push('no presentado');}
+  if(!absent&&a.noShow){const h=Math.max(Number(a.minimumHours||0),Number(a.actualHours??a.hours??0));Object.assign(next,{noShow:false,workerHours:h,workerUnits:a.rateUnit==='day'?1:h});events.push('deshace no presentado');}
+ }
+ if(c.actualPause!=null){const t=hm(c.actualPause)||'00:00';if(t!==(a.actualPause||'')){next.actualPause=t;events.push('pausa '+t);}}
+ if(next.checkIn&&next.checkOut&&(next.checkIn!==a.checkIn||next.checkOut!==a.checkOut||next.actualPause!==a.actualPause)){
+  const p=next.actualPause?Number(next.actualPause.slice(0,2))+Number(next.actualPause.slice(3,5))/60:Number(a.pause||0);
+  const actual=money(Math.max(0,(Date.parse(next.checkOut)-Date.parse(next.checkIn))/3600000-p));
+  const wh=Math.max(Number(a.minimumHours||0),actual);Object.assign(next,{actualHours:actual,workerHours:wh,workerUnits:a.rateUnit==='day'?1:wh});
+ }
+ if(c.contacted!=null&&(c.contacted===true)!==(a.contacted===true)){next.contacted=c.contacted===true;events.push(next.contacted?'contactado':'no contactado');}
+ if(c.dietCount!=null&&c.dietCount!==''&&number(c.dietCount,0,3)!==Number(a.dietCount||0)){next.dietCount=number(c.dietCount,0,3);events.push('dietas '+next.dietCount);}
+ const R=['ratingUniformidad','ratingActitud','ratingPuntualidad'];
+ if(R.some(k=>c[k]!=null)){
+  for(const k of R)if(c[k]!=null)next[k]=number(c[k],0,5);
+  const vals=R.map(k=>Number(next[k]||0)).filter(n=>n>0),avg=vals.length?Math.round(vals.reduce((x,y)=>x+y,0)/vals.length):0;
+  if(R.some(k=>Number(next[k]||0)!==Number(a[k]||0))){next.rating=avg;events.push('valoración '+R.map(k=>Number(next[k]||0)).join('/'));}
+ } else if(c.rating!=null&&number(c.rating,0,5)!==Number(a.rating||0)){next.rating=number(c.rating,0,5);events.push('valoración '+next.rating);}
+ if(c.coordNotes!=null&&text(c.coordNotes,1000)!==(a.coordNotes||'')){next.coordNotes=text(c.coordNotes,1000);events.push('notas');}
+ return {next,events};
+}
 const INCIDENT_TYPES=['general','delay','absence','behaviour','safety','material','category_change','other'];
 async function canCoordinateAssignment(db,actor,assignment){
  if(actor.role==='manager')fail('El escaneo operativo QR corresponde a coordinadores trabajadores, no a Gestoría.',403);
@@ -128,7 +186,7 @@ async function view(db,actor){
   const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId&&l.coordinatorId!==allBlocks.find(b=>b.id===l.blockId)?.coordinatorId?l.coordinatorId===actor.id:ownBlockIds.has(l.blockId)||l.coordinatorId===actor.id)).map(l=>l.id));
   const crewDays=await crewHeadDays(db,actor),blockCrewDay=b=>datesBetween(b.date,b.endDate||b.date).some(d=>crewDays.has(b.serviceId+'|'+d));
   const coordinatorBlocks=actor.role==='manager'?[]:allBlocks.filter(b=>!b.archived&&(ownAssignedServices.has(b.serviceId)||ownBlockIds.has(b.id)||blockCrewDay(b))).map(b=>({id:b.id,serviceId:b.serviceId,date:b.date,endDate:b.endDate,start:b.start,end:b.end,serviceType:b.serviceType,team:b.team,placeId:b.placeId,revision:b.revision,lead:blockCrewDay(b),operators:allOperators.filter(o=>o.blockId===b.id&&!o.archived).map(o=>({id:o.id,userId:o.userId,kind:o.kind,revision:o.revision}))}));
-  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId)||isCrewDay(crewDays,a))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,categoryId:a.categoryId||'',crew:isCrewDay(crewDays,a),team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,vestColor:a.vestColor||'',dietCount:a.dietCount??0,pauseScheduledHours:a.pauseScheduledHours??0,rating:a.rating??0,pauseStart:a.pauseStart||'',pauseEnd:a.pauseEnd||'',checkIn:a.checkIn,checkOut:a.checkOut,noShow:a.noShow===true,actualHours:a.actualHours??null,hours:a.hours,pause:a.pause||0,revision:a.revision}});
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId)||isCrewDay(crewDays,a))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,categoryId:a.categoryId||'',crew:isCrewDay(crewDays,a),team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,vestColor:a.vestColor||'',dietCount:a.dietCount??0,pauseScheduledHours:a.pauseScheduledHours??0,rating:a.rating??0,pauseStart:a.pauseStart||'',pauseEnd:a.pauseEnd||'',checkIn:a.checkIn,checkOut:a.checkOut,noShow:a.noShow===true,actualHours:a.actualHours??null,hours:a.hours,pause:a.pause||0,actualPause:a.actualPause||'',ratingUniformidad:a.ratingUniformidad||0,ratingActitud:a.ratingActitud||0,ratingPuntualidad:a.ratingPuntualidad||0,coordNotes:a.coordNotes||'',revision:a.revision}});
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const coordinatorCandidates=actor.role==='manager'?[]:(await rows(db,'users')).filter(u=>u.active&&u.role==='worker'&&coordinatorRoster.some(a=>a.workerId===u.workerId)).map(u=>({id:u.id,name:u.name,workerId:u.workerId}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
@@ -934,54 +992,34 @@ export function createOfficeApi(storage,env={}){
       }
       return {records:updated};
     }
-    if(op==='coord-update'){
-     const a=await record(db,'assignments',b.id);revision(a,b);await requireCoordinatorEdit(db,actor,a);
-     const service=await record(db,'services',a.serviceId);
-     if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
-     const c=b.changes||{},next={...a},events=[],hm=v=>{const t=String(v||'');if(t&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(t))fail('Hora incorrecta.');return t;};
-     const addD=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
-     const fmtLocal=iso=>iso?new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso)):'';
-     const toISO=(day,t)=>{for(const off of [1,2]){const d=new Date(Date.parse(day+'T'+t+':00Z')-off*3600000);if(fmtLocal(d.toISOString())===t&&new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid'}).format(d)===day)return d.toISOString();}return new Date(Date.parse(day+'T'+t+':00Z')-3600000).toISOString();};
-     if(c.start!=null||c.end!=null){
-      const start=hm(c.start??a.start),end=hm(c.end??a.end);
-      if(!start||!end)fail('Indica inicio y fin.');
-      if(start!==a.start||end!==a.end){
-       if(a.checkOut)fail('No se modifica el horario de un turno ya finalizado.',409);
-       const endDate=end<=start?addD(a.date,1):a.date,span=(Date.parse(endDate+'T'+end+':00Z')-Date.parse(a.date+'T'+start+':00Z'))/3600000;
-       if(span<=0||span>24)fail('Horario incorrecto.');
-       for(const o of (await rows(db,'assignments')).filter(x=>x.workerId===a.workerId&&x.id!==a.id&&!x.archived))if(a.date+'T'+start<(o.endDate||o.date)+'T'+o.end&&endDate+'T'+end>o.date+'T'+o.start)fail('El trabajador ya tiene otro turno en ese horario.',409);
-       const hours=money(span-Number(a.pause||0));if(hours<=0)fail('La pausa supera la duración del turno.');
-       Object.assign(next,{start,end,endDate,hours});events.push('horario '+a.start+'–'+a.end+' → '+start+'–'+end);
-      }
+    if(op==='assignment-history'){
+     const a=await record(db,'assignments',b.id);if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);
+     const out=[];for(const e of (await db.list({prefix:'office/audit/'})).values())if(e.recordId===a.id)out.push({time:e.time,name:e.name,action:e.action,detail:e.detail||''});
+     return {entries:out.sort((x,y)=>y.time.localeCompare(x.time)).slice(0,100)};
+    }
+    if(op==='coord-update'||op==='coord-bulk'){
+     const items=op==='coord-bulk'?(Array.isArray(b.items)?b.items:[]):[{id:b.id,revision:b.revision}];
+     if(!items.length||items.length>200)fail('Selecciona entre 1 y 200 trabajadores.');
+     if(new Set(items.map(i=>i.id)).size!==items.length)fail('Trabajador duplicado en la selección.',409);
+     const all=(await rows(db,'assignments')).filter(x=>!x.archived),prepared=[];
+     for(const item of items){
+      const a=await record(db,'assignments',item.id);revision(a,item);await requireCoordinatorEdit(db,actor,a);
+      const service=await record(db,'services',a.serviceId);
+      if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
+      const name=op==='coord-bulk'?((await db.get(key('workers',a.workerId)))?.name||'Personal')+': ':'';
+      try{prepared.push({a,...coordApply(a,b.changes||{},all)});}catch(e){if(e.status)e.message=name+e.message;throw e;}
      }
-     if(c.absent!=null){
-      const absent=c.absent===true;
-      if(absent&&!a.noShow){if(a.checkIn)fail('Tiene entrada registrada. Deshaz la entrada antes de marcar No presentado.',409);Object.assign(next,{noShow:true,workerHours:0,workerUnits:0});events.push('no presentado');}
-      if(!absent&&a.noShow){const h=Math.max(Number(a.minimumHours||0),Number(a.actualHours??a.hours??0));Object.assign(next,{noShow:false,workerHours:h,workerUnits:a.rateUnit==='day'?1:h});events.push('deshace no presentado');}
+     // Nothing is written until every worker, revision and permission has been checked.
+     const out=[];
+     for(const {a,next,events} of prepared){
+      if(!events.length){out.push(publicAssignment(a,actor));continue;}
+      next.revision=a.revision+1;next.updatedAt=now();
+      await db.put(key('assignments',a.id),next);
+      if(next.checkIn!==a.checkIn||next.checkOut!==a.checkOut){const id=uid();await db.put('office/crewAttendanceAudit/'+id,{id,assignmentId:a.id,actorId:actor.id,reason:text((b.changes||{}).reason,400)||'Coordinación',event:'coord-edit',before:{checkIn:a.checkIn,checkOut:a.checkOut},after:{checkIn:next.checkIn,checkOut:next.checkOut},createdAt:now()});}
+      await audit(db,actor,op==='coord-bulk'?'coord-bulk':'coord-update','assignments',a.id,events.join(' · '));
+      out.push(publicAssignment(next,actor));
      }
-     if(c.realIn!=null){
-      const t=hm(c.realIn);
-      if(t){const iso=toISO(next.date,t);if(fmtLocal(a.checkIn)!==t){next.checkIn=iso;next.noShow=false;if(next.status==='pending')next.status='confirmed';events.push('entrada '+t);}}
-      else if(a.checkIn){next.checkIn='';next.checkOut='';events.push('deshace entrada');}
-     }
-     if(c.realOut!=null){
-      const t=hm(c.realOut);
-      if(t){if(!next.checkIn)fail('Registra primero la entrada.',409);const inT=fmtLocal(next.checkIn),inDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid'}).format(new Date(next.checkIn));const iso=toISO(t<=inT?addD(inDay,1):inDay,t);if(fmtLocal(a.checkOut)!==t||!a.checkOut){next.checkOut=iso;events.push('salida '+t);}}
-      else if(next.checkOut){next.checkOut='';events.push('deshace salida');}
-     }
-     if(next.checkIn&&next.checkOut&&(next.checkIn!==a.checkIn||next.checkOut!==a.checkOut)){
-      const actual=money(Math.max(0,(Date.parse(next.checkOut)-Date.parse(next.checkIn))/3600000-Number(a.pause||0)));
-      const wh=Math.max(Number(a.minimumHours||0),actual);Object.assign(next,{actualHours:actual,workerHours:wh,workerUnits:a.rateUnit==='day'?1:wh});
-     }
-     if(c.contacted!=null&&(c.contacted===true)!==(a.contacted===true)){next.contacted=c.contacted===true;events.push(next.contacted?'contactado':'sin contactar');}
-     if(c.dietCount!=null&&number(c.dietCount,0,3)!==Number(a.dietCount||0)){next.dietCount=number(c.dietCount,0,3);events.push('dietas '+next.dietCount);}
-     if(c.rating!=null&&number(c.rating,0,5)!==Number(a.rating||0)){next.rating=number(c.rating,0,5);events.push('valoración '+next.rating);}
-     if(!events.length)return {record:publicAssignment(a,actor)};
-     next.revision=a.revision+1;next.updatedAt=now();
-     await db.put(key('assignments',a.id),next);
-     if(next.checkIn!==a.checkIn||next.checkOut!==a.checkOut){const id=uid();await db.put('office/crewAttendanceAudit/'+id,{id,assignmentId:a.id,actorId:actor.id,reason:text(c.reason,400)||'Coordinación',event:'coord-edit',before:{checkIn:a.checkIn,checkOut:a.checkOut},after:{checkIn:next.checkIn,checkOut:next.checkOut},createdAt:now()});}
-     await audit(db,actor,'coord-update','assignments',a.id,events.join(' · '));
-     return {record:publicAssignment(next,actor)};
+     return op==='coord-bulk'?{records:out}:{record:out[0]};
     }
     if(op==='coordinator-control'){
      const a=await record(db,'assignments',b.id);revision(a,b);

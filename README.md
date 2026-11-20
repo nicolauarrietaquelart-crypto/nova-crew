@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v26 · Coordinación como Crew Control
+
+- Estado de cada trabajador con el mismo desplegable de Crew Control: **No contactado · Contactado · Presente · No presentado**.
+- Personal agrupado por turno (tipo · horario) con casilla para **seleccionar a todo el turno** o a personas sueltas.
+- Barra de **acciones masivas**: Presente, Contactado, No contactado, No presentado, Fin ahora y **Edición masiva** (horario previsto, entrada y fin reales, pausa, dietas y valoración). Se aplica a todos o a ninguno.
+- **Ficha del trabajador** igual que la de Crew Control: horario previsto, llegada registrada, entrada y fin reales con «Ahora», pausa aplicada, dietas, valoración de uniformidad/actitud/puntualidad, notas, incidencia, cambio de categoría e historial.
+
 ## Novedades v25 · Fichaje, coordinación y responsables
 
 - **Fichaje en ventana** (botón Fichar del menú y del móvil) con tres opciones:
