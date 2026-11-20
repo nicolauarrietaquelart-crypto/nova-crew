@@ -281,10 +281,13 @@ export function createOfficeApi(storage,env={}){
      if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
      const input=b.days||{};const days={};
      for(const d of ['mon','tue','wed','thu','fri','sat','sun']){
-      const a=input[d]||{},available=a.available===true;
-      const start=a.start?time(a.start):'08:00',end=a.end?time(a.end):'23:00';
+      const a=input[d]||{},slots=Array.isArray(a.slots)?[...new Set(a.slots.map(Number))].sort((x,y)=>x-y):null;
+      if(slots&&slots.some(h=>!Number.isInteger(h)||h<0||h>23))fail('La hora seleccionada debe ser válida.');
+      const available=slots?slots.length>0:a.available===true;
+      const start=slots?.length?String(slots[0]).padStart(2,'0')+':00':a.start?time(a.start):'08:00';
+      const end=slots?.length?String(slots.at(-1)+1).padStart(2,'0')+':00':a.end?time(a.end):'23:00';
       if(start>=end)fail('Horario semanal incorrecto en '+d);
-      days[d]={available,start,end};
+      days[d]={available,start,end,...(slots?{slots}:{})};
      }
      const value={workerId:actor.workerId,days,updatedAt:now()};
      await db.put(key('weeklyAvailability',actor.workerId),value);
@@ -739,7 +742,12 @@ export function createOfficeApi(storage,env={}){
     else fail('Fichaje incorrecto.');await db.put(key('assignments',a.id),{...a,...update,revision:a.revision+1,updatedAt:stamp});await audit(db,actor,'clock-'+b.action,'assignments',a.id);return {};
    }
    if(op==='availability'){
-    const workerId=actor.role==='manager'?b.workerId:actor.workerId;if(!workerId)fail('Tu cuenta no está vinculada a un trabajador.');await record(db,'workers',workerId);const day=date(b.date),id=workerId+'_'+day;const old=await db.get(key('availability',id));revision(old,b);const status=b.status;if(!['available','unavailable'].includes(status))fail('Disponibilidad incorrecta.');const start=b.start?time(b.start):'',end=b.end?time(b.end):'';if(start&&end&&start>=end)fail('La hora final debe ser posterior a la inicial.');await db.put(key('availability',id),{id,workerId,date:day,status,start,end,notes:text(b.notes,500),revision:(old?.revision||0)+1,updatedAt:now()});await audit(db,actor,'availability','availability',id);return {};
+    const workerId=actor.role==='manager'?b.workerId:actor.workerId;if(!workerId)fail('Tu cuenta no está vinculada a un trabajador.');await record(db,'workers',workerId);const day=date(b.date),id=workerId+'_'+day;const old=await db.get(key('availability',id));revision(old,b);const status=b.status;if(!['available','unavailable'].includes(status))fail('Disponibilidad incorrecta.');const slots=Array.isArray(b.slots)?[...new Set(b.slots.map(Number))].sort((x,y)=>x-y):null;
+    if(slots&&slots.some(h=>!Number.isInteger(h)||h<0||h>23))fail('Hora seleccionada no válida.');
+    const start=slots?.length?String(slots[0]).padStart(2,'0')+':00':b.start?time(b.start):'';
+    const end=slots?.length?String(slots.at(-1)+1).padStart(2,'0')+':00':b.end?time(b.end):'';
+    if(start&&end&&start>=end)fail('La hora final debe ser posterior a la inicial.');
+    await db.put(key('availability',id),{id,workerId,date:day,status,start,end,...(slots?{slots}:{}),notes:text(b.notes,500),revision:(old?.revision||0)+1,updatedAt:now()});await audit(db,actor,'availability','availability',id);return {};
    }
    if(op==='settlement-confirm'){
      managerOnly(actor);const s=await record(db,'services',b.serviceId);revision(s,b);
