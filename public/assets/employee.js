@@ -54,7 +54,7 @@ function service(id){return state.services?.find(s=>s.id===id)||{}}
 function myAssignments(){return list('assignments').filter(a=>a.workerId===state.user.workerId)}
 function box(title,content){return '<section class="panel"><div class="panel-head"><h2>'+esc(title)+'</h2></div>'+content+'</section>'}
 function btn(action,label,id,cls='secondary'){return '<button type="button" class="'+cls+'" data-action="'+action+'" data-id="'+esc(id||'')+'">'+esc(label)+'</button>'}
-function modal(title,html){$('#employee-modal').classList.remove('clock-dialog');$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;if(!$('#employee-modal').open)$('#employee-modal').showModal()}
+function modal(title,html){$('#employee-modal').classList.remove('clock-dialog','ccm-dialog');$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;if(!$('#employee-modal').open)$('#employee-modal').showModal()}
 /* ---------- NOVA Crew · área de empleado v18 ---------- */
 const STATUS_ES={confirmed:'Confirmado',pending:'Por confirmar',rejected:'Rechazado',planned:'Planificado',completed:'Finalizado',in_progress:'En curso',cancelled:'Cancelado',live:'En curso ahora',done:'Fichaje cerrado'};
 function status(s){return '<span class="badge '+esc(s)+'">'+esc(STATUS_ES[s]||s)+'</span>'}
@@ -267,69 +267,135 @@ function coordRole(e){
  const own=(state.coordinatorBlocks||[]).filter(b=>!b.lead&&b.serviceId===e.serviceId&&b.date===e.date);
  return own.length?own.map(b=>b.serviceType+' '+b.start+'–'+b.end).join(' · '):'Coordinación general';
 }
-const coordState=a=>a.noShow?'absent':a.checkOut?'done':a.checkIn?'present':'pending';
-/* Las horas de servicio se manejan en hora peninsular (Europe/Madrid), igual que Crew Control. */
 const hmOf=iso=>iso?new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso)):'';
 const hmNow=()=>hmOf(new Date().toISOString());
+/* Coordinación tipo Crew Control (sin equipos): estados, selección por turno, ficha y edición masiva. */
+let coordSel=new Set();
+const COORD_STATUS=[['pending','NO CONTACTADO'],['contacted','CONTACTADO'],['present','PRESENTE'],['absent','NO PRESENTADO']];
+const coordStatus=a=>a.noShow?'absent':a.checkIn?'present':a.contacted?'contacted':'pending';
+const coordState=a=>a.noShow?'absent':a.checkOut?'done':a.checkIn?'present':a.contacted?'contacted':'pending';
+const coordShiftKey=a=>(a.serviceType||'Servicio')+' · '+a.start+'–'+a.end;
+function coordDayClosed(e){const s=service(e.serviceId);return ['completed','cancelled'].includes(s.status)||(state.crewDayClosures||[]).some(c=>c.serviceId===e.serviceId&&c.date===e.date)}
 function coordinationPage(){
  const entries=coordEntries();
  if(coordKey&&!entries.some(e=>e.key===coordKey))coordKey='';
  const t=today();
  if(!coordKey){
+  coordSel.clear();
   $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación</h2><p class="muted">Elige el servicio. Dentro controlas asistencia, horarios e incidencias de tu personal.</p></div>'+
   (entries.length?'<div class="coord-list">'+entries.map(e=>{const s=service(e.serviceId),present=e.rows.filter(a=>a.checkIn).length,d=new Date(e.date+'T12:00:00');
    return '<button class="coord-card '+(e.date===t?'today':e.date<t?'past':'')+'" data-action="coord-enter" data-id="'+esc(e.key)+'"><div class="date-tile '+(e.date===t?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div><div class="coord-card-main"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||''))+'</small><span class="coord-role">'+esc(coordRole(e))+'</span></div><div class="coord-card-count"><b>'+present+'/'+e.rows.length+'</b><small>presentes</small></div><span class="coord-go">›</span></button>';}).join('')+'</div>':'<div class="panel empty">No coordinas ningún turno ahora mismo.</div>');
   return;
  }
- const e=entries.find(x=>x.key===coordKey),s=service(e.serviceId);
- const closed=['completed','cancelled'].includes(s.status)||(state.crewDayClosures||[]).some(c=>c.serviceId===e.serviceId&&c.date===e.date);
- const shiftLabel=a=>(a.serviceType||'Servicio')+' · '+a.start+'–'+a.end;
- const shifts=[...new Set(e.rows.map(shiftLabel))].sort((x,y)=>x.split(' · ')[1].localeCompare(y.split(' · ')[1]));
- if(coordShiftSel!=='all'&&!shifts.includes(coordShiftSel))coordShiftSel='all';
- const scoped=e.rows.filter(a=>coordShiftSel==='all'||shiftLabel(a)===coordShiftSel);
- const counts={all:scoped.length};for(const k of ['pending','present','done','absent'])counts[k]=scoped.filter(a=>coordState(a)===k).length;
+ const e=entries.find(x=>x.key===coordKey),s=service(e.serviceId),closed=coordDayClosed(e);
+ for(const id of [...coordSel])if(!e.rows.some(a=>a.id===id))coordSel.delete(id);
+ const counts={all:e.rows.length};for(const k of ['pending','contacted','present','done','absent'])counts[k]=e.rows.filter(a=>k==='present'?a.checkIn&&!a.noShow:coordState(a)===k).length;
  const q=coordSearch.toLocaleLowerCase();
- const rows=scoped.filter(a=>(coordFilter==='all'||coordState(a)===coordFilter)&&(!q||[coordWorkerName(a.workerId),a.role,a.serviceType].join(' ').toLocaleLowerCase().includes(q))).sort((a,b)=>(a.start+coordWorkerName(a.workerId)).localeCompare(b.start+coordWorkerName(b.workerId)));
- const chip=(k,l)=>'<button class="cc-chip '+k+(coordFilter===k?' selected':'')+'" data-action="coord-filter" data-id="'+k+'"><b>'+counts[k]+'</b> '+l+'</button>';
- const quick=a=>{if(closed)return '';const st=coordState(a);return st==='pending'?'<button class="cc-quick in" data-action="coord-quick" data-ev="in" data-id="'+esc(a.id)+'">Presente</button>':st==='present'?'<button class="cc-quick out" data-action="coord-quick" data-ev="out" data-id="'+esc(a.id)+'">Salida</button>':'';};
- const stLabel=a=>{const st=coordState(a);return st==='pending'?'Sin llegar':st==='present'?'Entrada '+hmOf(a.checkIn):st==='done'?hmOf(a.checkIn)+' – '+hmOf(a.checkOut):'No presentado';};
+ const visible=e.rows.filter(a=>(coordFilter==='all'||(coordFilter==='present'?a.checkIn&&!a.noShow:coordState(a)===coordFilter))&&(!q||[coordWorkerName(a.workerId),a.role,a.serviceType].join(' ').toLocaleLowerCase().includes(q)));
+ const groups=[...new Set(e.rows.map(coordShiftKey))].sort((x,y)=>x.split(' · ')[1].localeCompare(y.split(' · ')[1]));
+ const tile=(k,l)=>'<button class="cc-tile '+k+(coordFilter===k?' selected':'')+'" data-action="coord-filter" data-id="'+k+'"><b>'+counts[k]+(k==='present'?'<small>/'+counts.all+'</small>':'')+'</b><span>'+l+'</span></button>';
+ const stars=a=>{const n=Number(a.rating||0);return n?'<span class="cc-stars">★ '+n+'</span>':''};
+ const row=a=>{const st=coordStatus(a),ph=coordWorkerPhone(a.workerId),sel=coordSel.has(a.id);
+  return '<div class="cc-row2 st-'+st+(a.checkOut?' st-done':'')+(sel?' selected':'')+'">'+
+  (closed?'':'<label class="cc-cb"><input type="checkbox" data-coord-sel="'+esc(a.id)+'" '+(sel?'checked':'')+'></label>')+
+  '<select class="cc-status st-'+st+'" data-coord-status="'+esc(a.id)+'" '+(closed?'disabled':'')+'>'+COORD_STATUS.map(([k,l])=>'<option value="'+k+'" '+(st===k?'selected':'')+'>'+l+'</option>').join('')+'</select>'+
+  '<button class="cc-name" data-action="coord-edit" data-id="'+esc(a.id)+'"><strong>'+esc(coordWorkerName(a.workerId))+'</strong><small>'+esc(a.role||'')+(a.dietCount?' · '+a.dietCount+' dieta'+(a.dietCount>1?'s':''):'')+'</small></button>'+
+  '<span class="cc-times"><b>'+esc(a.start+'–'+a.end)+'</b><small>'+(a.checkIn?'Entrada '+hmOf(a.checkIn)+(a.checkOut?' · Fin '+hmOf(a.checkOut):''):a.noShow?'No presentado':'Sin entrada')+'</small></span>'+stars(a)+
+  (ph?'<a class="icon-call" href="tel:'+esc(ph.replace(/[^+\d]/g,''))+'" aria-label="Llamar">☎</a>':'')+'</div>'};
+ const groupHtml=g=>{const rs=visible.filter(a=>coordShiftKey(a)===g).sort((a,b)=>coordWorkerName(a.workerId).localeCompare(coordWorkerName(b.workerId)));if(!rs.length)return '';
+  const all=e.rows.filter(a=>coordShiftKey(a)===g),pres=all.filter(a=>a.checkIn&&!a.noShow).length,allSel=rs.every(a=>coordSel.has(a.id));
+  return '<section class="cc-group"><header>'+(closed?'':'<label class="cc-cb" title="Seleccionar todo el turno"><input type="checkbox" data-coord-group="'+esc(g)+'" '+(allSel?'checked':'')+'></label>')+'<strong>'+esc(g)+'</strong><span class="cc-group-count">'+pres+'/'+all.length+' presentes</span></header>'+rs.map(row).join('')+'</section>'};
  $('#employee-content').innerHTML='<div class="cc-lite">'+
  '<div class="cc-top"><button class="back-link" data-action="coord-back">‹ Coordinación</button><div class="cc-title"><div><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||'')+' · '+coordRole(e))+'</p></div><div class="cc-actions">'+(closed?'<span class="badge done">Día cerrado</span>':btn('scan-qr','Escanear QR',e.serviceId,'primary'))+btn('incident-report','Incidencia',e.serviceId)+'</div></div></div>'+
- '<div class="cc-chips">'+chip('all','Todos')+chip('pending','Sin llegar')+chip('present','Presentes')+chip('done','Salida')+chip('absent','No presentados')+'</div>'+
- (shifts.length>1?'<div class="coord-shifts"><button class="'+(coordShiftSel==='all'?'active':'')+'" data-action="coord-shift" data-id="all">Todos los horarios</button>'+shifts.map(x=>'<button class="'+(coordShiftSel===x?'active':'')+'" data-action="coord-shift" data-id="'+esc(x)+'">'+esc(x)+'</button>').join('')+'</div>':'')+
+ '<div class="cc-tiles">'+tile('present','Presentes')+tile('contacted','Contactados')+tile('pending','No contactados')+tile('absent','No presentados')+tile('done','Con salida')+tile('all','Todos')+'</div>'+
  '<label class="coord-search"><input type="search" id="coord-search" placeholder="Buscar persona o categoría…" value="'+esc(coordSearch)+'"></label>'+
- '<div class="cc-list">'+(rows.map(a=>{const st=coordState(a),ph=coordWorkerPhone(a.workerId);return '<div class="cc-row '+st+'"><span class="coord-dot"></span><button class="cc-main" data-action="coord-edit" data-id="'+esc(a.id)+'"><strong>'+esc(coordWorkerName(a.workerId))+'</strong><small>'+esc((a.role||'')+' · '+a.start+'–'+a.end)+(a.dietCount?' · '+a.dietCount+' dieta'+(a.dietCount>1?'s':''):'')+(a.rating?' · '+'★'.repeat(a.rating):'')+'</small></button><span class="cc-state">'+esc(stLabel(a))+'</span>'+quick(a)+(ph?'<a class="icon-call" href="tel:'+esc(ph.replace(/[^+\d]/g,''))+'" aria-label="Llamar">☎</a>':'')+(closed?'':'<button class="icon-call" data-action="coord-edit" data-id="'+esc(a.id)+'" aria-label="Editar">✎</button>')+'</div>';}).join('')||'<div class="empty">Sin personal para este filtro.</div>')+'</div>'+
- '<p class="muted compact">Toca a una persona para editar su horario, la entrada y salida reales, dietas o valoración, o abrir una incidencia. Los cambios quedan registrados a tu nombre.</p></div>';
+ (visible.length?groups.map(groupHtml).join(''):'<div class="empty">Sin personal para este filtro.</div>')+
+ (coordSel.size&&!closed?'<div class="cc-bulkbar"><b>'+coordSel.size+' seleccionado'+(coordSel.size>1?'s':'')+'</b><div class="cc-bulk-actions">'+
+  '<button data-action="coord-bulk-status" data-id="present" class="cc-b present">Presente</button><button data-action="coord-bulk-status" data-id="contacted" class="cc-b contacted">Contactado</button><button data-action="coord-bulk-status" data-id="pending" class="cc-b">No contactado</button><button data-action="coord-bulk-status" data-id="absent" class="cc-b absent">No presentado</button><button data-action="coord-bulk-out" class="cc-b">Fin ahora</button><button data-action="coord-bulk-edit" class="cc-b dark">Edición masiva</button><button data-action="coord-bulk-clear" class="cc-b ghost">✕</button></div></div>':'')+
+ '</div>';
+ document.querySelectorAll('[data-coord-status]').forEach(el=>el.onchange=()=>coordSetStatus([el.dataset.coordStatus],el.value));
+ document.querySelectorAll('[data-coord-sel]').forEach(el=>el.onchange=()=>{el.checked?coordSel.add(el.dataset.coordSel):coordSel.delete(el.dataset.coordSel);coordinationPage()});
+ document.querySelectorAll('[data-coord-group]').forEach(el=>el.onchange=()=>{const ids=visible.filter(a=>coordShiftKey(a)===el.dataset.coordGroup).map(a=>a.id);ids.forEach(id=>el.checked?coordSel.add(id):coordSel.delete(id));coordinationPage()});
 }
+async function coordSend(ids,changes,msg){
+ const rows=ids.map(id=>coordRoster().find(x=>x.id===id)).filter(Boolean);if(!rows.length)return;
+ try{
+  if(rows.length===1)await api('coord-update',{id:rows[0].id,revision:rows[0].revision,changes});
+  else await api('coord-bulk',{items:rows.map(a=>({id:a.id,revision:a.revision})),changes});
+  await load();notice(msg||'Cambios guardados');
+ }catch(err){error(err);await load().catch(()=>{});}
+}
+function coordSetStatus(ids,status){const l=COORD_STATUS.find(x=>x[0]===status)?.[1]||status;return coordSend(ids,{status},(ids.length>1?ids.length+' trabajadores · ':coordWorkerName(coordRoster().find(a=>a.id===ids[0])?.workerId)+' · ')+l.toLowerCase())}
+function coordQuick(id,ev){return ev==='in'?coordSetStatus([id],'present'):coordSend([id],{realOut:hmNow()},'Fin registrado')}
+const STAR_KEYS=[['ratingUniformidad','Uniformidad'],['ratingActitud','Actitud'],['ratingPuntualidad','Puntualidad']];
+function starRow(k,l,v){return '<div class="cc-rate"><strong>'+l+'</strong><div class="cc-starbar" data-star="'+k+'">'+[1,2,3,4,5].map(n=>'<button type="button" data-v="'+n+'" class="'+(n<=v?'on':'')+'" aria-label="'+n+'">★</button>').join('')+'</div></div>'}
+function bindStars(root,draft){root.querySelectorAll('.cc-starbar').forEach(bar=>bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{const k=bar.dataset.star,v=Number(b.dataset.v);draft[k]=draft[k]===v?0:v;bar.querySelectorAll('button').forEach(x=>x.classList.toggle('on',Number(x.dataset.v)<=draft[k]));}))}
 function coordEditModal(id){
  const a=coordRoster().find(x=>x.id===id);if(!a)return;
- const st=coordState(a),name=coordWorkerName(a.workerId);
- const opt=(n,v)=>'<option value="'+n+'" '+(Number(v)===n?'selected':'')+'>'+n+'</option>';
- modal(name,'<form id="coord-edit-form" class="cc-form">'+
-  '<p class="muted">'+esc((a.role||'')+' · '+(a.serviceType||'')+' · '+human(a.date))+'</p>'+
-  '<div class="cc-seg" role="radiogroup">'+[['pending','Sin llegar'],['present','Presente'],['absent','No presentado']].map(([k,l])=>'<label class="'+((st===k||(k==='present'&&st==='done'))?'on':'')+'"><input type="radio" name="state" value="'+k+'" '+((st===k||(k==='present'&&st==='done'))?'checked':'')+'>'+l+'</label>').join('')+'</div>'+
-  '<fieldset><legend>Horario previsto</legend><div class="cc-pair"><label>Inicio<input class="field" type="time" name="start" value="'+esc(a.start)+'" '+(a.checkOut?'disabled':'')+'></label><label>Fin<input class="field" type="time" name="end" value="'+esc(a.end)+'" '+(a.checkOut?'disabled':'')+'></label></div></fieldset>'+
-  '<fieldset><legend>Horario real</legend><div class="cc-pair"><label>Entrada<div class="cc-now"><input class="field" type="time" name="realIn" value="'+esc(hmOf(a.checkIn))+'"><button type="button" data-now="realIn">Ahora</button></div></label><label>Salida<div class="cc-now"><input class="field" type="time" name="realOut" value="'+esc(hmOf(a.checkOut))+'"><button type="button" data-now="realOut">Ahora</button></div></label></div></fieldset>'+
-  '<div class="cc-pair"><label>Dietas<select class="field" name="dietCount">'+[0,1,2,3].map(n=>opt(n,a.dietCount||0)).join('')+'</select></label><label>Valoración<select class="field" name="rating">'+[0,1,2,3,4,5].map(n=>'<option value="'+n+'" '+(Number(a.rating||0)===n?'selected':'')+'>'+(n?'★'.repeat(n):'Sin valorar')+'</option>').join('')+'</select></label></div>'+
-  '<label class="cc-check"><input type="checkbox" name="contacted" '+(a.contacted?'checked':'')+'> Contactado</label>'+
-  '<label class="form-label">Motivo del cambio (opcional)<input class="field" name="reason" maxlength="400" placeholder="Ej.: llegó tarde por tráfico"></label>'+
-  '<button class="primary" type="submit">Guardar cambios</button>'+
-  '<div class="cc-form-links"><button type="button" class="secondary" data-action="coord-worker-incident" data-id="'+esc(a.id)+'">Incidencia</button><button type="button" class="secondary" data-action="crew-category" data-id="'+esc(a.id)+'">Pedir cambio de categoría</button></div></form>');
- const f=$('#coord-edit-form');
- f.querySelectorAll('[data-now]').forEach(b=>b.onclick=()=>{f.elements[b.dataset.now].value=hmNow();if(b.dataset.now==='realIn')f.elements.state.value='present';sync();});
- const sync=()=>{f.querySelectorAll('.cc-seg label').forEach(l=>l.classList.toggle('on',l.querySelector('input').checked));const v=f.elements.state.value;if(v==='pending'||v==='absent'){f.elements.realIn.value='';f.elements.realOut.value='';}};
- f.querySelectorAll('.cc-seg input').forEach(r=>r.onchange=()=>{if(r.value==='present'&&!f.elements.realIn.value)f.elements.realIn.value=hmNow();sync();});
- f.elements.realIn.oninput=()=>{if(f.elements.realIn.value){f.elements.state.value='present';sync();}};
+ const e=coordEntries().find(x=>x.serviceId===a.serviceId&&x.date===a.date),closed=e?coordDayClosed(e):false;
+ const name=coordWorkerName(a.workerId),draft={};STAR_KEYS.forEach(([k])=>draft[k]=Number(a[k]||0));
+ const pauseLbl=Number(a.pause||0)?(Number(a.pause)*60)+' min':'SIN PAUSA';
+ modal(name,'<div class="ccm"><p class="ccm-sub">'+esc((a.role||'')+' · '+(a.serviceType||'')+' · '+human(a.date))+'</p>'+
+  '<form id="coord-edit-form" class="ccm-grid">'+
+  '<div class="ccm-full ccm-planned"><span><strong>Horario previsto:</strong> <span id="ccm-planned-text">'+esc(a.start+' – '+a.end)+'</span> · Pausa '+esc(pauseLbl)+' · '+Number(a.dietCount||0)+' dietas</span>'+(closed||a.checkOut?'':'<button type="button" class="ccm-link" id="ccm-edit-planned">Cambiar</button>')+
+   '<div class="ccm-planned-edit" hidden><label>Inicio<input type="time" name="start" value="'+esc(a.start)+'"></label><label>Fin<input type="time" name="end" value="'+esc(a.end)+'"></label></div></div>'+
+  '<div class="ccm-status"><label>Estado<select name="status" '+(closed?'disabled':'')+'>'+COORD_STATUS.map(([k,l])=>'<option value="'+k+'" '+(coordStatus(a)===k?'selected':'')+'>'+l+'</option>').join('')+'</select></label></div>'+
+  '<div class="ccm-arrival '+(a.checkIn?'':'empty')+'"><span>LLEGADA REGISTRADA</span><strong>'+(a.checkIn?esc(hmOf(a.checkIn)):'Todavía no registrada')+'</strong></div>'+
+  '<div><label class="ccm-label">Entrada real</label><div class="ccm-now"><input type="time" name="realIn" value="'+esc(hmOf(a.checkIn))+'"><button type="button" data-now="realIn">Ahora</button></div></div>'+
+  '<div><label class="ccm-label">Fin real</label><div class="ccm-now"><input type="time" name="realOut" value="'+esc(hmOf(a.checkOut))+'"><button type="button" data-now="realOut">Ahora</button></div></div>'+
+  '<div><label class="ccm-label">Pausa aplicada</label><div class="ccm-now"><input type="time" step="900" name="actualPause" value="'+esc(a.actualPause||(Number(a.pause||0)?String(Math.floor(a.pause)).padStart(2,'0')+':'+String(Math.round((a.pause%1)*60)).padStart(2,'0'):'00:00'))+'"><button type="button" id="ccm-nopause">Sin pausa</button></div></div>'+
+  '<div><label class="ccm-label">N.º dietas aplicado</label><select name="dietCount">'+[[0,'0 · Sin dieta'],[1,'1 dieta'],[2,'2 dietas'],[3,'3 dietas']].map(([n,l])=>'<option value="'+n+'" '+(Number(a.dietCount||0)===n?'selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
+  '<div class="ccm-rates">'+STAR_KEYS.map(([k,l])=>starRow(k,l,draft[k])).join('')+'</div>'+
+  '<div><label class="ccm-label">Notas</label><textarea name="coordNotes" maxlength="1000" placeholder="Incidencias, valoración, observaciones…">'+esc(a.coordNotes||'')+'</textarea></div>'+
+  '<div class="ccm-full ccm-actions"><div><button type="button" class="ccm-link" data-action="coord-worker-incident" data-id="'+esc(a.id)+'">Incidencia</button><button type="button" class="ccm-link" data-action="crew-category" data-id="'+esc(a.id)+'">Cambiar categoría</button><button type="button" class="ccm-link" data-action="coord-history" data-id="'+esc(a.id)+'">Historial</button></div><div><button type="button" class="ccm-link" data-action="modal-close-x">Cancelar</button>'+(closed?'':'<button class="primary" type="submit">Guardar ficha</button>')+'</div></div>'+
+  '</form></div>');
+ $('#employee-modal').classList.add('ccm-dialog');
+ const f=$('#coord-edit-form');bindStars(f,draft);
+ f.querySelectorAll('[data-now]').forEach(b=>b.onclick=()=>{f.elements[b.dataset.now].value=hmNow();if(b.dataset.now==='realIn')f.elements.status.value='present';});
+ $('#ccm-nopause').onclick=()=>{f.elements.actualPause.value='00:00'};
+ const ep=$('#ccm-edit-planned');if(ep)ep.onclick=()=>{f.querySelector('.ccm-planned-edit').hidden=false;ep.hidden=true;};
+ f.elements.realIn.oninput=()=>{if(f.elements.realIn.value)f.elements.status.value='present'};
+ f.elements.status.onchange=()=>{const v=f.elements.status.value;if(v==='present'&&!f.elements.realIn.value)f.elements.realIn.value=hmNow();if(v!=='present'){f.elements.realIn.value='';f.elements.realOut.value='';}};
  f.onsubmit=async ev=>{ev.preventDefault();const d=Object.fromEntries(new FormData(f));
-  const changes={contacted:f.elements.contacted.checked,dietCount:Number(d.dietCount),rating:Number(d.rating),reason:d.reason||''};
-  if(!a.checkOut){changes.start=d.start;changes.end=d.end;}
-  if(d.state==='absent'){changes.realOut='';changes.realIn='';changes.absent=true;}
-  else{changes.absent=false;changes.realIn=d.state==='pending'?'':d.realIn||'';changes.realOut=d.state==='pending'?'':d.realOut||'';}
-  try{await api('coord-update',{id:a.id,revision:a.revision,changes});$('#employee-modal').close();await load();notice('Cambios guardados');}catch(e){error(e)}};
+  const changes={dietCount:Number(d.dietCount),coordNotes:d.coordNotes||'',...draft};
+  if(!f.querySelector('.ccm-planned-edit').hidden){changes.start=d.start;changes.end=d.end;}
+  if(d.status==='present'){changes.absent=false;changes.realIn=d.realIn||hmNow();changes.realOut=d.realOut||'';if(d.actualPause)changes.actualPause=d.actualPause;}
+  else changes.status=d.status;
+  try{await api('coord-update',{id:a.id,revision:a.revision,changes});$('#employee-modal').close();await load();notice('Ficha guardada');}catch(err){error(err)}};
 }
-async function coordQuick(id,ev){
+async function coordHistory(id){
  const a=coordRoster().find(x=>x.id===id);if(!a)return;
- try{await api('coord-update',{id:a.id,revision:a.revision,changes:ev==='in'?{realIn:hmNow(),absent:false}:{realOut:hmNow()}});await load();notice(coordWorkerName(a.workerId)+(ev==='in'?' · presente':' · salida registrada'));}catch(e){error(e)}
+ modal('Historial · '+coordWorkerName(a.workerId),'<div id="ccm-hist"><p class="muted">Cargando…</p></div><button class="secondary" data-action="coord-edit" data-id="'+esc(id)+'">‹ Volver a la ficha</button>');
+ try{const {entries}=await api('assignment-history',{id});const L={'coord-update':'Coordinación','coord-bulk':'Edición masiva','qr-in':'Entrada por QR','qr-out':'Salida por QR','clock-in':'Entrada','clock-out':'Salida',create:'Asignado',update:'Modificado por Gestoría',confirmed:'Confirmado',rejected:'Rechazado','crew-control-shift':'Crew Control · horario','attendance-adjust':'Corrección de Gestoría'};
+  $('#ccm-hist').innerHTML=entries.length?'<div class="history-list">'+entries.map(x=>'<div class="history-item"><span class="history-time">'+esc(new Date(x.time).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))+'</span><span class="history-dot"></span><div><p><b>'+esc(x.name||'Sistema')+'</b> · '+esc(L[x.action]||x.action)+'</p>'+(x.detail?'<small>'+esc(x.detail)+'</small>':'')+'</div></div>').join('')+'</div>':'<p class="muted">Sin cambios registrados.</p>';
+ }catch(err){$('#ccm-hist').innerHTML='<p class="muted">'+esc(err.message)+'</p>'}
+}
+function coordBulkModal(){
+ const ids=[...coordSel];if(!ids.length)return;const draft={ratingUniformidad:0,ratingActitud:0,ratingPuntualidad:0};
+ const fld=(k,label,input)=>'<div class="ccb-field"><label class="ccb-apply"><input type="checkbox" data-apply="'+k+'"> '+label+'</label>'+input+'</div>';
+ modal('Edición masiva · '+ids.length+' trabajador'+(ids.length>1?'es':''),'<form id="coord-bulk-form" class="ccm-grid"><p class="ccm-full muted">Marca solo los campos que quieras cambiar. Se aplica a todos los seleccionados o a ninguno.</p>'+
+  fld('planned','Horario previsto','<div class="ccm-now"><input type="time" name="start"><input type="time" name="end"></div>')+
+  fld('realIn','Entrada real','<div class="ccm-now"><input type="time" name="realIn"><button type="button" data-now="realIn">Ahora</button></div>')+
+  fld('realOut','Fin real','<div class="ccm-now"><input type="time" name="realOut"><button type="button" data-now="realOut">Ahora</button></div>')+
+  fld('actualPause','Pausa aplicada','<input type="time" step="900" name="actualPause" value="00:00">')+
+  fld('dietCount','N.º dietas','<select name="dietCount"><option value="0">0 · Sin dieta</option><option value="1">1 dieta</option><option value="2">2 dietas</option><option value="3">3 dietas</option></select>')+
+  fld('rating','Valoración','<div class="ccm-rates">'+STAR_KEYS.map(([k,l])=>starRow(k,l,0)).join('')+'</div>')+
+  '<div class="ccm-full ccm-actions"><span></span><div><button type="button" class="ccm-link" data-action="modal-close-x">Cancelar</button><button class="primary" type="submit">Aplicar a '+ids.length+'</button></div></div></form>');
+ $('#employee-modal').classList.add('ccm-dialog');
+ const f=$('#coord-bulk-form');bindStars(f,draft);
+ const tick=k=>{const c=f.querySelector('[data-apply="'+k+'"]');if(c)c.checked=true};
+ f.querySelectorAll('[data-now]').forEach(b=>b.onclick=()=>{f.elements[b.dataset.now].value=hmNow();tick(b.dataset.now)});
+ f.querySelectorAll('input,select').forEach(el=>{if(el.dataset.apply)return;el.addEventListener('input',()=>{const k=el.name==='start'||el.name==='end'?'planned':el.name;tick(k)})});
+ f.querySelectorAll('.cc-starbar button').forEach(b=>b.addEventListener('click',()=>tick('rating')));
+ f.onsubmit=async ev=>{ev.preventDefault();const on=k=>f.querySelector('[data-apply="'+k+'"]').checked,changes={};
+  if(on('planned')){if(!f.elements.start.value||!f.elements.end.value)return notice('Indica inicio y fin del horario previsto',true);changes.start=f.elements.start.value;changes.end=f.elements.end.value;}
+  if(on('realIn')){changes.realIn=f.elements.realIn.value;if(changes.realIn)changes.absent=false;}
+  if(on('realOut'))changes.realOut=f.elements.realOut.value;
+  if(on('actualPause'))changes.actualPause=f.elements.actualPause.value||'00:00';
+  if(on('dietCount'))changes.dietCount=Number(f.elements.dietCount.value);
+  if(on('rating'))Object.assign(changes,draft);
+  if(!Object.keys(changes).length)return notice('Marca al menos un campo',true);
+  $('#employee-modal').close();await coordSend(ids,changes,'Edición masiva aplicada a '+ids.length);coordSel.clear();coordinationPage();};
 }
 async function redeemToken(token,serviceId){
  try{return await api('qr-redeem',{token});}
@@ -960,11 +1026,17 @@ document.addEventListener('click',async ev=>{
  if(action==='check-location')return verifyClockPosition(id);
  if(action==='open-clock')return openClockModal(id);
  if(action==='go-services'){page='services';return render()}
- if(action==='coord-enter'){coordKey=id;coordFilter='all';coordShiftSel='all';coordSearch='';coordinationPage();return window.scrollTo({top:0})}
+ if(action==='coord-enter'){coordSel.clear();coordKey=id;coordFilter='all';coordShiftSel='all';coordSearch='';coordinationPage();return window.scrollTo({top:0})}
  if(action==='coord-back'){coordKey='';return coordinationPage()}
  if(action==='coord-filter'){coordFilter=id;return coordinationPage()}
  if(action==='coord-shift'){coordShiftSel=id;return coordinationPage()}
  if(action==='coord-edit')return coordEditModal(id);
+ if(action==='coord-history')return coordHistory(id);
+ if(action==='coord-bulk-status')return coordSetStatus([...coordSel],id).then(()=>{coordSel.clear();coordinationPage()});
+ if(action==='coord-bulk-out')return coordSend([...coordSel],{realOut:hmNow()},'Fin registrado a '+coordSel.size).then(()=>{coordSel.clear();coordinationPage()});
+ if(action==='coord-bulk-edit')return coordBulkModal();
+ if(action==='coord-bulk-clear'){coordSel.clear();return coordinationPage()}
+ if(action==='modal-close-x'){$('#employee-modal').close();return}
  if(action==='coord-quick')return coordQuick(id,el.dataset.ev);
  if(action==='coord-worker-incident'){const a=coordRoster().find(x=>x.id===id);if(a)return incidentModal(a.serviceId,{workerId:a.workerId});return}
  if(action==='service-back'){history.replaceState(null,'',location.pathname);page=servicePrev||'services';render();return window.scrollTo({top:0})}
@@ -1050,7 +1122,7 @@ $('#employee-content').addEventListener('input',e=>{
  crewSearch=e.target.value;const cursor=e.target.selectionStart;crewControlPage();
  const field=$('#crew-search');if(field){field.focus();field.setSelectionRange(cursor,cursor)}
 });
-$('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();stopQrRefresh();$('#employee-modal').classList.remove('clock-dialog')});
+$('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();stopQrRefresh();$('#employee-modal').classList.remove('clock-dialog','ccm-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 function canAutoRefresh(){const f=document.activeElement;return state.user&&!document.hidden&&!$('#employee-modal').open&&!isLoading&&!(f&&f.matches('input,textarea,select'))&&!$('.sidebar').classList.contains('open')}
 setInterval(()=>{if(canAutoRefresh()){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},45000);

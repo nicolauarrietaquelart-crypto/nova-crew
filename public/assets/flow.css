@@ -172,3 +172,77 @@
 .history-item p{margin:0;font-size:13.5px}
 .history-item small{display:block;color:var(--muted,#6d727c);font-size:12.5px}
 .history-kind{display:inline!important;margin-left:4px;padding:1px 7px;border-radius:999px;background:rgba(20,22,28,.06);font-size:11px!important}
+
+/* v26 · Coordinación tipo Crew Control: estados, grupos por turno, selección y edición masiva */
+.cc-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.cc-tile{display:grid;gap:2px;text-align:left;padding:12px 14px;border-radius:16px;border:1.5px solid transparent;background:#f3f4f6;font:inherit;color:inherit;cursor:pointer}
+.cc-tile b{font-size:24px;line-height:1}.cc-tile b small{font-size:14px;color:var(--muted,#6d727c)}
+.cc-tile span{font-size:12.5px;color:var(--muted,#6d727c);font-weight:600}
+.cc-tile.present{background:#e6f6ee;color:#167a4c}.cc-tile.contacted{background:#fff1e3;color:#b85b0c}.cc-tile.absent{background:#fde9e9;color:#c0392b}.cc-tile.done{background:#e8effd;color:#2358c7}
+.cc-tile.selected{border-color:currentColor;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.cc-group{border:1px solid var(--line,rgba(20,22,28,.1));border-radius:18px;background:#fff;overflow:hidden}
+.cc-group+.cc-group{margin-top:10px}
+.cc-group header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#15171b;color:#fff}
+.cc-group header strong{flex:1;font-size:14px}
+.cc-group-count{font-size:12px;opacity:.8;font-weight:700}
+.cc-cb{display:grid;place-items:center;flex:0 0 22px}
+.cc-cb input{width:18px;height:18px;accent-color:#ff7f1f;cursor:pointer;margin:0}
+.cc-row2{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid rgba(20,22,28,.06)}
+.cc-row2.selected{background:rgba(255,127,31,.07)}
+.cc-status{flex:0 0 150px;padding:8px 10px;border-radius:10px;border:0;font:inherit;font-size:12px;font-weight:800;letter-spacing:.02em;cursor:pointer;background:#eceef1;color:#3b3f46;-webkit-appearance:auto;appearance:auto}
+.cc-status{background-color:#eceef1 !important;color:#3b3f46 !important;border:0 !important;min-height:0 !important}
+.cc-status.st-present{background-color:#1f9d63 !important;color:#fff !important}.cc-status.st-contacted{background-color:#ff7f1f !important;color:#fff !important}.cc-status.st-absent{background-color:#d93b3b !important;color:#fff !important}
+.cc-status option{background:#fff;color:#15171b}
+.cc-name{flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.cc-name strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-name:hover strong{color:var(--orange,#ff7f1f)}
+.cc-name small,.cc-times small{display:block;color:var(--muted,#6d727c);font-size:12px}
+.cc-times{text-align:right;white-space:nowrap;font-size:13px}
+.cc-row2.st-done .cc-times small{color:#2358c7;font-weight:700}
+.cc-row2.st-present:not(.st-done) .cc-times small{color:#1f9d63;font-weight:700}
+.cc-stars{color:#e9a400;font-size:12.5px;font-weight:800;white-space:nowrap}
+.cc-bulkbar{position:sticky;bottom:12px;z-index:30;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border-radius:18px;background:#15171b;color:#fff;box-shadow:0 14px 34px rgba(0,0,0,.25);animation:nvUp .25s ease both}
+.cc-bulk-actions{display:flex;gap:6px;flex-wrap:wrap;flex:1;justify-content:flex-end}
+.cc-b{padding:8px 12px;border-radius:10px;border:0;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;background:rgba(255,255,255,.12);color:#fff}
+.cc-b.present{background:#1f9d63}.cc-b.contacted{background:#ff7f1f}.cc-b.absent{background:#d93b3b}.cc-b.dark{background:#fff;color:#15171b}.cc-b.ghost{background:transparent}
+/* Ficha del trabajador (como Crew Control) */
+#employee-modal.ccm-dialog{max-width:min(880px,96vw);width:880px}
+.ccm-sub{margin:-6px 0 12px;color:var(--muted,#6d727c)}
+.ccm-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 18px}
+.ccm-full{grid-column:1/-1}
+.ccm-planned{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-radius:14px;border:1px solid var(--line,rgba(20,22,28,.1));background:#fff}
+.ccm-planned>span{flex:1}
+.ccm-planned-edit{display:flex;gap:10px;width:100%}.ccm-planned-edit label{display:grid;gap:3px;font-size:12px;font-weight:700;flex:1}
+.ccm-link{background:none;border:0;font:inherit;font-weight:700;cursor:pointer;padding:8px 10px;border-radius:10px;color:inherit}
+.ccm-link:hover{background:rgba(20,22,28,.06)}
+.ccm-status label{display:grid;gap:4px;font-weight:700}
+.ccm-arrival{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:14px;border:1px solid var(--line,rgba(20,22,28,.1));background:#fff}
+.ccm-arrival span{font-size:12px;font-weight:800;color:#1f7a4c;letter-spacing:.03em}
+.ccm-arrival strong{font-size:20px;color:#1f9d63}
+.ccm-arrival.empty strong{font-size:14px;color:var(--muted,#6d727c)}
+.ccm-label{display:block;font-weight:700;margin-bottom:5px}
+.ccm-now{display:flex;gap:8px;align-items:center}
+.ccm-grid input[type=time],.ccm-grid select,.ccm-grid textarea{width:100%;min-width:0;box-sizing:border-box;padding:11px 12px;border-radius:12px;border:1px solid var(--line,rgba(20,22,28,.16));font:inherit;background:#fff}
+.ccm-now button{flex:0 0 auto;background:none;border:0;font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:6px}
+.ccm-grid textarea{min-height:120px;resize:vertical}
+.ccm-rates{display:grid;gap:8px}
+.cc-rate{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cc-starbar{display:flex;gap:2px}
+.cc-starbar button{background:none;border:0;font-size:26px;line-height:1;color:#d5d8dd;cursor:pointer;padding:0 2px}
+.cc-starbar button.on{color:#f4b400}
+.ccm-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line,rgba(20,22,28,.08));padding-top:12px}
+.ccm-actions>div{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.ccb-field{display:grid;gap:6px;padding:10px 12px;border-radius:14px;border:1px solid var(--line,rgba(20,22,28,.1))}
+.ccb-apply{display:flex;align-items:center;gap:8px;font-weight:800}
+.ccb-apply input{width:18px;height:18px;accent-color:#ff7f1f}
+@media (max-width:760px){
+ .cc-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .cc-row2{flex-wrap:wrap;padding:10px 12px}
+ .cc-status{flex:1 1 140px;order:2}
+ .cc-name{flex:1 1 calc(100% - 40px);order:1}
+ .cc-row2 .cc-cb{order:0}
+ .cc-times{order:3;text-align:left}
+ .cc-stars{order:4}.cc-row2 .icon-call{order:5}
+ .ccm-grid{grid-template-columns:1fr}
+ .cc-bulk-actions{justify-content:flex-start}
+}

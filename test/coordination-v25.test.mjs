@@ -74,3 +74,25 @@ test('Gestoría marks who prepared the quote and who closed the service',async()
  const h=await f.call('history',{kind:'quotes',id:q.id},f.g);
  assert.ok(h.body.entries.some(e=>e.action==='set-prepared-by'&&e.detail==='Fran'));
 });
+
+test('coordinator sets Crew Control statuses and bulk edits all or nothing',async()=>{
+ const f=await setup();
+ let r=await f.call('coord-update',{id:f.aHand.id,revision:f.aHand.revision,changes:{status:'contacted'}},f.c);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.record.contacted,true);assert.ok(!r.body.record.checkIn);
+ const st=(await f.call('state',null,f.c)).body,rows=st.coordinatorRoster;
+ assert.equal(rows.length,2);
+ // all-or-nothing: Fin real without entry fails for both
+ const fail=await f.call('coord-bulk',{items:rows.map(a=>({id:a.id,revision:a.revision})),changes:{realOut:'18:00'}},f.c);
+ assert.equal(fail.status,409);
+ const after=(await f.call('state',null,f.c)).body.coordinatorRoster;assert.deepEqual(after.map(a=>a.revision),rows.map(a=>a.revision));
+ r=await f.call('coord-bulk',{items:rows.map(a=>({id:a.id,revision:a.revision})),changes:{status:'present'}},f.c);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.ok(r.body.records.every(a=>a.checkIn));
+ r=await f.call('coord-bulk',{items:r.body.records.map(a=>({id:a.id,revision:a.revision})),changes:{realIn:'08:00',realOut:'16:30',actualPause:'00:30',dietCount:1,ratingUniformidad:5,ratingActitud:4,ratingPuntualidad:3}},f.c);
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ for(const a of r.body.records){assert.equal(a.actualHours,8);assert.equal(a.rating,4);assert.equal(a.dietCount,1);}
+ r=await f.call('coord-update',{id:r.body.records[0].id,revision:r.body.records[0].revision,changes:{status:'absent'}},f.c);
+ assert.equal(r.status,200);assert.equal(r.body.record.noShow,true);assert.ok(!r.body.record.checkIn);
+ assert.equal((await f.call('coord-bulk',{items:[{id:f.aHand.id,revision:99}],changes:{status:'present'}},f.h)).status,409);
+ const h=await f.call('assignment-history',{id:f.aHand.id},f.c);assert.equal(h.status,200);assert.ok(h.body.entries.some(e=>e.action==='coord-bulk'));
+ assert.equal((await f.call('assignment-history',{id:f.aHand.id},f.h)).status,403);
+});
