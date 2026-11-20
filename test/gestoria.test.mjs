@@ -198,10 +198,10 @@ test('a worker can coordinate one service and validate QR without a third global
  assert.equal(redeem.body.action,'in');
  const refreshed=(await call('state',null,coordCookie)).body;
  const entry=refreshed.coordinatorRoster[0];
- // A general coordinator validates QR but Crew Control changes are reserved to the Crew Head.
+ // A general coordinator validates QR and edits attendance details (v25); teams stay with the Crew Head.
  const contact=await call('coordinator-control',{id:entry.id,revision:entry.revision,field:'contacted',value:true},coordCookie);
- assert.equal(contact.status,403);
- const blocked=await call('coordinator-control',{id:entry.id,revision:entry.revision,field:'team',value:'Main Stage'},handCookie);
+ assert.equal(contact.status,200,JSON.stringify(contact.body));
+ const blocked=await call('coordinator-control',{id:entry.id,revision:contact.body.record.revision,field:'team',value:'Main Stage'},handCookie);
  assert.equal(blocked.status,403);
 });
 test('venue geofencing is checked at the clock event, without storing coordinates on the assignment',async()=>{
@@ -385,7 +385,7 @@ test('different workers coordinate independent day/type blocks without office pr
  assert.deepEqual(state1.coordinatorRoster.map(x=>x.id),[turn1.id]);
  assert.deepEqual(state2.coordinatorRoster.map(x=>x.id),[turn2.id]);
  assert.equal((await call('coordinator-control',{id:turn2.id,revision:turn2.revision,field:'contacted',value:true},cookie1)).status,403);
- assert.equal((await call('coordinator-control',{id:turn1.id,revision:turn1.revision,field:'contacted',value:true},cookie1)).status,403);
+ assert.equal((await call('coordinator-control',{id:turn1.id,revision:turn1.revision,field:'contacted',value:true},cookie1)).status,200);
  const qr=await call('qr-issue',{id:turn2.id},handCookie);assert.equal(qr.status,200);
  assert.equal((await call('qr-redeem',{token:qr.body.token},cookie1)).status,403);
  assert.equal((await f.call('qr-redeem',{token:qr.body.token})).status,403);

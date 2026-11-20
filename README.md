@@ -1,5 +1,19 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v25 · Fichaje, coordinación y responsables
+
+- **Fichaje en ventana** (botón Fichar del menú y del móvil) con tres opciones:
+  - **Escanear QRs**: solo coordinadores y Crew Heads; eliges el servicio y escaneas a tu personal.
+  - **Mostrar mi QR**: QR temporal que se renueva solo cada 90 segundos.
+  - **Fichar por geolocalización**: solo si eres coordinador del servicio (nadie puede escanearte a ti). Exige ubicación.
+  - El historial de fichajes sigue disponible desde la ventana.
+- **Menú del empleado**: *Coordinación* solo aparece a quien coordina; *Crew Control* solo a quien es Crew Head. Un Crew Head que entra en su servicio de ese día va directo a Crew Control.
+- **Coordinación tipo Crew Control (sin equipos)**, más minimalista: marcar presente o salida con un toque, editar horario previsto, entrada y salida reales, no presentado, dietas, valoración y contactado, abrir incidencias y pedir cambio de categoría. Todo queda registrado a nombre del coordinador.
+- **Gestoría**:
+  - Desplegable **Presupuesto hecho por** (usuarios de Gestoría) en cada presupuesto, visible en el listado.
+  - Desplegable **Cierre hecho por** en *Cierre y facturación* del servicio (se rellena solo al certificar si está vacío).
+  - **Historial de cambios** de cada presupuesto y servicio: quién cambió qué y cuándo, incluidos turnos, fichajes, coordinación y facturas.
+
 ## Novedades v24 · El ciclo del servicio, de principio a fin
 
 La aplicación se organiza ahora alrededor del recorrido real de cada servicio:
