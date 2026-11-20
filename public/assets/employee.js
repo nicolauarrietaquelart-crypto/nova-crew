@@ -332,6 +332,87 @@ function crewControlPage(){
  '<div class="cc-groups">'+(rosterGroups||'<div class="cc-empty">Sin trabajadores para estos filtros.</div>')+'</div></div></div>'+
  '<div class="cc-mobile-foot"><strong>'+present+'/'+records.length+' presentes</strong><span>'+contacted+' contactados</span><span>'+absent+' ausentes</span><span>'+noTeam+' sin equipo</span><button type="button" data-action="crew-bulk">Ajustes</button></div></section>';
 }
+
+function crewBulkModal(){
+ const chosen=crewAllRoster().filter(a=>crewSelectedIds.has(a.id));
+ if(!chosen.length)return error(new Error('Selecciona primero uno o varios trabajadores.'));
+ const fields=[['team','Equipo'],['vestColor','Chaleco'],['contacted','Contacto'],['pauseScheduledHours','Duración de pausa (h)'],['pauseStart','Inicio de pausa'],['pauseEnd','Fin de pausa'],['dietCount','Dietas'],['rating','Valoración (0–5)']];
+ const choices='<select class="field" name="field" id="cc-bulk-field">'+fields.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select>';
+ modal('Edición masiva · '+chosen.length+' trabajadores','<form id="cc-bulk-form" style="display:grid;gap:13px"><p class="muted">Solo se modifican los turnos seleccionados y autorizados. Se respetan los permisos individuales.</p>'+
+ '<label class="form-label">Campo a modificar'+choices+'</label><label class="form-label">Nuevo valor<input id="cc-bulk-value" name="value" class="field" required autocomplete="off" placeholder="Nombre de equipo o valor"></label>'+
+ '<button class="primary" type="submit">Aplicar a '+chosen.length+' trabajadores</button></form>');
+ const field=$('#cc-bulk-field'),value=$('#cc-bulk-value');
+ function update(){const k=field.value;value.type=k==='contacted'?'checkbox':['pauseScheduledHours','dietCount','rating'].includes(k)?'number':k.startsWith('pause')?'time':'text';value.required=k!=='contacted';value.placeholder=k==='team'?'Nombre del equipo':k==='vestColor'?'Color de chaleco':'Valor';if(value.type==='number'){value.min=0;value.max=k==='rating'?5:3;value.step=k==='pauseScheduledHours'?'0.5':'1'}else{value.removeAttribute('min');value.removeAttribute('max');value.removeAttribute('step')}}
+ field.onchange=update;update();
+ $('#cc-bulk-form').onsubmit=async e=>{
+  e.preventDefault();
+  const k=field.value,v=value.type==='checkbox'?value.checked:value.type==='number'?Number(value.value):value.value;
+  try{await api('crew-bulk-control',{field:k,value:v,items:chosen.map(a=>({id:a.id,revision:a.revision}))});
+   crewSelectedIds.clear();$('#employee-modal').close();await load();notice('Actualizados '+chosen.length+' trabajadores');
+  }catch(ex){error(ex)}
+ };
+}
+function crewAttendanceModal(id){
+ const a=crewAllRoster().find(x=>x.id===id);if(!a)return;
+ const actions=!a.checkIn?[['in','Registrar entrada']]:!a.checkOut?[['out','Registrar salida'],['undo-in','Anular entrada']]:[['undo-out','Anular salida']];
+ modal('Asistencia · '+crewName(a),'<form id="cc-attendance-form" style="display:grid;gap:13px"><p class="muted">El fichaje manual queda registrado con tu usuario, la hora y el motivo. Para asistencia ordinaria utiliza el QR.</p>'+
+ '<label class="form-label">Acción<select name="event" class="field">'+actions.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select></label>'+
+ '<label class="form-label">Motivo de corrección<textarea name="reason" class="field" maxlength="400" required placeholder="Ej.: QR no disponible en el recinto"></textarea></label>'+
+ '<button class="primary" type="submit">Guardar asistencia</button></form>');
+ $('#cc-attendance-form').onsubmit=async e=>{e.preventDefault();try{await api('crew-attendance',{id,revision:a.revision,...Object.fromEntries(new FormData(e.target))});$('#employee-modal').close();await load();notice('Asistencia actualizada y auditada')}catch(ex){error(ex)}};
+}
+function crewPlanningModal(blockId='all'){
+ const blocks=crewBlocks(),chosen=blocks.find(b=>b.id===blockId)||blocks[0];
+ if(!chosen)return error(new Error('No hay un bloque disponible para planificar.'));
+ const list=crewTeamItems(chosen.id),roster=crewServiceRoster().filter(a=>a.blockId===chosen.id);
+ const numberFor=name=>roster.filter(a=>a.team===name).length;
+ const teams=list.map(t=>'<div class="cc-planning-team"><div><strong>'+esc(t.name)+'</strong><small>'+numberFor(t.name)+' / '+t.capacity+' trabajadores · '+esc(t.vestColor||'Sin chaleco definido')+'</small></div>'+
+ '<button type="button" class="secondary" data-action="crew-delete-team" data-id="'+esc(t.id)+'">Eliminar</button></div>').join('');
+ const blockOptions=blocks.map(b=>'<option value="'+esc(b.id)+'" '+(b.id===chosen.id?'selected':'')+'>'+esc(b.date+' · '+b.serviceType+' · '+b.start+'–'+b.end)+'</option>').join('');
+ modal('Planificar equipos · '+chosen.serviceType,'<label class="form-label">Día y turno<select class="field" id="cc-plan-block">'+blockOptions+'</select></label>'+
+ '<div class="cc-planning-teams">'+(teams||'<p class="muted">Todavía no hay equipos definidos para este bloque.</p>')+'</div>'+
+ '<form id="cc-team-create" style="display:grid;gap:11px"><label class="form-label">Nuevo equipo<input class="field" name="name" placeholder="Principal, Secundario, Luces..." required maxlength="100"></label>'+
+ '<div class="crew-filters"><label class="form-label">Personal requerido<input class="field" name="capacity" type="number" min="1" max="200" value="10"></label>'+
+ '<label class="form-label">Chaleco<input class="field" name="vestColor" maxlength="30" placeholder="Naranja"></label></div>'+
+ '<button type="submit" class="primary">Crear equipo</button></form>'+
+ '<div class="actions-row" style="margin-top:15px">'+btn('crew-auto-teams','Distribuir personal sin equipo',chosen.id,'primary')+'</div>'+
+ '<p class="muted">La distribución automática no cambia a Crew Head ni a Forklifter. Puedes asignar cualquier equipo manualmente desde la ficha del trabajador.</p>');
+ $('#cc-plan-block').onchange=e=>crewPlanningModal(e.target.value);
+ $('#cc-team-create').onsubmit=async e=>{
+  e.preventDefault();try{await api('crew-team-save',{record:{blockId:chosen.id,...Object.fromEntries(new FormData(e.target))}});await load();crewPlanningModal(chosen.id);notice('Equipo creado')}catch(ex){error(ex)}
+ };
+}
+async function crewAutoTeams(blockId){
+ const teams=crewTeamItems(blockId),workers=crewServiceRoster().filter(a=>a.blockId===blockId);
+ if(!teams.length)return error(new Error('Define primero al menos un equipo.'));
+ const person=crewAuthorizedWorkers(),protectedWorker=a=>{
+  const spec=(person.find(x=>x.id===a.workerId)?.specialty||a.role||'').toUpperCase();
+  return /CREW\s*HEAD|FORKLIFT/.test(spec);
+ };
+ const target=workers.filter(a=>!a.team&&!protectedWorker(a));
+ if(!target.length)return notice('No queda personal sin equipo que pueda distribuirse automáticamente.');
+ const remaining=new Map(teams.map(t=>[t.name,Math.max(0,t.capacity-workers.filter(a=>a.team===t.name).length)]));
+ const allocation=new Map(teams.map(t=>[t.name,[]]));
+ for(const worker of target){
+  const team=[...remaining].filter(([_,count])=>count>0).sort((a,b)=>b[1]-a[1])[0];
+  if(!team)break;allocation.get(team[0]).push(worker);remaining.set(team[0],team[1]-1);
+ }
+ const total=[...allocation.values()].reduce((n,v)=>n+v.length,0);
+ if(!total)return error(new Error('Todos los equipos están completos.'));
+ try{
+  for(const [name,group] of allocation)if(group.length){
+   await api('crew-bulk-control',{field:'team',value:name,items:group.map(a=>({id:a.id,revision:a.revision}))});
+  }
+  await load();crewPlanningModal(blockId);notice('Asignados '+total+' trabajadores a sus equipos');
+ }catch(ex){error(ex)}
+}
+function crewIncidentBoard(){
+ const incidents=(state.incidents||[]).filter(i=>i.serviceId===selectedCrewService);
+ modal('Incidencias del servicio',incidents.length?incidents.map(i=>
+  '<div class="cc-planning-team"><div><strong>'+esc(i.status==='resolved'?'Resuelta':'Abierta')+'</strong><p>'+esc(i.description)+'</p><small>'+esc(i.createdAt?.slice(0,16)||'')+'</small></div></div>'
+ ).join(''):'<div class="empty">No hay incidencias visibles.</div>');
+}
+
 function crewTeamModal(id){
  const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(!a)return;
  modal('Equipo del trabajador','<form id="crew-team-form" style="display:grid;gap:12px"><label class="form-label">Equipo / escenario<input class="field" name="team" maxlength="100" value="'+esc(a.team||'')+'"></label><button class="primary" type="submit">Guardar equipo</button></form>');
@@ -568,7 +649,17 @@ document.addEventListener('click',async ev=>{
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
  if(action==='crew-open'){selectedCrewService=id;page='crewControl';return render()}
- if(action==='crew-filter'){crewFilter=el.dataset.filter||'no-team';return crewControlPage()}
+ if(action==='crew-filter'){const f=el.dataset.filter||'all';crewFilter=crewFilter===f?'all':f;return crewControlPage()}
+ if(action==='crew-toggle-type'){const t=el.dataset.value;if(crewWorkTypes.has(t))crewWorkTypes.delete(t);else crewWorkTypes.add(t);return crewControlPage()}
+ if(action==='crew-select-visible'){crewScopedRecords().forEach(a=>crewSelectedIds.add(a.id));return crewControlPage()}
+ if(action==='crew-clear-selected'){crewSelectedIds.clear();return crewControlPage()}
+ if(action==='crew-bulk')return crewBulkModal();
+ if(action==='crew-attendance')return crewAttendanceModal(id);
+ if(action==='crew-plan-teams')return crewPlanningModal(id);
+ if(action==='crew-auto-teams')return crewAutoTeams(id);
+ if(action==='crew-incident-board')return crewIncidentBoard();
+ if(action==='crew-print')return window.print();
+ if(action==='crew-delete-team'){const t=(state.crewTeams||[]).find(x=>x.id===id);if(!t)return;return api('crew-team-delete',{id:t.id,revision:t.revision}).then(()=>load().then(()=>{crewPlanningModal(t.blockId);notice('Equipo eliminado')})).catch(error)}
  if(action==='crew-contact'){const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(a)return mutation('coordinator-control',{id,revision:a.revision,field:'contacted',value:!a.contacted},'Estado de contacto actualizado')}
  if(action==='crew-team')return crewTeamModal(id);
  if(action==='crew-details')return crewOperationalModal(id);
@@ -606,7 +697,17 @@ $('#login-form').onsubmit=async e=>{
  e.preventDefault();const b=e.target.querySelector('button[type=submit]'),err=$('#login-error');b.disabled=true;err.hidden=true;
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
-$('#employee-content').addEventListener('change',e=>{if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;selectedCrewBlock='all';crewControlPage()}if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}});
+$('#employee-content').addEventListener('change',e=>{
+ if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;crewDay='all';selectedCrewBlock='all';crewWorkTypes.clear();crewSelectedIds.clear();crewControlPage()}
+ if(e.target.id==='crew-day-select'){crewDay=e.target.value;selectedCrewBlock='all';crewControlPage()}
+ if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}
+ if(e.target.matches('[data-crew-select]')){const id=e.target.dataset.crewSelect;if(e.target.checked)crewSelectedIds.add(id);else crewSelectedIds.delete(id);e.target.closest('.cc-person')?.classList.toggle('cc-selected',e.target.checked);const counter=$('.cc-toolbar-right span');if(counter)counter.textContent=crewSelectedIds.size+' seleccionados'}
+});
+$('#employee-content').addEventListener('input',e=>{
+ if(e.target.id!=='crew-search')return;
+ crewSearch=e.target.value;const cursor=e.target.selectionStart;crewControlPage();
+ const field=$('#crew-search');if(field){field.focus();field.setSelectionRange(cursor,cursor)}
+});
 $('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();$('#employee-modal').classList.remove('clock-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 load();
