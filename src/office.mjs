@@ -202,6 +202,7 @@ async function view(db,actor){
   for(const r of coordinatorRoster){const src=assignments.find(x=>x.id===r.id)||r;r.closed=isClosedA(src);r.closedByMe=coordClosures.some(c=>c.closedBy===actor.id&&c.assignmentIds.includes(r.id));}
   const companySettings=await settings(db);
   const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email,staffNotice:companySettings.staffNotice||'',emergencyPhone:companySettings.emergencyPhone||''},users:directory,workers,services,assignments:assignments.map(a=>{const p=publicAssignment(a,actor);p.closed=isClosedA(a);if(actor.role!=='manager'&&a.orderLineId){const slot=allSlots.find(l=>l.id===a.orderLineId);if(slot)p.serviceType=slot.serviceType||'';}return p;}),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorCandidates,coordinatorServiceIds:assignedServices,normalCoordinationServiceIds:[...new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...allBlocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId),...allOperators.filter(o=>o.userId===actor.id&&!o.archived&&o.kind!=='crew_head').map(o=>o.serviceId)])],crewTeams:(await rows(db,'crewTeams')).filter(t=>!t.archived&&actor.role!=='manager'&&coordinatorBlocks.some(b=>b.id===t.blockId)),crewHeadDays:[...crewDays].map(x=>{const [serviceId,date]=x.split('|');return {serviceId,date};}),crewDayClosures:(await rows(db,'crewDayClosures')).filter(c=>actor.role==='manager'||crewDays.has(c.serviceId+'|'+c.date)),categoryOptions:crewDays.size?(await tariffCatalog(db)).filter(t=>t.active!==false).map(t=>({id:t.id,name:t.name,schedule:t.schedule||'Tarifa estándar 2026'})):[],documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
+ result.onCall=(await rows(db,'onCall')).filter(o=>actor.role==='manager'||(o.date>=new Date(Date.now()-86400000).toISOString().slice(0,10)&&o.date<=new Date(Date.now()+8*86400000).toISOString().slice(0,10)));
  if(actor.role==='manager')Object.assign(result,{coordClosures,employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -390,20 +391,23 @@ export function createOfficeApi(storage,env={}){
      return {record:saved,access:{username,password:b.onboardingPassword,existing:false}};
     }
     if(op==='availability-weekly'){
-     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     const targetId=actor.role==='manager'?required(b.workerId,'el trabajador'):actor.workerId;
+     if(!targetId)fail('No tienes ficha de trabajador.',403);await record(db,'workers',targetId);
      const input=b.days||{};const days={};
      for(const d of ['mon','tue','wed','thu','fri','sat','sun']){
-      const a=input[d]||{},slots=Array.isArray(a.slots)?[...new Set(a.slots.map(Number))].sort((x,y)=>x-y):null;
+      const raw=input[d]||{},shift=raw.morning!=null||raw.afternoon!=null;
+      // Mañana = 06:00–15:00, tarde = 15:00–24:00. Se guardan también como horas para el buscador de turnos.
+      const a=shift?{slots:[...(raw.morning?Array.from({length:9},(_,i)=>6+i):[]),...(raw.afternoon?Array.from({length:9},(_,i)=>15+i):[])]}:raw,slots=Array.isArray(a.slots)?[...new Set(a.slots.map(Number))].sort((x,y)=>x-y):null;
       if(slots&&slots.some(h=>!Number.isInteger(h)||h<0||h>23))fail('La hora seleccionada debe ser válida.');
       const available=slots?slots.length>0:a.available===true;
       const start=slots?.length?String(slots[0]).padStart(2,'0')+':00':a.start?time(a.start):'08:00';
       const end=slots?.length?String(slots.at(-1)+1).padStart(2,'0')+':00':a.end?time(a.end):'23:00';
       if(start>=end)fail('Horario semanal incorrecto en '+d);
-      days[d]={available,start,end,...(slots?{slots}:{})};
+      days[d]={available,start,end,...(slots?{slots}:{}),...(shift?{morning:raw.morning===true,afternoon:raw.afternoon===true}:{})};
      }
-     const value={workerId:actor.workerId,days,updatedAt:now()};
-     await db.put(key('weeklyAvailability',actor.workerId),value);
-     await audit(db,actor,'availability-weekly','workers',actor.workerId);return {record:value};
+     const value={workerId:targetId,days,updatedAt:now(),updatedBy:actor.id};
+     await db.put(key('weeklyAvailability',targetId),value);
+     await audit(db,actor,'availability-weekly','workers',targetId);return {record:value};
     }
     if(op==='employee-profile'){
      if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
@@ -484,6 +488,46 @@ export function createOfficeApi(storage,env={}){
      const workers=await rows(db,'workers'),assigns=await rows(db,'assignments');
      const out=[];for(const e of (await db.list({prefix:'office/audit/'})).values())if(ids.has(e.recordId)){const as=e.kind==='assignments'?assigns.find(a=>a.id===e.recordId):null;out.push({...e,subject:as?workers.find(w=>w.id===as.workerId)?.name||'':''});}
      return {entries:out.sort((x,y)=>y.time.localeCompare(x.time)).slice(0,400)};
+    }
+    if(op==='oncall-set'){
+     managerOnly(actor);const from=date(b.from),to=date(b.to||b.from);if(to<from)fail('La fecha final es anterior a la inicial.');
+     const userId=text(b.userId);let u=null;if(userId){u=await record(db,'users',userId);if(u.role!=='manager'||!u.active)fail('La guardia debe hacerla un usuario de Gestoría.');}
+     const days=datesBetween(from,to);if(days.length>370)fail('Máximo un año de guardias a la vez.');
+     const wd=Array.isArray(b.weekdays)&&b.weekdays.length?new Set(b.weekdays.map(Number)):null,out=[];
+     for(const d of days){if(wd&&!wd.has(new Date(d+'T12:00:00Z').getUTCDay()))continue;const k=key('onCall',d),old=await db.get(k);
+      if(!u){if(old)await db.delete(k);continue;}
+      const v={id:d,date:d,userId:u.id,name:u.name,phone:text(b.phone,40),notes:text(b.notes,300),updatedBy:actor.id,updatedAt:now(),revision:(old?.revision||0)+1};await db.put(k,v);out.push(v);}
+     await audit(db,actor,u?'oncall-set':'oncall-clear','onCall',from,(u?u.name:'Sin guardia')+' · '+from+(to!==from?' → '+to:''));return {records:out};
+    }
+    if(op==='geocode'){
+     if(actor.role!=='manager')fail('Solo Gestoría.',403);
+     const q=required(b.q,'la búsqueda').slice(0,200);if(q.length<3)return {results:[]};
+     const gkey=env?.GOOGLE_MAPS_API_KEY;
+     try{
+      if(gkey){
+       const r=await fetch('https://maps.googleapis.com/maps/api/place/textsearch/json?language=es&region=es&query='+encodeURIComponent(q)+'&key='+encodeURIComponent(gkey));const j=await r.json();
+       return {provider:'google',results:(j.results||[]).slice(0,6).map(x=>({name:x.name,address:x.formatted_address,lat:x.geometry?.location?.lat,lng:x.geometry?.location?.lng}))};
+      }
+      const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&accept-language=es&countrycodes=es,ad,pt,fr&q='+encodeURIComponent(q),{headers:{'User-Agent':'NOVA-Crew/1.0 (gestion de personal de eventos)','Accept':'application/json'}});
+      if(!r.ok)throw new Error('geo '+r.status);const j=await r.json();
+      return {provider:'osm',results:(Array.isArray(j)?j:[]).map(x=>{const a=x.address||{};const name=x.name||a.amenity||a.building||a.road||x.display_name.split(',')[0];const street=[a.road,a.house_number].filter(Boolean).join(' ');const city=a.city||a.town||a.village||a.municipality||'';return {name,address:[street,a.postcode,city].filter(Boolean).join(', ')||x.display_name,lat:Number(x.lat),lng:Number(x.lon)};})};
+     }catch(e){fail('El buscador de direcciones no responde ahora. Escribe la dirección a mano.',503);}
+    }
+    if(op==='tariff-category-create'){
+     managerOnly(actor);const catalog=await tariffCatalog(db),name=required(b.name,'el nombre de la categoría').slice(0,100);
+     const schedules=[...new Set(catalog.map(t=>t.schedule||'Tarifa estándar 2026'))];if(!schedules.length)schedules.push('Tarifa estándar 2026');
+     const workerRate=b.workerRate===''||b.workerRate==null?null:number(b.workerRate,0,1e5),clientRate=b.clientRate===''||b.clientRate==null?(workerRate==null?null:money(workerRate*2)):number(b.clientRate,0,1e6);
+     const out=[];for(const sc of schedules){if(catalog.some(t=>(t.schedule||'Tarifa estándar 2026')===sc&&t.name.toLowerCase()===name.toLowerCase()))continue;
+      const id='cat-'+uid(),v={id,name,group:text(b.group)||'Personalizado',schedule:sc,unit:b.unit==='day'?'day':'hour',minHours:number(b.minHours??0,0,24),workerRate,clientRate,incrementPercent:0,active:true,source:'custom',notes:'',revision:1,createdAt:now(),updatedAt:now()};
+      await db.put(key('tariffs',id),v);out.push(v);}
+     if(!out.length)fail('Esa categoría ya existe en todas las tarifas.',409);
+     await audit(db,actor,'tariff-category-create','tariffs',out[0].id,name+' · '+out.length+' tarifas');return {records:out};
+    }
+    if(op==='tariff-category-sync'){
+     managerOnly(actor);const catalog=await tariffCatalog(db),from=required(b.name,'la categoría').toLowerCase(),rename=text(b.newName).slice(0,100);
+     const matches=catalog.filter(t=>t.name.toLowerCase()===from);if(!matches.length)fail('Categoría no encontrada.',404);
+     for(const t of matches){const v={...t,...(rename?{name:rename}:{}),...(b.group!=null?{group:text(b.group)||'Personalizado'}:{}),...(b.unit?{unit:b.unit==='day'?'day':'hour'}:{}),...(b.minHours!=null&&b.minHours!==''?{minHours:number(b.minHours,0,24)}:{}),...(b.active!=null?{active:b.active===true}:{}),revision:(t.revision||0)+1,updatedAt:now()};await db.put(key('tariffs',t.id),v);}
+     await audit(db,actor,'tariff-category-sync','tariffs',matches[0].id,b.name+(rename?' → '+rename:''));return {count:matches.length};
     }
     if(op==='coord-day-close'){
      if(actor.role!=='worker'||!actor.workerId)fail('Solo coordinadores.',403);
@@ -772,7 +816,7 @@ export function createOfficeApi(storage,env={}){
       const quoteData={id:old?.id,revision:old?.revision,clientId:client.id,date:input.date||now().slice(0,10),
         dueDate:input.dueDate||input.date||now().slice(0,10),notes:input.notes||'',lines};
       const saved=await saveEntity(db,actor,'quotes',quoteData);
-      const full={...saved,staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),planStartDate:dates[0],planEndDate:dates[dates.length-1]};
+      const full={...saved,staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),serviceVenueLat:Number.isFinite(Number(input.serviceVenueLat))&&input.serviceVenueLat!==''?Number(input.serviceVenueLat):null,serviceVenueLng:Number.isFinite(Number(input.serviceVenueLng))&&input.serviceVenueLng!==''?Number(input.serviceVenueLng):null,planStartDate:dates[0],planEndDate:dates[dates.length-1]};
       await db.put(key('quotes',full.id),full);
       await audit(db,actor,'quote-plan-save','quotes',full.id);return {record:full};
     }
@@ -797,7 +841,7 @@ export function createOfficeApi(storage,env={}){
       managerOnly(actor);
       const info=b.service||{},quoteId=text(b.quoteId),quote=quoteId?await record(db,'quotes',quoteId):null;
       if(quote){
-        if(quote.archived||!['issued','accepted'].includes(quote.status))fail('Emite el presupuesto antes de crear el servicio.',409);
+        if(quote.archived||!['draft','issued','accepted'].includes(quote.status))fail('Este presupuesto está rechazado o anulado.',409);
         if(quote.serviceId)fail('Este presupuesto ya tiene un servicio.',409);
         if(info.clientId&&info.clientId!==quote.clientId)fail('El cliente no coincide con el presupuesto.');
       }
@@ -812,6 +856,7 @@ export function createOfficeApi(storage,env={}){
       const service=await saveEntity(db,actor,'services',{
         name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
         venue:info.venue||quote?.serviceVenue||items[0]?.locationName||'Ubicación por asignar',
+        venueLat:info.venueLat!==''&&info.venueLat!=null?info.venueLat:(quote?.serviceVenueLat??null),venueLng:info.venueLng!==''&&info.venueLng!=null?info.venueLng:(quote?.serviceVenueLng??null),
         date:startDate,start:info.start||firstStart||'08:00',
         endDate:endDate||startDate,end:info.end||lastEnd||'23:59',
         coordinatorId:info.coordinatorId||'',required:items.length,status:'planned',notes:info.notes||''
@@ -1185,9 +1230,10 @@ export function createOfficeApi(storage,env={}){
     const workerId=personal?actor.workerId:text(b.workerId),clientId=personal?'':text(b.clientId),serviceId=personal?'':text(b.serviceId);
     if(workerId)await record(db,'workers',workerId);if(clientId)await record(db,'clients',clientId);if(serviceId)await record(db,'services',serviceId);
     const content=String(b.content||'');if(!/^[A-Za-z0-9+/]+={0,2}$/.test(content)||content.length%4!==0)fail('Archivo incorrecto.');const size=atob(content).length;if(size>5*1024*1024||size<1)fail('El archivo debe ocupar entre 1 byte y 5 MB.');
+    if(!personal&&(text(b.type)||'contract')==='contract'&&b.periodStart&&b.periodEnd&&date(b.periodEnd)<date(b.periodStart))fail('El fin del contrato es anterior al inicio.');
     const name=required(b.name,'el nombre de archivo').replace(/[\r\n/\\]/g,'_');if(!/\.(pdf|png|jpg|jpeg)$/i.test(name))fail('Sube un PDF, PNG o JPEG.');const bytes=atob(content.slice(0,Math.min(content.length,80)));
     if((/\.pdf$/i.test(name)&&!bytes.startsWith('%PDF-'))||(/\.png$/i.test(name)&&!bytes.startsWith('\x89PNG'))||(/\.jpe?g$/i.test(name)&&!bytes.startsWith('\xff\xd8\xff')))fail('El contenido no corresponde al tipo de archivo.');
-    const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId,clientId,serviceId,shareWithStaff:!personal&&!!serviceId&&!workerId&&(b.shareWithStaff===true||b.shareWithStaff==='on'),type:personal?text(b.type):(text(b.type)||'contract'),expires:b.expires?date(b.expires):'',notes:text(b.notes,2000),source:personal?'employee':'manager',createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
+    const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId,clientId,serviceId,shareWithStaff:!personal&&!!serviceId&&!workerId&&(b.shareWithStaff===true||b.shareWithStaff==='on'),type:personal?text(b.type):(text(b.type)||'contract'),expires:b.expires?date(b.expires):'',...(!personal&&(text(b.type)||'contract')==='contract'?{contractKind:text(b.contractKind,80),periodStart:b.periodStart?date(b.periodStart):'',periodEnd:b.periodEnd?date(b.periodEnd):''}:{}),notes:text(b.notes,2000),source:personal?'employee':'manager',createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
    }
    fail('Operación desconocida.',404);
   });return reply({ok:true,...result});
