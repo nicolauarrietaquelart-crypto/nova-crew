@@ -110,3 +110,62 @@ test('service page data: staff notes, call time, company notice and service docu
  assert.equal(await download(privateDoc.body.record.id,s.people.hand1.cookie),403);
  assert.equal(await download(privateDoc.body.record.id,s.people.hand2.cookie),200);
 });
+
+test('Gestoría broadcasts to all, a service, fixed or temporary staff, or a category',async()=>{
+ const s=await scenario();
+ const st=(await s.m('state')).body;
+ const fixed=st.workers.find(w=>w.name==='hand1');
+ assert.equal((await s.m('save',{kind:'workers',record:{...fixed,contractType:'indefinite',specialty:'FORKLIFTER',createAccess:false}})).status,200);
+ const send=audience=>s.m('message-broadcast',{content:'Aviso',audience});
+ assert.equal((await send({type:'all'})).body.sent,5);
+ assert.equal((await send({type:'contract',value:'fixed'})).body.sent,1);
+ assert.equal((await send({type:'contract',value:'eventual'})).body.sent,4);
+ assert.equal((await send({type:'category',value:'forklifter'})).body.sent,1);
+ assert.equal((await send({type:'service',value:s.service.id})).body.sent,4);
+ assert.equal((await send({type:'category',value:'NADIE'})).status,409);
+ assert.equal((await s.request('message-broadcast',{content:'x',audience:{type:'all'}},s.people.hand1.cookie)).status,403);
+ const inbox=(await s.request('state',null,s.people.hand1.cookie)).body.messages;
+ assert.equal(inbox.length,4);assert.ok(inbox.every(m=>m.recipientId===s.people.hand1.user.id));
+});
+
+import worker from '../src/worker.mjs';
+test('original Crew Control interface works on NOVA data only for the Crew Head and its day',async()=>{
+ const s=await scenario();
+ const env={OFFICE_STATE:{idFromName:()=>1,get:()=>({fetch:r=>s.api(r)})}};
+ const cc=async(code,cookie,method='GET',payload)=>{const r=await worker.fetch(new Request('https://nova.test/api/services/'+code+'?format=snapshot',{method,headers:{cookie,'x-service-code':code,'content-type':'application/json',origin:'https://nova.test'},body:payload?JSON.stringify(payload):undefined}),env);return {status:r.status,body:await r.json()};};
+ assert.equal((await s.request('crew-open',{serviceId:s.service.id,date:'2027-03-01'},s.people.coord.cookie)).status,403);
+ assert.equal((await s.request('crew-open',{serviceId:s.service.id,date:'2027-03-02'},s.people.head.cookie)).status,403);
+ const opened=await s.request('crew-open',{serviceId:s.service.id,date:'2027-03-01'},s.people.head.cookie);
+ assert.equal(opened.status,200);const code=opened.body.code;assert.match(code,/^\d{6}$/);
+ assert.equal((await cc(code,s.people.coord.cookie)).status,403,'coordinator cannot open Crew Control');
+ const first=await cc(code,s.people.head.cookie);assert.equal(first.status,200,JSON.stringify(first.body));
+ const snap=first.body.service;
+ assert.equal(snap.serviceDate,'01/03/2027');
+ assert.deepEqual(snap.workers.map(w=>w.id).sort(),[s.a1.id,s.a2.id,s.a4.id].sort());
+ assert.equal(snap.workers.find(w=>w.id===s.a1.id).trabajo,'LOAD IN');
+ // Arrival, real hours and an attempted category change.
+ const edit=structuredClone(snap),w1=edit.workers.find(w=>w.id===s.a1.id);
+ w1.status='PRESENTE';w1.arrivalAt='08:05';w1._fieldTimes={...w1._fieldTimes,status:Number(w1._fieldTimes?.status||0)+1,arrivalAt:Number(w1._fieldTimes?.arrivalAt||0)+1};
+ w1.actualStart='08:00';w1.actualEnd='12:30';w1.actualPause='00:30';w1.especialidad='HAND A';
+ edit.incidents=[{id:'INC-1',workerId:s.a1.id,category:'CAMBIO CATEGORIA',severity:'LEVE',newCategory:'HAND A',description:'Hace funciones de HAND A',actionTaken:'',status:'ABIERTA'}];
+ const saved=await cc(code,s.people.head.cookie,'PUT',{service:edit,revision:snap._syncRevision});
+ assert.equal(saved.status,200,JSON.stringify(saved.body));
+ assert.equal(saved.body.service.workers.find(w=>w.id===s.a1.id).especialidad,'HAND B','category stays until Gestoría applies it');
+ const state=(await s.m('state')).body,a1=state.assignments.find(a=>a.id===s.a1.id);
+ assert.ok(a1.checkIn);assert.ok(a1.checkOut);assert.equal(a1.actualHours,4);assert.equal(a1.categoryId,'HAND B');
+ const req=state.incidents.find(i=>i.source==='crew-control');
+ assert.equal(req.type,'category_change');assert.equal(req.requestedCategory,'HAND A');assert.equal(req.assignmentId,s.a1.id);
+ // Stale copies, new staff and removals are rejected.
+ assert.equal((await cc(code,s.people.head.cookie,'PUT',{service:edit,revision:snap._syncRevision})).status,409);
+ const latest=saved.body.service;
+ assert.equal((await cc(code,s.people.head.cookie,'PUT',{service:{...latest,workers:[...latest.workers,{...latest.workers[0],id:'NEW'}]},revision:latest._syncRevision})).status,403);
+ assert.equal((await cc(code,s.people.head.cookie,'PUT',{service:{...latest,workers:latest.workers.slice(1)},revision:latest._syncRevision})).status,403);
+ assert.equal((await cc(code,s.people.head.cookie,'PUT',{service:{...latest,closed:true},revision:latest._syncRevision})).status,403);
+ assert.equal((await worker.fetch(new Request('https://nova.test/api/services/'+code+'/pdf',{method:'PUT',headers:{'x-service-code':code}}),env)).status,403);
+ // Closing the day from Crew Control closes it in NOVA.
+ const close=await cc(code,s.people.head.cookie,'PUT',{service:{...latest,closedDays:{'01/03/2027':new Date().toISOString()}},revision:latest._syncRevision});
+ assert.equal(close.status,200,JSON.stringify(close.body));
+ assert.ok((await s.m('state')).body.crewDayClosures.some(c=>c.date==='2027-03-01'));
+ const after=await cc(code,s.people.head.cookie);assert.equal(after.body.service.closedDays['01/03/2027']!==undefined,true);
+ assert.equal((await cc(code,s.people.head.cookie,'PUT',{service:after.body.service,revision:after.body.service._syncRevision})).status,409);
+});

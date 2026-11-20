@@ -8,7 +8,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/tariffs.mjs && node --check src/office.mjs && node --check src/worker.mjs && node --check public/assets/office.js && node --check public/assets/employee.js"
+    "check": "node --check src/tariffs.mjs && node --check src/crew-bridge.mjs && node --check public/crew-control/nova-bridge.js && node --check src/office.mjs && node --check src/worker.mjs && node --check public/assets/office.js && node --check public/assets/employee.js"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

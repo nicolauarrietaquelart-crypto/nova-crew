@@ -299,3 +299,6 @@ button.cal-event.pending{background:#fff3e5;color:#a35514}
 .ok-text{color:#1f7a4c}
 @media(max-width:750px){.sd-grid{grid-template-columns:1fr}.cc-close-summary{grid-template-columns:1fr 1fr}.sd-head .actions-row{width:100%}}
 @media(max-width:750px){.pay-table{min-width:600px}}
+.bubble-tag{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#b4531a;background:#fff;border-radius:99px;padding:2px 8px;margin-bottom:5px}
+.crew-banner{display:flex;justify-content:space-between;align-items:center;gap:14px;background:#15171b;color:#fff;border-radius:18px;padding:16px 20px;margin-bottom:16px;text-decoration:none;box-shadow:0 10px 30px rgba(20,22,28,.18)}
+.crew-banner b{display:block;font-size:15px}.crew-banner small{color:#c9cbd0}.crew-banner strong{color:#ff9a4d;white-space:nowrap}

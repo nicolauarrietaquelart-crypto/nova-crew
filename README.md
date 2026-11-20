@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v20 · Crew Control original y mensajes a grupos
+
+- **Crew Control v11.2.46 con su interfaz exacta**, a pantalla completa en `/crew-control/` con el botón «Volver al área de empleado». Funciona con los datos de NOVA y solo para el Crew Head en su día. Detalles en `integrations/crew-control/README.md`.
+- **Mensajes a grupos** desde Gestoría: todos los trabajadores, todo el personal de un servicio, fijos, eventuales o por categoría (HAND B, FORKLIFTER…). Cada trabajador lo recibe en su chat privado.
+
 ## Novedades v19 · Crew Head, coordinadores y página del servicio
 
 - **Crew Control solo para el Crew Head** asignado a un turno del servicio, y solo con el personal de ese servicio en los días en que es Crew Head. Puede ajustar horarios y operar el día (asistencia manual con motivo, equipos y chalecos, pausas, dietas, valoración, contacto), exportar el CSV del día y **cerrar el día** (bloquea cambios; Gestoría puede reabrirlo).

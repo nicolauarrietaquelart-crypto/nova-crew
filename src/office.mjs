@@ -1,4 +1,5 @@
 import {STANDARD_TARIFFS, STANDARD_EXCEPTIONS} from './tariffs.mjs';
+import {createCrewBridge} from './crew-bridge.mjs';
 /* NOVA Crew operations. Persistent, isolated from legacy demonstration data. */
 const enc = new TextEncoder();
 const now = () => new Date().toISOString();
@@ -228,6 +229,7 @@ async function saveEntity(db,actor,kind,b){
  const id=old?.id||uid(),value={...old,...data,id,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now(),updatedBy:actor.id};
  await db.put(key(kind,id),value);await audit(db,actor,old?'update':'create',kind,id);return value;
 }
+const crewBridge=createCrewBridge({rows,key,record,fail,uid,now,text,money,crewHeadDays,audit,tariffCatalog,datesBetween});
 export function createOfficeApi(storage,env={}){
  async function rate(name,limit){const k='office/rate/'+await digest(name);await storage.transaction(async db=>{const r=await db.get(k);const t=Date.now();if(r&&r.until>t&&r.count>=limit)fail('Demasiados intentos. Espera 15 minutos.',429);await db.put(k,{until:r&&r.until>t?r.until:t+900000,count:r&&r.until>t?r.count+1:1});});}
  async function auth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-nova_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)fail('Inicia sesión para continuar.',401);const k='office/session/'+await digest(token),s=await storage.get(k);if(!s||s.expires<Date.now()) {if(s)await storage.delete(k);fail('La sesión ha caducado.',401);}const u=await storage.get(key('users',s.userId));if(!u?.active||u.version!==s.version)fail('La cuenta o sesión ya no está activa.',401);if(u.role==='worker'){const w=await storage.get(key('workers',u.workerId));if(!w?.active||w.archived)fail('La ficha de trabajador está inactiva.',401);}return {actor:u,sessionKey:k};}
@@ -339,6 +341,25 @@ export function createOfficeApi(storage,env={}){
      if(recipientId===actor.id)fail('Selecciona otro destinatario.');
      const id=uid(),value={id,senderId:actor.id,recipientId,content:text(b.content,2000),createdAt:now()};
      await db.put(key('messages',id),value);await audit(db,actor,'send','messages',id);return {record:value};
+    }
+    if(op==='crew-open')return await crewBridge.open(db,actor,b);
+    if(op==='crew-snapshot')return b.mode==='put'?await crewBridge.put(db,actor,text(b.code,10),b.payload):await crewBridge.get(db,actor,text(b.code,10));
+    if(op==='message-broadcast'){
+     managerOnly(actor);const content=required(b.content,'el mensaje');if(content.length>2000)fail('El mensaje supera 2000 caracteres.');
+     const audience=b.audience||{},type=text(audience.type,20),value=text(audience.value,200);
+     const users=(await rows(db,'users')).filter(u=>u.active&&u.role==='worker'&&u.workerId);
+     const workers=new Map((await rows(db,'workers')).filter(w=>!w.archived&&w.active!==false).map(w=>[w.id,w]));
+     let label='';let targets=users.filter(u=>workers.has(u.workerId));
+     if(type==='all')label='Todos los trabajadores';
+     else if(type==='service'){const sv=await record(db,'services',value);const ids=new Set((await rows(db,'assignments')).filter(a=>a.serviceId===sv.id&&!a.archived&&a.status!=='rejected').map(a=>a.workerId));targets=targets.filter(u=>ids.has(u.workerId));label='Personal de '+sv.name;}
+     else if(type==='contract'){if(!['fixed','eventual'].includes(value))fail('Tipo de contrato incorrecto.');targets=targets.filter(u=>{const c=workers.get(u.workerId).contractType||'eventual';return value==='eventual'?c==='eventual':c!=='eventual';});label=value==='eventual'?'Trabajadores eventuales':'Trabajadores fijos';}
+     else if(type==='category'){if(!value)fail('Elige una categoría.');const norm=v=>String(v||'').trim().toUpperCase().replace(/\s+/g,' ');targets=targets.filter(u=>norm(workers.get(u.workerId).specialty)===norm(value));label='Categoría '+value;}
+     else fail('Elige a quién enviar el mensaje.');
+     if(!targets.length)fail('No hay trabajadores con acceso en ese grupo.',409);
+     if(targets.length>1500)fail('Demasiados destinatarios en un solo envío.');
+     const broadcastId=uid(),createdAt=now();
+     for(const u of targets){const id=uid();await db.put(key('messages',id),{id,senderId:actor.id,recipientId:u.id,content,createdAt,broadcastId,audience:label});}
+     await audit(db,actor,'broadcast','messages',broadcastId);return {broadcastId,sent:targets.length,audience:label};
     }
     if(op==='incident-report'){
      const service=await record(db,'services',required(b.serviceId,'el servicio'));
