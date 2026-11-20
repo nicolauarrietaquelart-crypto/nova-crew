@@ -186,3 +186,18 @@ test('invoicing per closed day and for the rest of a finished service never bill
  const sent=await s.m('invoice-mark-sent',{id:draft.id,revision:issued.body.record.revision,to:'prod@cliente.test'});
  assert.equal(sent.status,200);assert.ok(sent.body.record.sentAt);assert.equal(sent.body.record.assignmentIds.length,1);
 });
+
+test('worker categories opened by Gestoría gate assignments; Gestoría can upload the worker photo',async()=>{
+ const s=await scenario();
+ const st=(await s.m('state')).body,w=st.workers.find(x=>x.name==='hand3');
+ const saved=await s.m('save',{kind:'workers',record:{...w,categories:['HAND B','forklifter','HAND B'],createAccess:false}});
+ assert.equal(saved.status,200);assert.deepEqual(saved.body.record.categories,['HAND B','forklifter']);
+ const slot=(await s.m('state')).body.orderLines.find(l=>l.serviceId===s.service.id&&l.date==='2027-03-01'&&!st.assignments.some(a=>a.orderLineId===l.id));
+ const blocked=await s.m('save',{kind:'assignments',record:{serviceId:s.service.id,workerId:w.id,orderLineId:slot.id,categoryId:'HAND A',date:slot.date,endDate:slot.endDate,start:slot.start,end:slot.end}});
+ assert.equal(blocked.status,409);assert.match(blocked.body.error,/categoría/);
+ const ok=await s.m('save',{kind:'assignments',record:{serviceId:s.service.id,workerId:w.id,orderLineId:slot.id,categoryId:'HAND B',date:slot.date,endDate:slot.endDate,start:slot.start,end:slot.end}});
+ assert.equal(ok.status,200,JSON.stringify(ok.body));
+ const png=btoa('\x89PNG\r\n\x1a\n'+'x'.repeat(40));
+ assert.equal((await s.m('employee-photo-upload',{workerId:w.id,mime:'image/png',content:png})).status,200);
+ assert.ok((await s.m('state')).body.employeePhotoIds.includes(w.id));
+});

@@ -23,6 +23,7 @@ function validateGeofence(service,input){
  const distance=6371000*2*Math.asin(Math.min(1,Math.sqrt(hav)));
  if(distance>(service.radiusMeters||500))fail('Fuera del radio autorizado de fichaje ('+Math.round(distance)+' m).',403);
 }
+const categoryKey = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
 const categoryMinimum = role => ({'HAND B':5,'HAND A':3,'HAND M':4,'HAND C1':0,'CREW HEAD':6,'FORKLIFTER':5})[text(role).toUpperCase().replace(/\s+/g,' ')]||0;
 const tariffLookup = async(db,id) => {const base=STANDARD_TARIFFS.find(t=>t.id===id);const override=await db.get(key('tariffs',id));return override?{...base,...override}:base;};
 const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))];};
@@ -158,7 +159,7 @@ async function saveEntity(db,actor,kind,b){
     data={serviceId:service.id,categoryId:tariff.id,role:text(b.role)||tariff.name,serviceType:text(b.serviceType)||'Montaje',team:text(b.team),placeId:text(b.placeId),coordinatorId:text(b.coordinatorId),date:startDate,endDate,start,end,pause:number(b.pause??0,0,24),notes:text(b.notes,1500),status:b.status==='cancelled'?'cancelled':'open'};
    }
    if(kind==='clients')data={...personInput(b),contact:text(b.contact),paymentDays:number(b.paymentDays??30,0,365)};
- if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500)};
+ if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500),...(Array.isArray(b.categories)?{categories:[...new Map(b.categories.map(c=>text(c,100)).filter(Boolean).map(c=>[categoryKey(c),c])).values()].slice(0,150)}:{})};
  if(kind==='services'){
   const client=await record(db,'clients',required(b.clientId,'el cliente'));if(!client.active||client.archived)fail('El cliente está inactivo.');
   if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||user.role!=='worker'||!user.workerId)fail('El coordinador del servicio debe ser un trabajador, no un gestor de oficina.',403);}
@@ -205,6 +206,7 @@ async function saveEntity(db,actor,kind,b){
    const clientHours=b.clientHours===''||b.clientHours==null?(old?.clientHours??null):number(b.clientHours,0,744);
    const noShow=b.noShow===true||b.noShow==='true',noShowChargeApproved=b.noShowChargeApproved===true||b.noShowChargeApproved==='true';if(noShowChargeApproved&&!noShow)fail('El cargo por ausencia requiere marcar No presentado.');if(noShowChargeApproved&&!text(b.notes))fail('Indica el acuerdo contractual que permite cobrar la cancelación.');
    const tariff=tariffCandidate;
+   if(Array.isArray(worker.categories)&&worker.categories.length&&tariff&&!worker.categories.some(c=>categoryKey(c)===categoryKey(tariff.name)||categoryKey(c)===categoryKey(tariff.id)))fail(worker.name+' no tiene abierta la categoría '+tariff.name+' en su ficha.',409);
    const costRate=number(b.costRate===''||b.costRate==null?(tariff?.workerRate??worker.costRate):b.costRate);
    const chargeRate=number(b.chargeRate===''||b.chargeRate==null?(tariff?.clientRate??costRate*2):b.chargeRate);
    const supplement=number(b.incrementPercent??tariff?.incrementPercent??0,0,500);
@@ -412,14 +414,15 @@ export function createOfficeApi(storage,env={}){
      await db.put(key('incidents',value.id),value);await audit(db,actor,'incident-resolve','incidents',value.id);return {record:value};
     }
     if(op==='employee-photo-upload'){
-     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     if(actor.role!=='manager'&&!actor.workerId)fail('No tienes ficha de trabajador.',403);
+     if(actor.role==='manager'&&b.workerId)await record(db,'workers',text(b.workerId));
      const mime=b.mime==='image/png'?'image/png':b.mime==='image/jpeg'?'image/jpeg':null;
      if(!mime)fail('La foto debe ser JPEG o PNG.');
      const content=String(b.content||'');
      if(!/^[A-Za-z0-9+/]+={0,2}$/.test(content)||content.length%4!==0||content.length>1400000)fail('La foto debe ocupar menos de 1 MB.');
      const head=atob(content.slice(0,64));
      if((mime==='image/jpeg'&&!head.startsWith('\xff\xd8\xff'))||(mime==='image/png'&&!head.startsWith('\x89PNG')))fail('Contenido de imagen no válido.');
-     const workerId=actor.workerId,old=await db.get(key('employeePhotos',workerId));
+     const workerId=actor.role==='manager'&&b.workerId?text(b.workerId):actor.workerId;if(!workerId)fail('Indica el trabajador.');const old=await db.get(key('employeePhotos',workerId));
      if(old)for(let i=0;i<old.chunks;i++)await db.delete('office/photoData/'+workerId+'/'+i);
      const chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put('office/photoData/'+workerId+'/'+i,content.slice(i*60000,(i+1)*60000));
      await db.put(key('employeePhotos',workerId),{workerId,mime,chunks,updatedAt:now()});

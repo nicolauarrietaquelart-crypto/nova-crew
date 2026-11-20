@@ -211,3 +211,37 @@ td small.sev-high{color:#b44232;font-weight:700}td small.sev-medium{color:#a3551
 #app #sidebar nav button{padding:7px 12px!important;min-height:0!important;font-size:13px}
 #app #sidebar nav .nav-label{margin:12px 12px 5px!important}
 #app #sidebar .workspace-tag{margin:18px 0 10px!important}
+/* Ficha del trabajador y buscador de asignación */
+.avatar-img{border-radius:50%;object-fit:cover;flex-shrink:0;background:#eee;display:block}
+.avatar-ph{border-radius:50%;background:linear-gradient(145deg,#ffe3cc,#ffc89e);color:#a64a12;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.worker-cell{display:flex;align-items:center;gap:12px;border:0;background:transparent;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.worker-cell strong{display:block}.worker-cell:hover strong{color:#c95f12}
+.wp-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:22px;align-items:center;padding:24px!important}
+.wp-photo{border:0;background:transparent;padding:0;cursor:pointer;display:grid;justify-items:center;gap:8px;font:inherit}
+.wp-photo span{font-size:11px;font-weight:700;color:#c95f12}
+.wp-photo .avatar-img,.wp-photo .avatar-ph{box-shadow:0 0 0 4px #fff,0 10px 26px rgba(30,36,48,.18)}
+.wp-hero-main h2{font-size:clamp(24px,3vw,34px);letter-spacing:-.8px;margin:6px 0 10px}
+.wp-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.wp-contact{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px}.wp-contact a{display:inline-flex;gap:6px;align-items:center;color:#c95f12;font-weight:700}.wp-contact svg{width:15px;height:15px}
+.wp-hero-stats{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:8px}
+.wp-hero-stats>div{background:#f6f7f9;border-radius:14px;padding:12px 14px}.wp-hero-stats strong{display:block;font-size:19px;letter-spacing:-.4px}.wp-hero-stats small{color:var(--muted);font-size:10px}
+.wp-hero-actions{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+.wp-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.wp-cat-group{margin-top:12px}.wp-cat-group>small{display:block;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#9aa0a8;margin-bottom:7px}
+.wp-cats{display:flex;flex-wrap:wrap;gap:6px}
+.wp-cat{border:1px solid #e1e4e8;background:#fff;border-radius:99px;padding:7px 12px;font-size:12px;font-weight:700;color:#555;cursor:pointer}
+.wp-cat.on{background:#15171b;border-color:#15171b;color:#fff}
+.wp-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.wp-line{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:12px}.wp-line span{color:var(--muted)}.wp-line strong{text-align:right}
+.panel.pad h3{margin-bottom:10px}
+#modal.wide-modal{width:min(920px,calc(100vw - 30px))}
+.picker-slot{display:flex;justify-content:space-between;gap:14px;align-items:center;background:#fff7f0;border:1px solid #ffdcc0;border-radius:16px;padding:14px 16px;margin-bottom:14px}
+.picker-slot strong{display:block;font-size:15px;margin-top:4px}.picker-slot small{color:var(--muted)}
+.picker-count{text-align:right}.picker-count b{font-size:24px;display:block;color:#1f7a4c}.picker-count small{font-size:10px}
+.picker-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.picker-tools .searchbox{flex:1;max-width:none}
+.picker-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding-right:4px}
+.picker-row{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:16px;padding:10px 12px;background:#fff}
+.picker-row.off{opacity:.62}.picker-row .grow{flex:1;min-width:0}.picker-row strong{display:block;font-size:13px}.picker-row small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.av-tag{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;border-radius:99px;padding:3px 9px;background:#eef0f3;color:#555}
+.av-tag.yes,.av-tag.fixed{background:#e6f4ec;color:#1f6d47}.av-tag.no,.av-tag.busy{background:#fdeceb;color:#a5443a}.av-tag.unknown{background:#fff3df;color:#a67328}
+@media(max-width:900px){.wp-hero{grid-template-columns:1fr;justify-items:start}.wp-grid{grid-template-columns:1fr}.wp-hero-stats{width:100%}}

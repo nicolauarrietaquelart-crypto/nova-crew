@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v23 · Ficha del trabajador y asignación inteligente
+
+- **Ficha del trabajador como página**, con foto (Gestoría puede subirla), antigüedad, contrato, datos, disponibilidad habitual, próximos turnos, historial, horas y coste del mes y documentación.
+- **Categorías abiertas por trabajador**: Gestoría abre o cierra cada categoría del tarifario. El servidor no permite asignar un turno de una categoría cerrada.
+- **Buscador al asignar un puesto**: solo trabajadores con esa categoría abierta y disponibilidad en el tramo, ordenados por antigüedad y con foto. Los **fijos** (indefinidos y fijos discontinuos) cuentan como disponibles salvo que indiquen lo contrario; se marca quién está ocupado en otro turno.
+
 ## Novedades v22 · Facturación de servicios finalizados y cierres parciales
 
 - **Facturación → Pendiente de facturar**: aparecen los servicios finalizados y los días cerrados por el Crew Head con personal sin facturar, con importe estimado. Se puede facturar el servicio completo, solo un día (cierre parcial) o lo que quede pendiente; ningún trabajador se factura dos veces.
