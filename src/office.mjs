@@ -38,14 +38,33 @@ const rows = async (db,kind) => [...(await db.list({prefix:`office/${kind}/`})).
 const record = async (db,kind,id) => {const r=await db.get(key(kind,id));if(!r)fail('Registro no encontrado.',404);return r;};
 const revision = (old,input) => {if(old&&Number(input.revision)!==old.revision)fail('Otro dispositivo ha actualizado este registro. Recarga y revisa los cambios.',409);};
 async function audit(db,actor,action,kind,id){const stamp=now();await db.put(`office/audit/${stamp}/${uid()}`,{id:uid(),time:stamp,actor:actor.id,name:actor.name,action,kind,recordId:id});}
-const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoicePrefix:'NOVA',vat:21,paymentDays:30,footer:''};
+const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoicePrefix:'NOVA',vat:21,paymentDays:30,footer:'',staffNotice:'',emergencyPhone:''};
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
 async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services'),a=await rows(db,'assignments'),coordinators=await rows(db,'serviceCoordinators'),blocks=await rows(db,'serviceBlocks'),operators=await rows(db,'serviceBlockOperators');return new Set([...services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id),...a.filter(x=>x.workerId===actor.workerId).map(x=>x.serviceId),...coordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...blocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId),...operators.filter(o=>o.userId===actor.id&&!o.archived).map(o=>o.serviceId)]);}
 async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId===actor.id)return;const allowed=(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===id&&c.userId===actor.id&&!c.archived)||(await rows(db,'serviceBlocks')).some(c=>c.serviceId===id&&c.coordinatorId===actor.id&&!c.archived)||(await rows(db,'serviceBlockOperators')).some(o=>o.serviceId===id&&o.userId===actor.id&&!o.archived);if(!allowed)fail('No coordinas este servicio.',403);}
+function datesBetween(from,to){const out=[];let d=from;for(let i=0;i<62&&d&&d<=(to||from);i++){out.push(d);d=new Date(Date.parse(d+'T12:00:00Z')+86400000).toISOString().slice(0,10);}return out;}
+const assignmentDates=a=>datesBetween(a.date,a.endDate||a.date);
+/* Crew Control belongs only to the worker designated Crew Head of a service, and only for the days of the Crew Head blocks. */
+async function crewHeadDays(db,actor){
+ const set=new Set();if(actor.role!=='worker'||!actor.workerId)return set;
+ const ops=(await rows(db,'serviceBlockOperators')).filter(o=>o.userId===actor.id&&o.kind==='crew_head'&&!o.archived);if(!ops.length)return set;
+ const blocks=await rows(db,'serviceBlocks');
+ for(const o of ops){const block=blocks.find(x=>x.id===o.blockId&&!x.archived);if(block)for(const d of datesBetween(block.date,block.endDate||block.date))set.add(block.serviceId+'|'+d);}
+ return set;
+}
+const isCrewDay=(set,a)=>assignmentDates(a).some(d=>set.has(a.serviceId+'|'+d));
+async function crewDayClosed(db,a){for(const d of assignmentDates(a))if(await db.get(key('crewDayClosures',a.serviceId+'_'+d)))return true;return false;}
+async function requireCrewHead(db,actor,a){
+ if(actor.role!=='worker'||!actor.workerId)fail('Crew Control es exclusivo del Crew Head asignado.',403);
+ if(!isCrewDay(await crewHeadDays(db,actor),a))fail('Solo el Crew Head asignado a este servicio y día puede modificarlo.',403);
+ if(await crewDayClosed(db,a))fail('Este día ya está cerrado por el Crew Head. Gestoría puede reabrirlo.',409);
+}
+const INCIDENT_TYPES=['general','delay','absence','behaviour','safety','material','category_change','other'];
 async function canCoordinateAssignment(db,actor,assignment){
  if(actor.role==='manager')fail('El escaneo operativo QR corresponde a coordinadores trabajadores, no a Gestoría.',403);
  if(actor.role!=='worker'||!actor.workerId)fail('Acceso de trabajador requerido.',403);
  const service=await record(db,'services',assignment.serviceId);
+ if(isCrewDay(await crewHeadDays(db,actor),assignment))return;
  const blocks=await rows(db,'serviceBlocks'),operators=await rows(db,'serviceBlockOperators');
  const slot=assignment.orderLineId?await db.get(key('orderLines',assignment.orderLineId)):null;
  const ownBlock=slot?.blockId?blocks.find(b=>b.id===slot.blockId&&!b.archived):null;
@@ -60,14 +79,16 @@ async function canCoordinateAssignment(db,actor,assignment){
  if(blocks.some(b=>b.serviceId===service.id&&!b.archived&&b.date===assignment.date&&b.serviceType===slot?.serviceType&&b.coordinatorId)){
   fail('El fichaje debe validarlo el coordinador del bloque.',403);
  }
- await canCoordinate(db,actor,service.id);
+ // Block coordinators only reach their own block; only the general coordinator of the service reaches unblocked staff.
+ if(service.coordinatorId===actor.id)return;
+ if(!(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===service.id&&c.userId===actor.id&&!c.archived))fail('No coordinas a este trabajador.',403);
 }
 async function canService(db,actor,id){if(actor.role==='manager')return;const s=await scope(db,actor);if(!s.has(id))fail('No tienes acceso a ese servicio.',403);}
 function publicAssignment(a,actor){
  if(actor.role==='manager')return a;
  const {costRate,chargeRate,baseCostRate,baseChargeRate,clientHours,billableHours,clientUnits,workerHours,workerUnits,minimumHours,incrementPercent,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;
  // Worker receives only their own gross remuneration and settlement state, never customer rates.
- if(actor.role!=='manager'&&a.workerId===actor.workerId)return {...rest,grossPay:money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)),payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
+ if(actor.role!=='manager'&&a.workerId===actor.workerId)return {...rest,grossPay:a.settlementStatus==='confirmed'?money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)):null,payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
  return rest;
 }
 async function view(db,actor){
@@ -76,7 +97,8 @@ async function view(db,actor){
  let assignments=(await rows(db,'assignments')).filter(a=>(!serviceScope||serviceScope.has(a.serviceId))&&(actor.role==='manager'||a.workerId===actor.workerId));
  const workerIds=new Set(assignments.map(a=>a.workerId));
  const workers=(await rows(db,'workers')).filter(w=>actor.role==='manager'||w.id===actor.workerId).map(w=>actor.role==='manager'?w:{id:w.id,name:w.name,phone:w.phone,email:w.email,specialty:w.specialty,contractType:w.contractType||'eventual',revision:w.revision});
- const documents=(await rows(db,'documents')).filter(d=>actor.role==='manager'||(actor.workerId&&d.workerId===actor.workerId));
+ const staffServiceIds=new Set(assignments.filter(a=>a.workerId===actor.workerId&&a.status!=='rejected').map(a=>a.serviceId));
+ const documents=(await rows(db,'documents')).filter(d=>actor.role==='manager'||(actor.workerId&&(d.workerId===actor.workerId||(d.shareWithStaff&&staffServiceIds.has(d.serviceId)))));
  const availability=(await rows(db,'availability')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
   const weeklyAvailability=actor.workerId?await db.get(key('weeklyAvailability',actor.workerId))||null:null;
  const allCoordinators=await rows(db,'serviceCoordinators'),allBlocks=await rows(db,'serviceBlocks'),allOperators=await rows(db,'serviceBlockOperators');const coordinatorIds=new Set([...services.map(s=>s.coordinatorId),...allCoordinators.map(c=>c.userId),...allBlocks.map(c=>c.coordinatorId),...allOperators.map(o=>o.userId)].filter(Boolean));
@@ -86,8 +108,9 @@ async function view(db,actor){
   const ownBlockIds=new Set([...allBlocks.filter(b=>b.coordinatorId===actor.id&&!b.archived).map(b=>b.id),...allOperators.filter(o=>o.userId===actor.id&&!o.archived).map(o=>o.blockId)]);
   const ownAssignedServices=new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId)]);
   const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId&&l.coordinatorId!==allBlocks.find(b=>b.id===l.blockId)?.coordinatorId?l.coordinatorId===actor.id:ownBlockIds.has(l.blockId)||l.coordinatorId===actor.id)).map(l=>l.id));
-  const coordinatorBlocks=actor.role==='manager'?[]:allBlocks.filter(b=>!b.archived&&(ownAssignedServices.has(b.serviceId)||ownBlockIds.has(b.id))).map(b=>({id:b.id,serviceId:b.serviceId,date:b.date,endDate:b.endDate,start:b.start,end:b.end,serviceType:b.serviceType,team:b.team,placeId:b.placeId,revision:b.revision,lead:allOperators.some(o=>o.blockId===b.id&&o.userId===actor.id&&o.kind==='crew_head'&&!o.archived),operators:allOperators.filter(o=>o.blockId===b.id&&!o.archived).map(o=>({id:o.id,userId:o.userId,kind:o.kind,revision:o.revision}))}));
-  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,vestColor:a.vestColor||'',dietCount:a.dietCount??0,pauseScheduledHours:a.pauseScheduledHours??0,rating:a.rating??0,pauseStart:a.pauseStart||'',pauseEnd:a.pauseEnd||'',checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}});
+  const crewDays=await crewHeadDays(db,actor),blockCrewDay=b=>datesBetween(b.date,b.endDate||b.date).some(d=>crewDays.has(b.serviceId+'|'+d));
+  const coordinatorBlocks=actor.role==='manager'?[]:allBlocks.filter(b=>!b.archived&&(ownAssignedServices.has(b.serviceId)||ownBlockIds.has(b.id)||blockCrewDay(b))).map(b=>({id:b.id,serviceId:b.serviceId,date:b.date,endDate:b.endDate,start:b.start,end:b.end,serviceType:b.serviceType,team:b.team,placeId:b.placeId,revision:b.revision,lead:blockCrewDay(b),operators:allOperators.filter(o=>o.blockId===b.id&&!o.archived).map(o=>({id:o.id,userId:o.userId,kind:o.kind,revision:o.revision}))}));
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId)||isCrewDay(crewDays,a))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,categoryId:a.categoryId||'',crew:isCrewDay(crewDays,a),team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,vestColor:a.vestColor||'',dietCount:a.dietCount??0,pauseScheduledHours:a.pauseScheduledHours??0,rating:a.rating??0,pauseStart:a.pauseStart||'',pauseEnd:a.pauseEnd||'',checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}});
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const coordinatorCandidates=actor.role==='manager'?[]:(await rows(db,'users')).filter(u=>u.active&&u.role==='worker'&&coordinatorRoster.some(a=>a.workerId===u.workerId)).map(u=>({id:u.id,name:u.name,workerId:u.workerId}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
@@ -97,7 +120,7 @@ async function view(db,actor){
   const controlledWorkerIds=new Set(coordinatorRoster.map(a=>a.workerId));
   const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||(assignedServices.includes(i.serviceId)&&(i.createdBy===actor.id||!!i.workerId&&controlledWorkerIds.has(i.workerId)))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const companySettings=await settings(db);
-  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorCandidates,coordinatorServiceIds:assignedServices,crewTeams:(await rows(db,'crewTeams')).filter(t=>!t.archived&&actor.role!=='manager'&&ownBlockIds.has(t.blockId)),documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
+  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email,staffNotice:companySettings.staffNotice||'',emergencyPhone:companySettings.emergencyPhone||''},users:directory,workers,services,assignments:assignments.map(a=>{const p=publicAssignment(a,actor);if(actor.role!=='manager'&&a.orderLineId){const slot=allSlots.find(l=>l.id===a.orderLineId);if(slot)p.serviceType=slot.serviceType||'';}return p;}),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorCandidates,coordinatorServiceIds:assignedServices,crewTeams:(await rows(db,'crewTeams')).filter(t=>!t.archived&&actor.role!=='manager'&&coordinatorBlocks.some(b=>b.id===t.blockId)),crewHeadDays:[...crewDays].map(x=>{const [serviceId,date]=x.split('|');return {serviceId,date};}),crewDayClosures:(await rows(db,'crewDayClosures')).filter(c=>actor.role==='manager'||crewDays.has(c.serviceId+'|'+c.date)),categoryOptions:crewDays.size?(await tariffCatalog(db)).filter(t=>t.active!==false).map(t=>({id:t.id,name:t.name,schedule:t.schedule||'Tarifa estándar 2026'})):[],documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
  if(actor.role==='manager')Object.assign(result,{employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -147,12 +170,15 @@ async function saveEntity(db,actor,kind,b){
   const venueLat=b.venueLat===''||b.venueLat==null?null:Number(b.venueLat),venueLng=b.venueLng===''||b.venueLng==null?null:Number(b.venueLng);
    if((venueLat==null)!==(venueLng==null))fail('Introduce latitud y longitud o deja ambas vacías.');
    if(venueLat!=null&&(!Number.isFinite(venueLat)||!Number.isFinite(venueLng)||venueLat < -90||venueLat >90||venueLng < -180||venueLng>180))fail('Coordenadas del recinto incorrectas.');
-   data={name:required(b.name,'el nombre'),clientId:client.id,tariffSchedule,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000)};
+   data={name:required(b.name,'el nombre'),clientId:client.id,tariffSchedule,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000),employeeNotes:text(b.employeeNotes,3000),callTime:b.callTime?time(b.callTime):''};
  }
  if(kind==='assignments'){
   const service=await record(db,'services',required(b.serviceId,'el servicio')),worker=await record(db,'workers',required(b.workerId,'el trabajador'));
   if(service.settlementStatus==='confirmed'||service.archived||service.status==='cancelled'||!worker.active||worker.archived)fail('Servicio o trabajador inactivo.');
   const all=await rows(db,'assignments');
+  // A position (orderLine) carries its own day and hours; use them when the form leaves them empty.
+  const lineDefaults=b.orderLineId?await db.get(key('orderLines',text(b.orderLineId)))||{}:{};
+  if(!b.date&&lineDefaults.date){b={...b,date:lineDefaults.date,endDate:b.endDate||lineDefaults.endDate||lineDefaults.date,start:b.start||lineDefaults.start,end:b.end||lineDefaults.end};}
   const startDate=date(b.date||service.date);if(worker.endDate&&worker.endDate<startDate)fail('El contrato del trabajador finaliza antes del servicio.');if(worker.startDate&&worker.startDate>startDate)fail('El trabajador aún no está dado de alta en esa fecha.');const unavailable=(await rows(db,'availability')).find(a=>a.workerId===worker.id&&a.date>=startDate&&a.date<=(b.endDate||service.endDate)&&a.status==='unavailable');if(unavailable)fail('El trabajador ha indicado que no está disponible el '+unavailable.date+'.',409);
   const endDate=date(b.endDate||service.endDate),start=time(b.start||service.start),end=time(b.end||service.end),from=Date.parse(startDate+'T'+start+':00Z'),to=Date.parse(endDate+'T'+end+':00Z');
   if(to<=from)fail('El horario de fin debe ser posterior al inicio.');
@@ -247,7 +273,7 @@ export function createOfficeApi(storage,env={}){
      return new Response(bytes,{headers:{'content-type':info.mime,'cache-control':'private, no-store','x-content-type-options':'nosniff','content-disposition':'inline'}});
     }
     if(op==='document'){
-    const d=await record(storage,'documents',url.searchParams.get('id'));if(actor.role!=='manager'&&(!actor.workerId||d.workerId!==actor.workerId))fail('No tienes acceso a este documento.',403);
+    const d=await record(storage,'documents',url.searchParams.get('id'));if(actor.role!=='manager'){const shared=d.shareWithStaff&&actor.workerId&&(await rows(storage,'assignments')).some(a=>a.serviceId===d.serviceId&&a.workerId===actor.workerId&&!a.archived&&a.status!=='rejected');if(!actor.workerId||(d.workerId!==actor.workerId&&!shared))fail('No tienes acceso a este documento.',403);}
     const chunks=[];for(let i=0;i<d.chunks;i++){const s=await storage.get(`office/file/${d.id}/${i}`);if(typeof s!=='string')fail('Documento incompleto. Contacta con el gestor.',500);chunks.push(s);}const bytes=Uint8Array.from(atob(chunks.join('')),c=>c.charCodeAt(0));
     return new Response(bytes,{headers:{'content-type':'application/octet-stream','content-disposition':`attachment; filename*=UTF-8''${encodeURIComponent(d.name)}`,'cache-control':'no-store','x-content-type-options':'nosniff'}});
    }
@@ -326,8 +352,37 @@ export function createOfficeApi(storage,env={}){
         if(!permitted)fail('No coordinas el turno de este trabajador.',403);
       }
      }
-     const id=uid(),value={id,serviceId:service.id,workerId,description:required(b.description,'la incidencia').slice(0,2000),status:'open',createdAt:now(),createdBy:actor.id,revision:1};
+     const type=INCIDENT_TYPES.includes(b.type)?b.type:'general',severity=['low','medium','high'].includes(b.severity)?b.severity:'medium';
+     let assignmentId='',requestedCategoryId='',requestedCategory='',currentCategory='';
+     if(type==='category_change'){
+      if(!workerId)fail('Indica el trabajador para solicitar el cambio de categoría.');
+      const target=await record(db,'assignments',required(b.assignmentId,'el turno del trabajador'));
+      if(target.workerId!==workerId||target.serviceId!==service.id||target.archived)fail('Turno incorrecto para este trabajador.',403);
+      if(actor.role!=='manager')await canCoordinateAssignment(db,actor,target);
+      const tariff=(await tariffCatalog(db)).find(t=>t.id===text(b.requestedCategoryId)&&t.active!==false);
+      if(!tariff)fail('Categoría solicitada no válida.');
+      if(tariff.id===target.categoryId)fail('El trabajador ya tiene esa categoría.',409);
+      assignmentId=target.id;requestedCategoryId=tariff.id;requestedCategory=tariff.name;currentCategory=target.role||target.categoryId||'';
+     }
+     const id=uid(),value={id,serviceId:service.id,workerId,type,severity,measure:text(b.measure,1000),assignmentId,requestedCategoryId,requestedCategory,currentCategory,description:required(b.description,'la incidencia').slice(0,2000),status:'open',createdAt:now(),createdBy:actor.id,revision:1};
      await db.put(key('incidents',id),value);await audit(db,actor,'incident-report','incidents',id);return {record:value};
+    }
+    if(op==='crew-day-close'){
+     if(actor.role!=='worker'||!actor.workerId)fail('Solo el Crew Head cierra el día.',403);
+     const service=await record(db,'services',required(b.serviceId,'el servicio')),day=date(b.date);
+     if(!(await crewHeadDays(db,actor)).has(service.id+'|'+day))fail('Solo el Crew Head asignado a este servicio y día puede cerrarlo.',403);
+     const closureKey=key('crewDayClosures',service.id+'_'+day);
+     if(await db.get(closureKey))fail('Este día ya está cerrado.',409);
+     const staff=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&a.status!=='rejected'&&assignmentDates(a).includes(day));
+     const open=staff.filter(a=>a.checkIn&&!a.checkOut&&!a.noShow);
+     if(open.length)fail('Hay '+open.length+' fichaje(s) sin salida. Regístralos antes de cerrar el día.',409);
+     const value={id:service.id+'_'+day,serviceId:service.id,date:day,closedBy:actor.id,closedByName:actor.name,closedAt:now(),notes:text(b.notes,2000),summary:{assigned:staff.length,attended:staff.filter(a=>a.checkIn).length,absent:staff.filter(a=>!a.checkIn).length},revision:1};
+     await db.put(closureKey,value);await audit(db,actor,'crew-day-close','services',service.id);return {record:value};
+    }
+    if(op==='crew-day-reopen'){
+     managerOnly(actor);const service=await record(db,'services',required(b.serviceId,'el servicio')),day=date(b.date);
+     const closureKey=key('crewDayClosures',service.id+'_'+day);if(!await db.get(closureKey))fail('El día no está cerrado.',409);
+     await db.delete(closureKey);await audit(db,actor,'crew-day-reopen','services',service.id);return {};
     }
     if(op==='incident-resolve'){
      managerOnly(actor);const incident=await record(db,'incidents',b.id);revision(incident,b);
@@ -363,7 +418,7 @@ export function createOfficeApi(storage,env={}){
     
     
     if(op==='service-block-lead-update'){
-      if(actor.role!=='worker'||!actor.workerId)fail('Solo Crew Head trabajador.',403);
+      fail('El tipo de servicio y el equipo del bloque los modifica Gestoría. El Crew Head solo ajusta horarios o abre una incidencia.',403);
       const block=await record(db,'serviceBlocks',b.id);revision(block,b);
       const permitted=(await rows(db,'serviceBlockOperators')).some(o=>o.blockId===block.id&&o.userId===actor.id&&o.kind==='crew_head'&&!o.archived);
       if(!permitted)fail('No eres Crew Head de este bloque.',403);
@@ -712,7 +767,7 @@ export function createOfficeApi(storage,env={}){
    if(op==='settings'){
     managerOnly(actor);const old=await settings(db);revision(old.revision?old:null,b.record||{});const s=b.record||{};
     const prefix=required(s.invoicePrefix,'la serie');if(!/^[A-Za-z0-9-]{1,15}$/.test(prefix))fail('La serie solo admite letras, números y guiones.');
-    const value={name:required(s.name,'la razón social'),taxId:required(s.taxId,'el NIF'),address:required(s.address,'la dirección'),email:text(s.email),phone:text(s.phone),iban:text(s.iban,60),invoicePrefix:prefix,vat:number(s.vat,0,100),paymentDays:number(s.paymentDays,0,365),footer:text(s.footer,3000),revision:(old.revision||0)+1};await db.put('office/settings',value);await audit(db,actor,'settings','settings','company');return {};
+    const value={name:required(s.name,'la razón social'),taxId:required(s.taxId,'el NIF'),address:required(s.address,'la dirección'),email:text(s.email),phone:text(s.phone),iban:text(s.iban,60),invoicePrefix:prefix,vat:number(s.vat,0,100),paymentDays:number(s.paymentDays,0,365),footer:text(s.footer,3000),staffNotice:text(s.staffNotice,1500),emergencyPhone:text(s.emergencyPhone,40),revision:(old.revision||0)+1};await db.put('office/settings',value);await audit(db,actor,'settings','settings','company');return {};
    }
    if(op==='confirm'){
     const a=await record(db,'assignments',b.id);revision(a,b);if(actor.role!=='manager'&&a.workerId!==actor.workerId)fail('Solo puedes responder a tus asignaciones.',403);
@@ -738,7 +793,7 @@ export function createOfficeApi(storage,env={}){
    
     if(op==='crew-attendance'){
       if(actor.role!=='worker'||!actor.workerId)fail('Solo coordinadores trabajadores.',403);
-      const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinateAssignment(db,actor,a);
+      const a=await record(db,'assignments',b.id);revision(a,b);await requireCrewHead(db,actor,a);
       const service=await record(db,'services',a.serviceId);
       if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
       const reason=required(b.reason,'el motivo del fichaje manual').slice(0,400);
@@ -764,10 +819,9 @@ export function createOfficeApi(storage,env={}){
       if(block.archived)fail('Turno archivado.',409);
       const service=await record(db,'services',block.serviceId);
       if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
-      const slots=(await rows(db,'orderLines')).filter(l=>l.blockId===block.id&&!l.archived);
-      const assignments=(await rows(db,'assignments')).filter(a=>!a.archived&&slots.some(l=>l.id===a.orderLineId));
-      let permitted=false;for(const a of assignments){try{await canCoordinateAssignment(db,actor,a);permitted=true;break}catch{}}
-      if(!permitted)fail('No coordinas este bloque.',403);
+      const crewDays=await crewHeadDays(db,actor);
+      if(!datesBetween(block.date,block.endDate||block.date).some(d=>crewDays.has(block.serviceId+'|'+d)))fail('Solo el Crew Head de este servicio y día planifica equipos.',403);
+      if(await db.get(key('crewDayClosures',block.serviceId+'_'+block.date)))fail('Este día ya está cerrado por el Crew Head.',409);
       const old=data.id?await record(db,'crewTeams',data.id):null;
       revision(old,data);if(old&&old.blockId!==block.id)fail('No se puede mover un equipo.',409);
       const name=required(data.name,'el nombre del equipo').slice(0,100);
@@ -782,8 +836,8 @@ export function createOfficeApi(storage,env={}){
       const old=await record(db,'crewTeams',b.id);revision(old,b);
       const slots=(await rows(db,'orderLines')).filter(l=>l.blockId===old.blockId&&!l.archived);
       const assigned=(await rows(db,'assignments')).filter(a=>!a.archived&&slots.some(l=>l.id===a.orderLineId));
-      let permitted=false;for(const a of assigned){try{await canCoordinateAssignment(db,actor,a);permitted=true;break}catch{}}
-      if(!permitted)fail('No coordinas este equipo.',403);
+      const teamBlock=await record(db,'serviceBlocks',old.blockId),crewDays=await crewHeadDays(db,actor);
+      if(!datesBetween(teamBlock.date,teamBlock.endDate||teamBlock.date).some(d=>crewDays.has(teamBlock.serviceId+'|'+d)))fail('Solo el Crew Head de este servicio y día gestiona equipos.',403);
       if(assigned.some(a=>a.team===old.name))fail('Reasigna al personal antes de eliminar el equipo.',409);
       await db.put(key('crewTeams',old.id),{...old,archived:true,revision:old.revision+1});
       await audit(db,actor,'crew-team-delete','crewTeams',old.id);return {};
@@ -798,7 +852,7 @@ export function createOfficeApi(storage,env={}){
       for(const item of items){
         if(seen.has(item.id))fail('Trabajador duplicado en la selección.',409);seen.add(item.id);
         const a=await record(db,'assignments',item.id);revision(a,item);
-        await canCoordinateAssignment(db,actor,a);
+        await requireCrewHead(db,actor,a);
         const service=await record(db,'services',a.serviceId);
         if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
         let value=b.value;
@@ -826,7 +880,7 @@ export function createOfficeApi(storage,env={}){
     }
     if(op==='coordinator-control'){
      const a=await record(db,'assignments',b.id);revision(a,b);
-     if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);
+     if(actor.role!=='manager')await requireCrewHead(db,actor,a);
      const service=await record(db,'services',a.serviceId);
      if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
      const update={};
@@ -843,13 +897,13 @@ export function createOfficeApi(storage,env={}){
     }
     if(op==='coordinator-shift'){
      if(actor.role==='manager')fail('Usa Gestoría para modificar turnos.');
-     const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinateAssignment(db,actor,a);
+     const a=await record(db,'assignments',b.id);revision(a,b);await requireCrewHead(db,actor,a);
      const service=await record(db,'services',a.serviceId);
      if(service.settlementStatus==='confirmed'||service.status==='completed'||service.status==='cancelled')fail('Servicio cerrado.',409);
      if(a.checkOut)fail('No se modifica un turno ya fichado y finalizado.',409);
      const dateStart=date(b.date||a.date),dateEnd=date(b.endDate||a.endDate),start=time(b.start||a.start),end=time(b.end||a.end);
      const slot=a.orderLineId?await db.get(key('orderLines',a.orderLineId)):null,block=slot?.blockId?await db.get(key('serviceBlocks',slot.blockId)):null;
-     if(block&&!block.archived&&(dateStart+'T'+start<block.date+'T'+block.start||dateEnd+'T'+end>block.endDate+'T'+block.end))fail('Solo puedes ajustar horarios dentro de tu bloque autorizado.',403);
+     if(!isCrewDay(await crewHeadDays(db,actor),{serviceId:a.serviceId,date:dateStart,endDate:dateStart}))fail('El nuevo horario debe empezar en un día en el que eres Crew Head de este servicio.',403);
      const difference=(Date.parse(dateEnd+'T'+end+':00Z')-Date.parse(dateStart+'T'+start+':00Z'))/3600000;
      if(difference<=0||difference>48)fail('Horario inválido.');
      const others=(await rows(db,'assignments')).filter(x=>x.workerId===a.workerId&&x.id!==a.id&&!x.archived);
@@ -955,7 +1009,7 @@ export function createOfficeApi(storage,env={}){
     const content=String(b.content||'');if(!/^[A-Za-z0-9+/]+={0,2}$/.test(content)||content.length%4!==0)fail('Archivo incorrecto.');const size=atob(content).length;if(size>5*1024*1024||size<1)fail('El archivo debe ocupar entre 1 byte y 5 MB.');
     const name=required(b.name,'el nombre de archivo').replace(/[\r\n/\\]/g,'_');if(!/\.(pdf|png|jpg|jpeg)$/i.test(name))fail('Sube un PDF, PNG o JPEG.');const bytes=atob(content.slice(0,Math.min(content.length,80)));
     if((/\.pdf$/i.test(name)&&!bytes.startsWith('%PDF-'))||(/\.png$/i.test(name)&&!bytes.startsWith('\x89PNG'))||(/\.jpe?g$/i.test(name)&&!bytes.startsWith('\xff\xd8\xff')))fail('El contenido no corresponde al tipo de archivo.');
-    const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId,clientId,serviceId,type:personal?text(b.type):(text(b.type)||'contract'),expires:b.expires?date(b.expires):'',notes:text(b.notes,2000),source:personal?'employee':'manager',createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
+    const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId,clientId,serviceId,shareWithStaff:!personal&&!!serviceId&&!workerId&&(b.shareWithStaff===true||b.shareWithStaff==='on'),type:personal?text(b.type):(text(b.type)||'contract'),expires:b.expires?date(b.expires):'',notes:text(b.notes,2000),source:personal?'employee':'manager',createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
    }
    fail('Operación desconocida.',404);
   });return reply({ok:true,...result});
