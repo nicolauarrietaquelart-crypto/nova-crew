@@ -309,7 +309,7 @@ function serviceWorkspacePage(){
  $('#page-actions').innerHTML=button('service-back','Volver a servicios','left','','')+
  button('edit','Editar servicio','edit','data-kind="services" data-id="'+esc(sv.id)+'"','');
  const totalUnfilled=positions.filter(p=>!assigned.some(a=>a.orderLineId===p.id&&!a.archived)).length;
- const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Coordinadores']];
+ const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Responsables y permisos']];
  const nav='<div class="service-workspace-nav">'+menu.map(([k,label])=>'<button class="'+(serviceTab===k?'selected':'')+'" type="button" data-action="service-tab" data-tab="'+k+'">'+label+'</button>').join('')+'</div>';
  const top='<div class="service-overview"><div><span class="eyebrow">SERVICIO</span><h2>'+esc(sv.name)+'</h2><p>'+esc(name('clients',sv.clientId))+' · '+esc(sv.venue)+'</p>'+
  '<div class="service-meta">'+badge(sv.status)+'<span>'+fmt(sv.date)+' — '+fmt(sv.endDate)+'</span><span>Tarifa: '+esc(sv.tariffSchedule||'Estándar')+'</span></div></div>'+
@@ -331,6 +331,7 @@ function serviceWorkspacePage(){
      return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
      '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+'</p><p><strong>Coordinador del turno:</strong> '+esc(block.coordinatorId?name('users',block.coordinatorId):'Sin asignar')+'</p></div>'+
      '<div class="service-block-tools">'+button('service-block-add-positions','Añadir puestos','plus','data-id="'+esc(block.id)+'"','')+
+     button('service-block-operators','Crew Head y coordinadores','users','data-id="'+esc(block.id)+'"','')+
      button('service-block-edit','Editar bloque','edit','data-id="'+esc(block.id)+'"','')+
      button('service-block-remove','Eliminar bloque','trash','data-id="'+esc(block.id)+'"','')+'</div></div>'+
      servicePostTable(posts,assigned)+'</article>';
@@ -358,9 +359,9 @@ function serviceWorkspacePage(){
   }).join('')+'</div>':'<div class="panel empty">Añade tu primera ubicación. Puedes buscarla en Google Maps y guardar sus datos.</div>');
  }else{
   const allUsers=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
-  body='<div class="service-section-header"><div><h3>Coordinación</h3><p>Asigna varios coordinadores al mismo servicio. También puedes asignar uno por bloque.</p></div>'+
+  body='<div class="service-section-header"><div><h3>Coordinación por día y turno</h3><p>Asigna Crew Heads y coordinadores normales desde cada tipo de servicio. Los permisos se limitan al bloque elegido.</p></div>'+
    button('service-coordinator-new','Añadir coordinador','plus','','')+'</div>'+
-   '<div class="panel"><div class="list-item"><span class="grow">Coordinador principal</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
+   '<div class="panel"><div class="list-item"><span class="grow">Coordinador general (opcional)</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
    button('edit','Cambiar','edit','data-kind="services" data-id="'+esc(sv.id)+'"','')+'</div>'+
    coordinators.map(c=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',c.userId))+'</strong><small>Coordinador adicional</small></div>'+
     button('service-coordinator-remove','Quitar','trash','data-id="'+esc(c.id)+'"','')+'</div>').join('')+'</div>';
@@ -440,6 +441,22 @@ function blockAddCategories(id){
   captureBlockCategories();if(!blockCategoryRows.length||blockCategoryRows.some(x=>!x.categoryId))throw Error('Selecciona al menos una categoría.');
   return api('service-block-add-positions',{blockId:block.id,categories:blockCategoryRows});
  });
+}
+function serviceBlockOperatorsEditor(blockId){
+ const block=find('serviceBlocks',blockId);if(!block)return;
+ const operators=list('serviceBlockOperators').filter(o=>o.blockId===block.id),staff=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
+ const people='<div class="service-operator-list">'+operators.map(o=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',o.userId))+'</strong><small>'+esc(o.kind==='crew_head'?'Crew Head · responsable del bloque':'Coordinador de este bloque')+'</small></div>'+
+ button('block-operator-remove','Quitar','trash','data-id="'+esc(o.id)+'"','')+'</div>').join('')+'</div>';
+ const form='<form id="block-operator-form"><div class="notice"><strong>'+esc(block.date)+' · '+esc(block.serviceType)+' · '+esc(block.start)+'–'+esc(block.end)+'</strong><p>Los permisos se limitan a este bloque; Crew Head puede añadir coordinadores normales sin ser gestor de oficina.</p></div>'+
+ people+'<div class="form-grid">'+select('userId','Trabajador',staff,'',true)+select('kind','Permiso del bloque',[{id:'crew_head',name:'Crew Head (responsable)'},{id:'coordinator',name:'Coordinador normal'}],'coordinator')+'</div>'+
+ '<div class="form-footer"><button type="button" class="btn" data-action="close">Cerrar</button><button type="submit" class="btn primary">Asignar al bloque</button></div><div class="form-error" hidden></div></form>';
+ modal('Personal que coordina este turno',form);
+ $('#block-operator-form').onsubmit=async e=>{
+  e.preventDefault();const form=e.currentTarget,err=form.querySelector('.form-error'),submit=form.querySelector('[type=submit]');submit.disabled=true;err.hidden=true;
+  try{await api('service-block-operator-save',{record:{...Object.fromEntries(new FormData(form)),blockId}});await load();serviceBlockOperatorsEditor(blockId);toast('Permiso asignado')}
+  catch(ex){err.textContent=ex.message;err.className='form-error error';err.hidden=false}
+  finally{submit.disabled=false}
+ };
 }
 function serviceCoordinatorEditor(){
  const all=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
@@ -588,6 +605,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='service-block-new')return serviceBlockEditor('',el.dataset.date||'');
  if(a==='service-block-edit')return serviceBlockEditor(id);
  if(a==='service-block-add-positions')return blockAddCategories(id);
+ if(a==='service-block-operators')return serviceBlockOperatorsEditor(id);
+ if(a==='block-operator-remove'){const o=find('serviceBlockOperators',id);if(!o)return;return runMutation('service-block-operator-remove',{id:o.id,revision:o.revision},'Coordinador retirado')}
  if(a==='block-category-add'){captureBlockCategories();blockCategoryRows.push({categoryId:'',quantity:1});return drawBlockCategories()}
  if(a==='block-category-remove'){captureBlockCategories();blockCategoryRows.splice(Number(el.dataset.index),1);return drawBlockCategories()}
  if(a==='service-place-new')return servicePlaceEditor();
