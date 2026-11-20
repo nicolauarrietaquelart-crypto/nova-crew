@@ -246,3 +246,6 @@
  .ccm-grid{grid-template-columns:1fr}
  .cc-bulk-actions{justify-content:flex-start}
 }
+.cc-close-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.cc-close-sum div{padding:12px;border-radius:14px;background:#f3f4f6;display:grid}
+.cc-close-sum b{font-size:22px}.cc-close-sum small{color:var(--muted,#6d727c)}

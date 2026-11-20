@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v27 · Lo cerrado desaparece
+
+- El coordinador tiene **Cerrar día** en Coordinación (exige que nadie se quede sin hora de fin). Al cerrar, su gente queda congelada y Gestoría puede **reabrirlo** desde *Cierre y facturación* del servicio.
+- Un turno cerrado (por el coordinador, por el Crew Head en Crew Control o por la oficina al finalizar o cancelar el servicio) **desaparece de Coordinación y de Próximos / Por confirmar** en Mis servicios y del Inicio. Solo queda en el **Historial**, y ya no se puede fichar.
+
 ## Novedades v26 · Coordinación como Crew Control
 
 - Estado de cada trabajador con el mismo desplegable de Crew Control: **No contactado · Contactado · Presente · No presentado**.

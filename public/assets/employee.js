@@ -60,8 +60,9 @@ const STATUS_ES={confirmed:'Confirmado',pending:'Por confirmar',rejected:'Rechaz
 function status(s){return '<span class="badge '+esc(s)+'">'+esc(STATUS_ES[s]||s)+'</span>'}
 const startMs=a=>Date.parse(a.date+'T'+(a.start||'00:00')+':00');
 const endMs=a=>Date.parse((a.endDate||a.date)+'T'+(a.end||'23:59')+':00');
+const shiftClosed=a=>!!a.closed||['completed','cancelled'].includes(service(a.serviceId).status);
 function shiftState(a){if(a.checkOut)return 'done';if(a.checkIn)return 'live';const now=Date.now();if(now>=startMs(a)&&now<=endMs(a))return 'live';return now<startMs(a)?'upcoming':'past';}
-const canClock=a=>{const sv=service(a.serviceId);if(a.status==='rejected'||a.checkOut||['completed','cancelled'].includes(sv.status))return false;if(a.checkIn)return true;return Date.now()>=startMs(a)-4*3600000&&Date.now()<=endMs(a)+4*3600000;};
+const canClock=a=>{const sv=service(a.serviceId);if(a.status==='rejected'||a.checkOut||a.closed||['completed','cancelled'].includes(sv.status))return false;if(a.checkIn)return true;return Date.now()>=startMs(a)-4*3600000&&Date.now()<=endMs(a)+4*3600000;};
 const monthLabel=m=>{const d=new Date(m+'-01T12:00:00');const t=d.toLocaleDateString('es-ES',{month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1)};
 const empSeenKey=()=>'nova-emp-msg-seen-'+(state.user?.id||'');
 function empSeen(){try{return localStorage.getItem(empSeenKey())||''}catch{return ''}}
@@ -70,7 +71,7 @@ function unreadCount(){const seen=empSeen();return (state.messages||[]).filter(m
 function pendingTraining(){return list('documents').filter(d=>d.type==='training'&&!(state.trainingAcks||[]).some(ack=>ack.documentId===d.id))}
 function mapsLink(a){const p=placeForAssignment(a),s=service(a.serviceId);if(p?.mapsUrl)return p.mapsUrl;const q=p?.lat!=null?p.lat+','+p.lng:[p?.name||s.venue,p?.address].filter(Boolean).join(', ');return q?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q):''}
 const NAV_GROUPS=[['DÍA A DÍA',['dashboard','clock','services','calendar','availability']],['COORDINACIÓN',['coordination','crewControl']],['MI EMPRESA',['messages','documents','contracts','training','settlements','company','tutorials']],['CUENTA',['profile']]];
-function navCount(k){if(k==='services')return myAssignments().filter(a=>a.status==='pending'&&endMs(a)>Date.now()).length;if(k==='messages')return unreadCount();if(k==='training')return pendingTraining().length;if(k==='coordination')return (state.coordinatorRoster||[]).filter(a=>!a.crew&&!isCrewHeadDay(a.serviceId,a.date)&&a.date===today()&&!a.checkIn&&!a.noShow&&endMs(a)>Date.now()).length;return 0}
+function navCount(k){if(k==='services')return myAssignments().filter(a=>!shiftClosed(a)&&a.status==='pending'&&endMs(a)>Date.now()).length;if(k==='messages')return unreadCount();if(k==='training')return pendingTraining().length;if(k==='coordination')return (state.coordinatorRoster||[]).filter(a=>!a.crew&&!isCrewHeadDay(a.serviceId,a.date)&&a.date===today()&&!a.checkIn&&!a.noShow&&endMs(a)>Date.now()).length;return 0}
 function renderNav(){
  const isCoord=isNormalCoordinator()||isCrewHead();
  const item=key=>{const n=navCount(key);return '<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span class="nav-text">'+esc(names[key])+'</span>'+(n?'<b class="nav-count">'+n+'</b>':'')+'</button>'};
@@ -111,12 +112,12 @@ function serviceCard(a,opts={}){
  return '<article class="service-card '+(st==='live'?'is-live':'')+'">'+dateTile+text+acts+'</article>';
 }
 function dashboard(){
- const as=myAssignments().filter(a=>a.status!=='rejected');
+ const as=myAssignments().filter(a=>a.status!=='rejected'&&!shiftClosed(a));
  const live=as.filter(a=>shiftState(a)==='live').sort((a,b)=>startMs(a)-startMs(b));
  const upcoming=as.filter(a=>shiftState(a)==='upcoming').sort((a,b)=>startMs(a)-startMs(b));
- const pending=myAssignments().filter(a=>a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b));
+ const pending=myAssignments().filter(a=>!shiftClosed(a)&&a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b));
  const week=upcoming.filter(a=>startMs(a)<Date.now()+7*864e5);
- const m=today().slice(0,7),monthRows=as.filter(a=>a.date.startsWith(m));
+ const m=today().slice(0,7),monthRows=myAssignments().filter(a=>a.status!=='rejected'&&a.date.startsWith(m));
  const monthHours=monthRows.reduce((n,a)=>n+Number(a.hours||0),0),monthGross=monthRows.filter(a=>a.payStatus==='confirmed').reduce((n,a)=>n+Number(a.grossPay||0),0);
  const focus=live[0]||upcoming[0],sv=focus&&service(focus.serviceId),isLive=focus&&live.includes(focus);
  const maps=focus&&mapsLink(focus);
@@ -137,7 +138,7 @@ function dashboard(){
  if(unreadCount())alerts.push(['messages','Tienes '+unreadCount()+' mensaje(s) nuevo(s) de la oficina','Leer']);
  const hasWeekly=Object.values(state.weeklyAvailability?.days||{}).some(d=>d?.slots?.length||d?.available);
  if(!hasWeekly&&!list('availability').some(a=>a.date>=today()))alerts.push(['availability','Aún no has indicado tu disponibilidad. Ayuda a la oficina a planificar.','Indicar']);
- const crewToday=crewDayList().filter(d=>d.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
+ const crewToday=crewDayList().filter(d=>d.date>=today()&&!(state.crewDayClosures||[]).some(c=>c.serviceId===d.serviceId&&c.date===d.date)&&!['completed','cancelled'].includes(service(d.serviceId).status)).sort((a,b)=>a.date.localeCompare(b.date))[0];
  $('#employee-content').innerHTML=(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
  ((todo.length||alerts.length)?'<div class="emp-todo-head"><h3>Lo que tienes pendiente</h3><small class="muted">'+(todo.length+alerts.length)+' paso'+(todo.length+alerts.length===1?'':'s')+'</small></div><div class="emp-todo">'+todo.map(([act,id,t,d,c],i)=>'<button class="emp-todo-item" data-action="'+act+'" data-id="'+esc(id)+'"><span class="step-num">'+(i+1)+'</span><span class="grow"><p>'+esc(t)+'</p><small>'+esc(d)+'</small></span><b>'+esc(c)+' →</b></button>').join('')+alerts.map(([p,t,c],i)=>'<button class="emp-todo-item" data-page="'+p+'"><span class="step-num">'+(todo.length+i+1)+'</span><span class="grow"><p>'+esc(t)+'</p></span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'<div class="emp-todo-head"><h3>Todo al día</h3><small class="muted">No tienes nada pendiente</small></div>')+
  (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
@@ -147,7 +148,7 @@ function dashboard(){
 let servicesTab='upcoming';
 function servicesPage(){
  const all=myAssignments();
- const groups={upcoming:all.filter(a=>['upcoming','live'].includes(shiftState(a))&&a.status!=='rejected').sort((a,b)=>startMs(a)-startMs(b)),pending:all.filter(a=>a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b)),history:all.filter(a=>['past','done'].includes(shiftState(a))||a.status==='rejected').sort((a,b)=>startMs(b)-startMs(a))};
+ const groups={upcoming:all.filter(a=>!shiftClosed(a)&&['upcoming','live'].includes(shiftState(a))&&a.status!=='rejected').sort((a,b)=>startMs(a)-startMs(b)),pending:all.filter(a=>!shiftClosed(a)&&a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b)),history:all.filter(a=>shiftClosed(a)||['past','done'].includes(shiftState(a))||a.status==='rejected').sort((a,b)=>startMs(b)-startMs(a))};
  const tabs=[['upcoming','Próximos'],['pending','Por confirmar'],['history','Historial']];
  const rows=groups[servicesTab]||[];
  $('#employee-content').innerHTML='<div class="section-title"><h2>Mis servicios</h2><p class="muted">Confirma tus turnos, consulta los detalles y ficha desde aquí.</p></div>'+
@@ -259,7 +260,7 @@ const isCrewHeadDay=(serviceId,date)=>crewDayList().some(d=>d.serviceId===servic
 const crewControlUrl=(serviceId,date)=>'/crew-control/?service='+encodeURIComponent(serviceId)+'&date='+encodeURIComponent(date);
 function coordEntries(){
  const map=new Map();
- for(const a of coordRoster()){if(a.crew||isCrewHeadDay(a.serviceId,a.date))continue;const k=a.serviceId+'|'+a.date;if(!map.has(k))map.set(k,{key:k,serviceId:a.serviceId,date:a.date,rows:[]});map.get(k).rows.push(a);}
+ for(const a of coordRoster()){if(a.crew||isCrewHeadDay(a.serviceId,a.date)||a.closed||['completed','cancelled'].includes(service(a.serviceId).status))continue;const k=a.serviceId+'|'+a.date;if(!map.has(k))map.set(k,{key:k,serviceId:a.serviceId,date:a.date,rows:[]});map.get(k).rows.push(a);}
  const t=today();
  return [...map.values()].sort((a,b)=>{const ga=a.date===t?0:a.date>t?1:2,gb=b.date===t?0:b.date>t?1:2;return ga-gb||(ga===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date));});
 }
@@ -306,7 +307,7 @@ function coordinationPage(){
   const all=e.rows.filter(a=>coordShiftKey(a)===g),pres=all.filter(a=>a.checkIn&&!a.noShow).length,allSel=rs.every(a=>coordSel.has(a.id));
   return '<section class="cc-group"><header>'+(closed?'':'<label class="cc-cb" title="Seleccionar todo el turno"><input type="checkbox" data-coord-group="'+esc(g)+'" '+(allSel?'checked':'')+'></label>')+'<strong>'+esc(g)+'</strong><span class="cc-group-count">'+pres+'/'+all.length+' presentes</span></header>'+rs.map(row).join('')+'</section>'};
  $('#employee-content').innerHTML='<div class="cc-lite">'+
- '<div class="cc-top"><button class="back-link" data-action="coord-back">‹ Coordinación</button><div class="cc-title"><div><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||'')+' · '+coordRole(e))+'</p></div><div class="cc-actions">'+(closed?'<span class="badge done">Día cerrado</span>':btn('scan-qr','Escanear QR',e.serviceId,'primary'))+btn('incident-report','Incidencia',e.serviceId)+'</div></div></div>'+
+ '<div class="cc-top"><button class="back-link" data-action="coord-back">‹ Coordinación</button><div class="cc-title"><div><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||'')+' · '+coordRole(e))+'</p></div><div class="cc-actions">'+(closed?'<span class="badge done">Día cerrado</span>':btn('scan-qr','Escanear QR',e.serviceId,'primary'))+btn('incident-report','Incidencia',e.serviceId)+(closed?'':btn('coord-close-day','Cerrar día',e.key,'secondary cc-close'))+'</div></div></div>'+
  '<div class="cc-tiles">'+tile('present','Presentes')+tile('contacted','Contactados')+tile('pending','No contactados')+tile('absent','No presentados')+tile('done','Con salida')+tile('all','Todos')+'</div>'+
  '<label class="coord-search"><input type="search" id="coord-search" placeholder="Buscar persona o categoría…" value="'+esc(coordSearch)+'"></label>'+
  (visible.length?groups.map(groupHtml).join(''):'<div class="empty">Sin personal para este filtro.</div>')+
@@ -316,6 +317,14 @@ function coordinationPage(){
  document.querySelectorAll('[data-coord-status]').forEach(el=>el.onchange=()=>coordSetStatus([el.dataset.coordStatus],el.value));
  document.querySelectorAll('[data-coord-sel]').forEach(el=>el.onchange=()=>{el.checked?coordSel.add(el.dataset.coordSel):coordSel.delete(el.dataset.coordSel);coordinationPage()});
  document.querySelectorAll('[data-coord-group]').forEach(el=>el.onchange=()=>{const ids=visible.filter(a=>coordShiftKey(a)===el.dataset.coordGroup).map(a=>a.id);ids.forEach(id=>el.checked?coordSel.add(id):coordSel.delete(id));coordinationPage()});
+}
+function coordCloseModal(k){
+ const e=coordEntries().find(x=>x.key===k);if(!e)return;
+ const open=e.rows.filter(a=>a.checkIn&&!a.checkOut&&!a.noShow),pending=e.rows.filter(a=>!a.checkIn&&!a.noShow);
+ modal('Cerrar el día','<div class="ccm"><p><b>'+esc(service(e.serviceId).name||'Servicio')+'</b> · '+esc(human(e.date))+'</p>'+
+ '<div class="cc-close-sum"><div><b>'+e.rows.filter(a=>a.checkIn).length+'</b><small>con entrada</small></div><div><b>'+e.rows.filter(a=>a.noShow).length+'</b><small>no presentados</small></div><div><b>'+pending.length+'</b><small>sin marcar</small></div></div>'+
+ (open.length?'<div class="notice">'+open.length+' persona(s) siguen sin hora de fin: '+esc(open.map(a=>coordWorkerName(a.workerId)).join(', '))+'. Regístrala antes de cerrar (puedes seleccionar a todos y usar «Fin ahora»).</div>':'<p class="muted">Al cerrar, el día deja de aparecer en Coordinación y en Mis servicios, y ya no podrás modificarlo. Si hace falta, Gestoría puede reabrirlo.</p>')+
+ '<div class="ccm-actions"><span></span><div><button type="button" class="ccm-link" data-action="modal-close-x">Cancelar</button>'+(open.length?'':'<button class="primary" data-action="coord-close-confirm" data-id="'+esc(k)+'">Cerrar día</button>')+'</div></div></div>');
 }
 async function coordSend(ids,changes,msg){
  const rows=ids.map(id=>coordRoster().find(x=>x.id===id)).filter(Boolean);if(!rows.length)return;
@@ -1031,6 +1040,8 @@ document.addEventListener('click',async ev=>{
  if(action==='coord-filter'){coordFilter=id;return coordinationPage()}
  if(action==='coord-shift'){coordShiftSel=id;return coordinationPage()}
  if(action==='coord-edit')return coordEditModal(id);
+ if(action==='coord-close-day')return coordCloseModal(id);
+ if(action==='coord-close-confirm'){const [serviceId,date]=id.split('|');try{await api('coord-day-close',{serviceId,date});$('#employee-modal').close();coordKey='';coordSel.clear();await load();page='coordination';render();notice('Día cerrado. Ya no aparece en Coordinación ni en Mis servicios.');}catch(err){error(err)}return}
  if(action==='coord-history')return coordHistory(id);
  if(action==='coord-bulk-status')return coordSetStatus([...coordSel],id).then(()=>{coordSel.clear();coordinationPage()});
  if(action==='coord-bulk-out')return coordSend([...coordSel],{realOut:hmNow()},'Fin registrado a '+coordSel.size).then(()=>{coordSel.clear();coordinationPage()});

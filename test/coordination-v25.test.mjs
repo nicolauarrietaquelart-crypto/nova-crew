@@ -96,3 +96,21 @@ test('coordinator sets Crew Control statuses and bulk edits all or nothing',asyn
  const h=await f.call('assignment-history',{id:f.aHand.id},f.c);assert.equal(h.status,200);assert.ok(h.body.entries.some(e=>e.action==='coord-bulk'));
  assert.equal((await f.call('assignment-history',{id:f.aHand.id},f.h)).status,403);
 });
+
+test('a coordinator closes their day: shifts are hidden as closed, frozen, and Gestoría can reopen',async()=>{
+ const f=await setup();
+ let r=await f.call('coord-update',{id:f.aHand.id,revision:f.aHand.revision,changes:{realIn:'08:00'}},f.c);assert.equal(r.status,200);
+ const day=f.aHand.date;
+ assert.equal((await f.call('coord-day-close',{serviceId:f.svc.id,date:day},f.c)).status,409,'open check-in blocks closing');
+ r=await f.call('coord-update',{id:f.aHand.id,revision:r.body.record.revision,changes:{realOut:'16:00'}},f.c);assert.equal(r.status,200);
+ assert.equal((await f.call('coord-day-close',{serviceId:f.svc.id,date:day},f.h)).status,403);
+ const c=await f.call('coord-day-close',{serviceId:f.svc.id,date:day},f.c);assert.equal(c.status,200,JSON.stringify(c.body));
+ const coordState=(await f.call('state',null,f.c)).body;assert.ok(coordState.coordinatorRoster.every(a=>a.closed));
+ const handState=(await f.call('state',null,f.h)).body;assert.equal(handState.assignments[0].closed,true);
+ assert.equal((await f.call('coord-update',{id:f.aHand.id,revision:r.body.record.revision,changes:{dietCount:1}},f.c)).status,409);
+ const g=(await f.call('state',null,f.g)).body;assert.equal(g.coordClosures.length,1);
+ assert.equal((await f.call('coord-day-reopen',{id:g.coordClosures[0].id},f.c)).status,403);
+ assert.equal((await f.call('coord-day-reopen',{id:g.coordClosures[0].id},f.g)).status,200);
+ assert.equal((await f.call('state',null,f.h)).body.assignments[0].closed,false);
+ assert.equal((await f.call('coord-update',{id:f.aHand.id,revision:r.body.record.revision,changes:{dietCount:1}},f.c)).status,200);
+});
