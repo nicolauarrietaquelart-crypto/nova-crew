@@ -401,7 +401,9 @@ async function crewAutoTeams(blockId){
  if(!total)return error(new Error('Todos los equipos están completos.'));
  try{
   for(const [name,group] of allocation)if(group.length){
-   await api('crew-bulk-control',{field:'team',value:name,items:group.map(a=>({id:a.id,revision:a.revision}))});
+   const assigned=await api('crew-bulk-control',{field:'team',value:name,items:group.map(a=>({id:a.id,revision:a.revision}))});
+   const vestColor=teams.find(t=>t.name===name)?.vestColor;
+   if(vestColor)await api('crew-bulk-control',{field:'vestColor',value:vestColor,items:assigned.records.map(a=>({id:a.id,revision:a.revision}))});
   }
   await load();crewPlanningModal(blockId);notice('Asignados '+total+' trabajadores a sus equipos');
  }catch(ex){error(ex)}
