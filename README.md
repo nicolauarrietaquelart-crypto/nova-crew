@@ -1,5 +1,23 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v18 (gestión y empleado)
+
+**Gestor**
+- Corregido: crear servicios desde el asistente (fallaba con `nodes.map is not a function`), la estimación del presupuesto de personal y la página de Incidencias. Los errores de acciones rápidas (liquidar, facturar, emitir…) ahora se muestran en pantalla.
+- Menú completo: Facturación, Disponibilidad, Ajustes de empresa y Actividad, con avisos de mensajes nuevos, incidencias abiertas y facturas vencidas.
+- Inicio con asistencia de hoy en tiempo real, cobertura de personal de cada servicio, pendiente de cobro y una lista «Requiere atención» (puestos sin cubrir, servicios por cerrar o liquidar, fichajes sin salida, facturas vencidas, documentos, mensajes).
+- Servicios por pestañas (próximos / pasados) con barra de cobertura. Nueva pestaña **Cierre y facturación** en cada servicio: cambio de estado, comprobaciones, coste, venta y margen previstos, liquidación y borrador de factura.
+- **Disponibilidad del equipo** en vista semanal: asignados, disponibles, semana habitual y no disponibles.
+- Mensajes organizados por conversación, incidencias por estado, cierre y liquidación con totales, y búsqueda global (Ctrl + K).
+
+**Empleado**
+- Inicio con turno en curso o próximo servicio (cuenta atrás, fichar, cómo llegar), resumen del mes y avisos (formación, documentos, mensajes, disponibilidad).
+- Servicios por pestañas (próximos / por confirmar / historial); «No puedo» permite enviar el motivo a la oficina.
+- Agenda con turnos clicables, disponibilidad con día actual, días pasados bloqueados y semana habitual; liquidaciones por mes con confirmado y pendiente; mensajes en formato chat.
+- Menú agrupado con contadores, barra móvil con botón central de fichaje y actualización automática cada 45 s.
+
+**Limpieza:** se retiran los instaladores antiguos de GitHub Actions (escribían y hacían push en `main`, uno borraba `public/`, `src/` y `test/`), la carpeta `.crew-transfer`, la integración por iframe de Crew Control (bloqueada por la política de seguridad del Worker y ya sustituida por el Crew Control nativo) y archivos sin uso. El código original de Crew Control se conserva en `integrations/crew-control/`.
+
 ## Estructura definitiva de dos áreas (v17 en revisión)
 
 **Gestor** (`/`): clientes, servicios, comandas, personal, tarifas, facturación, liquidaciones, incidencias y mensajes. Desde la ficha del trabajador, el alta crea la cuenta vinculada por defecto, con usuario generado si no se proporciona y contraseña aleatoria mostrada una sola vez al gestor. Se puede editar su acceso sin crear cuentas duplicadas.
@@ -13,7 +31,7 @@
 - Diseño común basado en los tokens visuales y navegación de la v15 histórica conservada en `public/legacy-demo.html` y `public/assets/styles.css`; se implementa en `nova-original-theme.css` para las dos áreas.
 - El prototipo antiguo usaba datos ficticios, cuentas demo y módulos no conectados. No se activa ese backend. Las equivalencias visuales al píxel y los flujos avanzados de Crew Control deben validarse en navegador antes del despliegue.
 
-**Validación y seguridad:** código en PR de borrador, con validación sintáctica y pruebas añadidas. Sigue pendiente la ejecución completa `npm run check && npm test` en Node/CI, pruebas de cámara QR iPhone/iPad, permisos de ubicación, compatibilidad con Durable Objects y revisión visual de ambas áreas. No fusionar o desplegar sin estas pruebas.
+**Publicación:** todo lo que entra en `main` se despliega automáticamente en Cloudflare (workflow `NOVA Crew tests and deploy`). Los cambios se preparan en ramas y se revisan en un pull request, donde `pr-validation.yml` ejecuta `npm run check && npm test`. Antes de fusionar, probar en navegador ambas áreas, la cámara QR en iPhone/iPad y los permisos de ubicación.
 
 
 Portal de gestión y de trabajadores sobre Cloudflare Workers y Durable Objects SQLite. La versión operativa v16 tiene usuarios reales y parte de una base vacía. Los registros de la demo se conservan separados y no se importan como datos de empresa.
