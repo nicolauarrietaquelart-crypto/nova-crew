@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v21 · Fichaje QR y Coordinación
+
+- **Lector QR continuo** para coordinadores y Crew Head: cámara a pantalla completa, valida un QR tras otro y funciona también en iPhone/iPad (jsQR, incluido en `public/assets/vendor/`). Si el recinto exige ubicación, la pide una vez por minuto.
+- Al escanear, el trabajador queda **presente al momento** en Coordinación y en Crew Control (que tiene su propio botón «Escanear QR»).
+- **Coordinación** es ahora un selector de servicios: entras en el servicio y día que coordinas y ves una versión reducida de Crew Control, sin equipos (presentes, sin llegar, salidas, turnos, búsqueda, llamada e incidencias), que se actualiza sola.
+
 ## Novedades v20 · Crew Control original y mensajes a grupos
 
 - **Crew Control v11.2.46 con su interfaz exacta**, a pantalla completa en `/crew-control/` con el botón «Volver al área de empleado». Funciona con los datos de NOVA y solo para el Crew Head en su día. Detalles en `integrations/crew-control/README.md`.

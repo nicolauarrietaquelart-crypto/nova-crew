@@ -221,6 +221,75 @@ function serviceDetailPage(){
  '<h3 style="margin-top:22px">Contacto</h3>'+line('Coordinación',coord||'Oficina')+(c.emergencyPhone?'<div class="sd-line"><span>Teléfono de guardia (solo urgencias)</span><strong><a href="tel:'+esc(c.emergencyPhone.replace(/[^+\d]/g,''))+'">'+esc(c.emergencyPhone)+'</a></strong></div>':'')+btn('go-messages','Escribir a la oficina','','secondary')+'</section></div>';
 }
 
+/* Coordinación: selector de servicios y vista reducida tipo Crew Control (sin equipos). */
+let coordKey='',coordFilter='all',coordSearch='',coordShiftSel='all',geoCache=null,coordRefreshTimer=null;
+const coordRoster=()=>state.coordinatorRoster||[];
+const coordWorkerName=id=>(state.coordinatorWorkers||[]).find(w=>w.id===id)?.name||'Personal';
+const coordWorkerPhone=id=>(state.coordinatorWorkers||[]).find(w=>w.id===id)?.phone||'';
+function coordEntries(){
+ const map=new Map();
+ for(const a of coordRoster()){const k=a.serviceId+'|'+a.date;if(!map.has(k))map.set(k,{key:k,serviceId:a.serviceId,date:a.date,rows:[]});map.get(k).rows.push(a);}
+ const t=today();
+ return [...map.values()].sort((a,b)=>{const ga=a.date===t?0:a.date>t?1:2,gb=b.date===t?0:b.date>t?1:2;return ga-gb||(ga===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date));});
+}
+function coordRole(e){
+ if(crewDayList().some(d=>d.serviceId===e.serviceId&&d.date===e.date))return 'Crew Head';
+ const own=(state.coordinatorBlocks||[]).filter(b=>!b.lead&&b.serviceId===e.serviceId&&b.date===e.date);
+ return own.length?'Coordinas '+own.map(b=>b.serviceType+' '+b.start+'–'+b.end).join(' · '):'Coordinación general';
+}
+const coordState=a=>a.checkOut?'done':a.checkIn?'present':'pending';
+function coordinationPage(){
+ const entries=coordEntries();
+ if(coordKey&&!entries.some(e=>e.key===coordKey))coordKey='';
+ if(!coordKey){
+  const t=today();
+  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación</h2><p class="muted">Elige el servicio que coordinas. Dentro verás a tu personal del día y podrás validar su fichaje con QR.</p></div>'+
+  (entries.length?'<div class="coord-list">'+entries.map(e=>{const s=service(e.serviceId),present=e.rows.filter(a=>coordState(a)==='present').length,done=e.rows.filter(a=>a.checkOut).length,d=new Date(e.date+'T12:00:00');
+   return '<button class="coord-card '+(e.date===t?'today':e.date<t?'past':'')+'" data-action="coord-enter" data-id="'+esc(e.key)+'"><div class="date-tile '+(e.date===t?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div><div class="coord-card-main"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||''))+'</small><span class="coord-role">'+esc(coordRole(e))+'</span></div><div class="coord-card-count"><b>'+present+'/'+e.rows.length+'</b><small>presentes'+(done?' · '+done+' salidas':'')+'</small></div><span class="coord-go">Entrar ›</span></button>';}).join('')+'</div>':'<div class="panel empty">No coordinas ningún turno actualmente. Gestoría puede asignarte como coordinador de un día y tipo de servicio.</div>');
+  return;
+ }
+ const e=entries.find(x=>x.key===coordKey),s=service(e.serviceId),isCrew=coordRole(e)==='Crew Head';
+ const shiftLabel=a=>(a.serviceType||'Servicio')+' · '+a.start+'–'+a.end;
+ const shifts=[...new Set(e.rows.map(shiftLabel))].sort((x,y)=>x.split(' · ')[1].localeCompare(y.split(' · ')[1]));
+ if(coordShiftSel!=='all'&&!shifts.includes(coordShiftSel))coordShiftSel='all';
+ const scoped=e.rows.filter(a=>coordShiftSel==='all'||shiftLabel(a)===coordShiftSel);
+ const counts={all:scoped.length,present:scoped.filter(a=>coordState(a)==='present').length,pending:scoped.filter(a=>coordState(a)==='pending').length,done:scoped.filter(a=>coordState(a)==='done').length};
+ const q=coordSearch.toLocaleLowerCase();
+ const rows=scoped.filter(a=>(coordFilter==='all'||coordState(a)===coordFilter)&&(!q||[coordWorkerName(a.workerId),a.role,a.serviceType].join(' ').toLocaleLowerCase().includes(q))).sort((a,b)=>(a.start+coordWorkerName(a.workerId)).localeCompare(b.start+coordWorkerName(b.workerId)));
+ const hm=iso=>iso?new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'';
+ const stat=(k,l)=>'<button class="coord-stat '+k+(coordFilter===k?' selected':'')+'" data-action="coord-filter" data-id="'+k+'"><b>'+counts[k]+'</b><small>'+l+'</small></button>';
+ $('#employee-content').innerHTML='<div class="coord-app"><div class="coord-head"><button class="back-link" data-action="coord-back">‹ Mis coordinaciones</button><div class="coord-head-row"><div><span class="eyebrow">COORDINACIÓN · '+esc(coordRole(e).toUpperCase())+'</span><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((e.date===today()?'Hoy':human(e.date))+' · '+(s.venue||''))+'</p></div>'+
+ '<div class="coord-actions">'+btn('scan-qr','Escanear QR',e.serviceId,'primary coord-scan')+btn('incident-report','Incidencia',e.serviceId)+(isCrew?'<a class="secondary btn-link" href="/crew-control/?service='+encodeURIComponent(e.serviceId)+'&date='+encodeURIComponent(e.date)+'">Abrir Crew Control</a>':'')+'</div></div></div>'+
+ '<div class="coord-stats">'+stat('all','Total')+stat('present','Presentes')+stat('pending','Sin llegar')+stat('done','Salida')+'</div>'+
+ (shifts.length>1?'<div class="coord-shifts"><button class="'+(coordShiftSel==='all'?'active':'')+'" data-action="coord-shift" data-id="all">Todos los turnos</button>'+shifts.map(x=>'<button class="'+(coordShiftSel===x?'active':'')+'" data-action="coord-shift" data-id="'+esc(x)+'">'+esc(x)+'</button>').join('')+'</div>':'')+
+ '<label class="coord-search"><input type="search" id="coord-search" placeholder="Buscar por nombre o categoría…" value="'+esc(coordSearch)+'"></label>'+
+ '<div class="coord-people">'+(rows.map(a=>{const st=coordState(a),ph=coordWorkerPhone(a.workerId);return '<div class="coord-person '+st+'"><span class="coord-dot"></span><div class="coord-person-main"><strong>'+esc(coordWorkerName(a.workerId))+'</strong><small>'+esc(a.role||'')+' · '+esc(shiftLabel(a))+'</small></div><div class="coord-person-time">'+(st==='pending'?'<span class="badge pending">Sin llegar</span>':st==='present'?'<span class="badge confirmed">Presente '+esc(hm(a.checkIn))+'</span>':'<span class="badge done">Salida '+esc(hm(a.checkOut))+'</span><small>Entrada '+esc(hm(a.checkIn))+'</small>')+'</div><div class="coord-person-actions">'+(ph?'<a class="icon-call" href="tel:'+esc(ph.replace(/[^+\d]/g,''))+'" aria-label="Llamar a '+esc(coordWorkerName(a.workerId))+'">☎</a>':'')+'<button class="icon-call" data-action="coord-worker-incident" data-id="'+esc(a.id)+'" aria-label="Incidencia de '+esc(coordWorkerName(a.workerId))+'">!</button></div></div>';}).join('')||'<div class="empty">Sin personal para este filtro.</div>')+'</div>'+
+ '<p class="muted compact">Al escanear el QR del trabajador se registra su entrada o salida y aparece como presente aquí y en Crew Control. La lista se actualiza sola.</p></div>';
+}
+async function redeemToken(token,serviceId){
+ try{return await api('qr-redeem',{token});}
+ catch(e){
+  if(!/ubicaci/i.test(e.message))throw e;
+  if(!geoCache||Date.now()-geoCache.at>60000){
+   if(!navigator.geolocation)throw new Error('Este recinto exige ubicación y el navegador no la admite.');
+   const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:30000})).catch(err=>{throw new Error(err.code===1?'Permite la ubicación para validar fichajes en este recinto.':'No se ha podido obtener tu ubicación.')});
+   geoCache={latitude:pos.coords.latitude,longitude:pos.coords.longitude,at:Date.now()};
+  }
+  return api('qr-redeem',{token,latitude:geoCache.latitude,longitude:geoCache.longitude});
+ }
+}
+let scanReload=null;
+function scanQr(serviceId){
+ const s=service(serviceId);
+ window.NovaQrScanner.open({title:'Escanear QR',subtitle:(s.name||'')+' · el fichaje se registra al instante',onToken:async token=>{
+  const r=await redeemToken(token,serviceId);
+  const name=coordWorkerName(r.workerId),time=new Date(r.time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  clearTimeout(scanReload);scanReload=setTimeout(()=>load(),600);
+  return {label:name+' · '+(r.action==='in'?'Entrada':'Salida')+' '+time,short:name.split(' ')[0]+' '+(r.action==='in'?'entrada':'salida')};
+ }});
+}
+function redeemQr(serviceId){return scanQr(serviceId)}
+
 function rejectModal(id){
  const a=myAssignments().find(x=>x.id===id);if(!a)return;
  modal('No puedo hacer este turno','<form id="reject-form" style="display:grid;gap:12px"><p class="muted">'+esc(service(a.serviceId).name||'Servicio')+' · '+human(a.date)+' '+esc(a.start)+'–'+esc(a.end)+'</p><p class="muted">La oficina recibirá tu respuesta. Si quieres, explica el motivo en un mensaje.</p><label class="form-label">Motivo (opcional, se enviará como mensaje)<textarea class="field" name="reason" maxlength="500"></textarea></label><button class="primary" type="submit">Confirmar que no puedo</button></form>');
@@ -423,21 +492,6 @@ function crewControlPage(){
  (locked?'':'<div class="cc-toolbar-right"><span>'+crewSelectedIds.size+' seleccionados</span><button type="button" data-action="crew-select-visible">Seleccionar visibles</button><button type="button" data-action="crew-clear-selected">Deseleccionar</button><button type="button" class="cc-mass-btn" data-action="crew-bulk">Editar seleccionados</button></div>')+'</div>'+
  '<div class="cc-groups">'+(rosterGroups||'<div class="cc-empty">No hay personal asignado este día.</div>')+'</div></div></div>'+
  '<div class="cc-mobile-foot"><strong>'+present+'/'+records.length+' presentes</strong><span>'+absent+' sin llegar</span><span>'+noTeam+' sin equipo</span>'+(locked?'':'<button type="button" data-action="crew-bulk">Editar</button>')+'</div></section>';
-}
-function coordinationPage(){
- const services=coordinatingServices(),roster=state.coordinatorRoster||[],workers=state.coordinatorWorkers||[],blocks=state.coordinatorBlocks||[];
- const person=id=>workers.find(w=>w.id===id)?.name||'Personal',crewSvc=new Set(crewDayList().map(d=>d.serviceId));
- const html=services.map(s=>{
-  const rows=roster.filter(a=>a.serviceId===s.id).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-  if(!rows.length)return '';
-  const dates=[...new Set(rows.map(a=>a.date))];
-  const own=blocks.filter(b=>b.serviceId===s.id&&!b.lead);
-  return box(s.name+' · '+(s.venue||''),'<div class="notice">'+(crewSvc.has(s.id)?'<strong>Eres Crew Head</strong> de este servicio '+crewDayList().filter(d=>d.serviceId===s.id).map(d=>human(d.date)).join(', ')+'. ':'')+(own.length?'Coordinas: '+own.map(b=>esc(human(b.date)+' · '+b.serviceType+' · '+b.start+'–'+b.end)).join(' / '):'')+'</div>'+
-  '<div class="actions-row" style="margin-bottom:12px">'+btn('scan-qr','Escanear QR',s.id,'primary')+btn('redeem-qr','Introducir código',s.id)+btn('incident-report','Registrar incidencia',s.id)+(crewSvc.has(s.id)?btn('crew-open','Abrir Crew Control',s.id,'primary'):'')+'</div>'+
-  dates.map(d=>'<h3 class="coord-day">'+esc(human(d))+'</h3><div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Categoría</th><th>Turno</th><th>Confirmación</th><th>Fichaje</th><th></th></tr></thead><tbody>'+
-  rows.filter(a=>a.date===d).map(a=>'<tr><td>'+esc(person(a.workerId))+'</td><td>'+esc(a.role)+'</td><td>'+esc((a.serviceType||'Servicio')+' · '+a.start+'–'+a.end)+'</td><td>'+status(a.status)+'</td><td>'+(a.checkOut?'Salida '+esc(stamp(a.checkOut).split(', ').pop()):a.checkIn?'<b class="ok-text">Presente</b> desde '+esc(stamp(a.checkIn).split(', ').pop()):'Pendiente')+'</td><td>'+(a.crew?btn('edit-coord-shift','Horario',a.id):'')+'</td></tr>').join('')+'</tbody></table></div>').join(''));
- }).join('');
- $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación</h2><p class="muted">Solo ves al personal de los turnos que coordinas. Valida su fichaje con QR y comunica incidencias a Gestoría.</p></div>'+(html||'<div class="panel empty">No coordinas ningún turno actualmente. Gestoría puede asignarte como coordinador de un día y tipo de servicio.</div>');
 }
 function incidentModal(serviceId,preset={}){
  const people=(state.coordinatorRoster||[]).filter(a=>a.serviceId===serviceId),workers=state.coordinatorWorkers||[];
@@ -684,24 +738,8 @@ function weeklyAvailabilityModal(){
  $('#week-clear').onclick=()=>{for(const d of Object.keys(days))selected[d].clear();paint()};
  $('#week-save').onclick=async()=>{try{const data=Object.fromEntries(Object.keys(days).map(key=>[key,{slots:[...selected[key]].sort((a,b)=>a-b)}]));await api('availability-weekly',{days:data});$('#employee-modal').close();await load();notice('Semana guardada')}catch(e){error(e)}};
 }
-function redeemQr(serviceId){
- modal('Validar QR de personal','<form id="qr-redeem-form" style="display:grid;gap:12px"><p class="muted">Introduce el código temporal que muestra el trabajador.</p><label class="form-label">Código QR<input class="field" name="token" required autocomplete="off"></label><button class="primary" type="submit">Registrar fichaje</button></form>');
- $('#qr-redeem-form').onsubmit=async e=>{e.preventDefault();try{await api('qr-redeem',{token:e.target.elements.token.value.trim(),...await attendanceLocation(serviceId)});$('#employee-modal').close();await load();notice('Fichaje validado')}catch(ex){error(ex)}};
-}
 let qrCamera=null,qrFrame=null;
 function stopQrCamera(){if(qrFrame)cancelAnimationFrame(qrFrame);qrFrame=null;if(qrCamera)qrCamera.getTracks().forEach(track=>track.stop());qrCamera=null}
-async function scanQr(serviceId){
- redeemQr(serviceId);
- if(!navigator.mediaDevices?.getUserMedia||!('BarcodeDetector' in window))return;
- try{
-  const detector=new BarcodeDetector({formats:['qr_code']}),stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-  qrCamera=stream;
-  const video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=stream;video.style.cssText='width:100%;max-height:240px;border-radius:12px;object-fit:cover';
-  $('#modal-body').prepend(video);await video.play();
-  const scan=async()=>{if(!qrCamera||!$('#employee-modal').open)return;try{const codes=await detector.detect(video);if(codes.length){const code=codes[0].rawValue;stopQrCamera();$('#qr-redeem-form').elements.token.value=code;$('#qr-redeem-form').requestSubmit();return}}catch{}qrFrame=requestAnimationFrame(scan)};
-  qrFrame=requestAnimationFrame(scan);
- }catch(e){error(new Error('Cámara no disponible; puedes introducir el código manualmente.'))}
-}
 function coordShift(id){
  const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(!a)return;
  modal('Cambiar horario del personal','<form id="coord-shift-form" style="display:grid;gap:12px"><label class="form-label">Día de inicio<input class="field" name="date" type="date" value="'+esc(a.date)+'" required></label><label class="form-label">Hora inicio<input class="field" name="start" type="time" value="'+esc(a.start)+'" required></label><label class="form-label">Día final<input class="field" name="endDate" type="date" value="'+esc(a.endDate)+'" required></label><label class="form-label">Hora fin<input class="field" name="end" type="time" value="'+esc(a.end)+'" required></label><button class="primary" type="submit">Guardar horario</button></form>');
@@ -769,6 +807,11 @@ document.addEventListener('click',async ev=>{
  if(action==='check-location')return verifyClockPosition(id);
  if(action==='open-clock')return openClockModal(id);
  if(action==='go-services'){page='services';return render()}
+ if(action==='coord-enter'){coordKey=id;coordFilter='all';coordShiftSel='all';coordSearch='';coordinationPage();return window.scrollTo({top:0})}
+ if(action==='coord-back'){coordKey='';return coordinationPage()}
+ if(action==='coord-filter'){coordFilter=id;return coordinationPage()}
+ if(action==='coord-shift'){coordShiftSel=id;return coordinationPage()}
+ if(action==='coord-worker-incident'){const a=coordRoster().find(x=>x.id===id);if(a)return incidentModal(a.serviceId,{workerId:a.workerId});return}
  if(action==='service-back'){history.replaceState(null,'',location.pathname);page=servicePrev||'services';render();return window.scrollTo({top:0})}
  if(action==='go-messages'){page='messages';return render()}
  if(action==='services-tab'){servicesTab=el.dataset.tab;return servicesPage()}
@@ -839,6 +882,7 @@ $('#employee-content').addEventListener('change',e=>{
  if(e.target.matches('[data-crew-select]')){const id=e.target.dataset.crewSelect;if(e.target.checked)crewSelectedIds.add(id);else crewSelectedIds.delete(id);e.target.closest('.cc-person')?.classList.toggle('cc-selected',e.target.checked);const counter=$('.cc-toolbar-right span');if(counter)counter.textContent=crewSelectedIds.size+' seleccionados'}
 });
 $('#employee-content').addEventListener('input',e=>{
+ if(e.target.id==='coord-search'){coordSearch=e.target.value;const c=e.target.selectionStart;coordinationPage();const f=$('#coord-search');if(f){f.focus();f.setSelectionRange(c,c)}return}
  if(e.target.id!=='crew-search')return;
  crewSearch=e.target.value;const cursor=e.target.selectionStart;crewControlPage();
  const field=$('#crew-search');if(field){field.focus();field.setSelectionRange(cursor,cursor)}
@@ -847,6 +891,7 @@ $('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal')
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 function canAutoRefresh(){const f=document.activeElement;return state.user&&!document.hidden&&!$('#employee-modal').open&&!isLoading&&!(f&&f.matches('input,textarea,select'))&&!$('.sidebar').classList.contains('open')}
 setInterval(()=>{if(canAutoRefresh()){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},45000);
+setInterval(()=>{if(page==='coordination'&&coordKey&&canAutoRefresh()&&!document.querySelector('.nqr')){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},12000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&canAutoRefresh())load()});
 window.addEventListener('online',()=>{if(state.user)load()});
 window.addEventListener('popstate',()=>{const m=location.hash.match(/^#\/servicio\/(.+)$/);if(m&&myAssignments().some(a=>a.id===decodeURIComponent(m[1]))){serviceDetailId=decodeURIComponent(m[1]);page='service';}else if(page==='service')page=servicePrev||'services';render();});

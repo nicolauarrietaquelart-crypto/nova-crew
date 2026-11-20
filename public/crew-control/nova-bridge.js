@@ -8,7 +8,22 @@ try{localStorage.removeItem('crew-control-remembered-service')}catch{}
 const header=document.querySelector('header .wrap');
 const back=document.createElement('a');back.href='/empleado.html';back.className='nova-back';back.title='Volver al área de empleado';back.innerHTML='‹ <span>Volver al área de empleado</span>';
 const daySelect=document.createElement('select');daySelect.className='nova-day';daySelect.hidden=true;daySelect.setAttribute('aria-label','Día como Crew Head');
-if(header){const brand=header.querySelector('.brand');(brand||header.firstChild).after(back);back.after(daySelect);}
+const scanBtn=document.createElement('button');scanBtn.type='button';scanBtn.className='nova-scan';scanBtn.hidden=true;scanBtn.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg><span>Escanear QR</span>';
+if(header){const brand=header.querySelector('.brand');(brand||header.firstChild).after(back);back.after(scanBtn);scanBtn.after(daySelect);}
+let names={},current=null,geo=null;
+async function redeem(token){
+ try{return await api('qr-redeem',{token});}
+ catch(e){
+  if(!/ubicaci/i.test(e.message))throw e;
+  if(!geo||Date.now()-geo.at>60000){const pos=await new Promise((res,rej)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:12000,maximumAge:30000}):rej(new Error('Sin geolocalización'))).catch(err=>{throw new Error(err.code===1?'Permite la ubicación para validar fichajes en este recinto.':'No se ha podido obtener tu ubicación.')});geo={latitude:pos.coords.latitude,longitude:pos.coords.longitude,at:Date.now()};}
+  return api('qr-redeem',{token,latitude:geo.latitude,longitude:geo.longitude});
+ }
+}
+scanBtn.onclick=()=>window.NovaQrScanner?.open({title:'Escanear QR',subtitle:(current?(services[current.serviceId]?.name||'')+' · ':'')+'el trabajador queda presente al instante',onToken:async token=>{
+ const r=await redeem(token);const name=names[r.workerId]||'Trabajador',time=new Date(r.time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+ setTimeout(()=>{try{window.crewCheckRemoteChanges?.()}catch{}},300);
+ return {label:name+' · '+(r.action==='in'?'Presente':'Salida')+' '+time,short:name.split(' ')[0]+' '+(r.action==='in'?'presente':'salida')};
+}});
 const start=document.getElementById('startScreen'),app=document.getElementById('appScreen');
 const panel=document.createElement('section');panel.id='novaCrewStart';panel.className='card login-card';panel.innerHTML='<div class="nova-status">Cargando tus servicios como Crew Head…</div>';
 (start||app).before(panel);
@@ -20,6 +35,7 @@ if(startStatus)new MutationObserver(()=>{const t=startStatus.textContent.trim();
 async function api(op,body){const r=await fetch('/api/office/'+op,{method:body?'POST':'GET',credentials:'same-origin',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.error||'No se ha podido abrir Crew Control.'),{status:r.status});return d;}
 let days=[],services={};
 async function openDay(day){
+ current=day;scanBtn.hidden=false;
  status('Abriendo '+(services[day.serviceId]?.name||'el servicio')+' · '+human(day.date)+'…');
  try{
   const {code}=await api('crew-open',{serviceId:day.serviceId,date:day.date});
@@ -37,6 +53,7 @@ async function init(){
  try{state=await api('state');}catch(e){if(e.status===401){location.replace('/empleado.html');return;}status(e.message,true);return;}
  if(state.user?.role!=='worker'){location.replace('/');return;}
  services=Object.fromEntries((state.services||[]).map(s=>[s.id,s]));
+ names=Object.fromEntries((state.coordinatorWorkers||[]).map(w=>[w.id,w.name]));
  days=(state.crewHeadDays||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
  if(!days.length){panel.innerHTML='<h2>Crew Control</h2><p>Crew Control está disponible solo para el trabajador asignado como Crew Head de un servicio, en los días de su asignación.</p><a class="nova-back" style="margin:0" href="/empleado.html">‹ Volver al área de empleado</a>';return;}
  daySelect.innerHTML=days.map(d=>'<option value="'+esc(d.serviceId+'|'+d.date)+'">'+esc(new Date(d.date+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'})+' · '+(services[d.serviceId]?.name||'Servicio'))+'</option>').join('');
