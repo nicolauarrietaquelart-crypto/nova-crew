@@ -114,3 +114,47 @@ test('a coordinator closes their day: shifts are hidden as closed, frozen, and G
  assert.equal((await f.call('state',null,f.h)).body.assignments[0].closed,false);
  assert.equal((await f.call('coord-update',{id:f.aHand.id,revision:r.body.record.revision,changes:{dietCount:1}},f.c)).status,200);
 });
+
+test('v28: weekly morning/afternoon availability, contracts, on-call, draft quotes and shared tariff categories',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand'),me=st.users.find(u=>u.role==='manager');
+ // weekly availability set by the manager and by the worker
+ let r=await f.call('availability-weekly',{workerId:hand.id,days:{mon:{morning:true,afternoon:false},sat:{morning:true,afternoon:true}}},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.days.mon.slots,[6,7,8,9,10,11,12,13,14]);assert.equal(r.body.record.days.sat.end,'24:00');assert.equal(r.body.record.days.tue.available,false);
+ r=await f.call('availability-weekly',{days:{fri:{morning:false,afternoon:true}}},f.h);assert.equal(r.status,200);assert.equal(r.body.record.days.fri.afternoon,true);
+ // contract with period
+ const pdf=Buffer.from('%PDF-1.4 contrato').toString('base64');
+ r=await f.call('document-upload',{workerId:hand.id,type:'contract',contractKind:'Fijo discontinuo',periodStart:'2026-01-01',periodEnd:'2026-12-31',name:'contrato.pdf',content:pdf},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.record.contractKind,'Fijo discontinuo');
+ assert.equal((await f.call('document-upload',{workerId:hand.id,type:'contract',periodStart:'2026-05-01',periodEnd:'2026-01-01',name:'c.pdf',content:pdf},f.g)).status,400);
+ const hs=(await f.call('state',null,f.h)).body;assert.ok(hs.documents.some(d=>d.periodEnd==='2026-12-31'));
+ // on-call
+ const today=new Date().toISOString().slice(0,10);
+ r=await f.call('oncall-set',{from:today,to:today,userId:me.id,phone:'600111222'},f.g);assert.equal(r.status,200);assert.equal(r.body.records.length,1);
+ assert.ok((await f.call('state',null,f.h)).body.onCall.some(o=>o.date===today&&o.phone==='600111222'));
+ assert.equal((await f.call('oncall-set',{from:today,userId:st.users.find(u=>u.role==='worker').id},f.g)).status,400);
+ r=await f.call('oncall-set',{from:today,userId:''},f.g);assert.equal((await f.call('state',null,f.g)).body.onCall.length,0);
+ // draft quote can create a service
+ const q=await f.save('quotes',{clientId:f.svc.clientId,date:today,dueDate:today,lines:[{description:'Personal',quantity:1,price:100,vat:21}]});
+ r=await f.call('service-create',{quoteId:q.id,service:{name:'Desde borrador',clientId:f.svc.clientId,venue:'Palau',date:today,endDate:today,start:'08:00',end:'18:00'},positions:[]},f.g);
+ assert.notEqual(r.status,409,JSON.stringify(r.body));
+ // shared category across schedules
+ await f.call('tariff-schedule-create',{name:'Tarifa 2027',source:'Tarifa estándar 2026',increasePercent:5,applyTo:'both'},f.g);
+ r=await f.call('tariff-category-create',{name:'Drone pilot',group:'Técnicos',unit:'hour',minHours:4,workerRate:20},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.ok(r.body.records.length>=2);
+ r=await f.call('tariff-category-sync',{name:'Drone pilot',newName:'Piloto de dron',minHours:5},f.g);assert.equal(r.status,200);
+ const tariffs=(await f.call('state',null,f.g)).body.tariffs.filter(t=>t.name==='Piloto de dron');assert.ok(tariffs.length>=2&&tariffs.every(t=>t.minHours===5));
+});
+
+test('v28: address search returns places (OpenStreetMap by default) and only for Gestoría',async()=>{
+ const f=await setup();const real=globalThis.fetch;let url='';
+ globalThis.fetch=async u=>{url=String(u);return new Response(JSON.stringify([{name:'Palau Sant Jordi',lat:'41.3633',lon:'2.1525',display_name:'Palau Sant Jordi, Barcelona',address:{road:'Passeig Olímpic',house_number:'5',postcode:'08038',city:'Barcelona'}}]),{status:200,headers:{'content-type':'application/json'}});};
+ try{
+  const r=await f.call('geocode',{q:'Palau Sant Jordi'},f.g);
+  assert.equal(r.status,200,JSON.stringify(r.body));assert.match(url,/nominatim/);
+  assert.equal(r.body.results[0].name,'Palau Sant Jordi');assert.equal(r.body.results[0].address,'Passeig Olímpic 5, 08038, Barcelona');assert.equal(r.body.results[0].lat,41.3633);
+  assert.equal((await f.call('geocode',{q:'Palau Sant Jordi'},f.c)).status,403);
+  globalThis.fetch=async()=>{throw new Error('down')};
+  assert.equal((await f.call('geocode',{q:'Palau Sant Jordi'},f.g)).status,503);
+ }finally{globalThis.fetch=real;}
+});

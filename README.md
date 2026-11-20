@@ -1,5 +1,16 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v28 · Gestión más completa
+
+- **Área de empleado sin historiales**: Mis servicios muestra solo Próximos y Por confirmar, y el Fichaje ya no tiene historial.
+- **Disponibilidad habitual por franjas** (mañana 06–15 h / tarde 15–24 h, de lunes a domingo). La marca el trabajador en *Disponibilidad* o Gestoría en su ficha; se aplica sola cada semana y los días concretos se cambian en el calendario.
+- **Ficha del trabajador**: datos editables en la propia página (sin ventana), apartado **Contratos** (un contrato por periodo, con tipo, inicio y fin, aviso al trabajador) y categorías abiertas al final. El trabajador ve su contrato vigente y todos los anteriores en *Contratos*.
+- **Guardias de urgencia** en el Calendario: quién de Gestoría está de guardia cada día (por rangos y días de la semana, con teléfono). Se ve en Inicio de Gestoría y el personal ve la guardia de hoy con botón para llamar.
+- **Cliente nuevo desde el desplegable** en presupuestos, servicios y facturas.
+- **Buscador de ubicación** con mapa y enlace a Google Maps en servicios y presupuestos (OpenStreetMap; si se configura `GOOGLE_MAPS_API_KEY`, usa Google Places).
+- **Presupuestos**: se puede crear el servicio desde un presupuesto guardado (también en borrador) y enviarlo por correo.
+- **Tarifas**: todas las tarifas comparten categorías; tabla por tarifa con precios editables en línea y margen, y nueva categoría / edición aplicadas a todas las tarifas.
+
 ## Novedades v27 · Lo cerrado desaparece
 
 - El coordinador tiene **Cerrar día** en Coordinación (exige que nadie se quede sin hora de fin). Al cerrar, su gente queda congelada y Gestoría puede **reabrirlo** desde *Cierre y facturación* del servicio.

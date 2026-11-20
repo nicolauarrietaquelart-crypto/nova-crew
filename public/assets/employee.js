@@ -139,7 +139,8 @@ function dashboard(){
  const hasWeekly=Object.values(state.weeklyAvailability?.days||{}).some(d=>d?.slots?.length||d?.available);
  if(!hasWeekly&&!list('availability').some(a=>a.date>=today()))alerts.push(['availability','Aún no has indicado tu disponibilidad. Ayuda a la oficina a planificar.','Indicar']);
  const crewToday=crewDayList().filter(d=>d.date>=today()&&!(state.crewDayClosures||[]).some(c=>c.serviceId===d.serviceId&&c.date===d.date)&&!['completed','cancelled'].includes(service(d.serviceId).status)).sort((a,b)=>a.date.localeCompare(b.date))[0];
- $('#employee-content').innerHTML=(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
+ const oc=(state.onCall||[]).find(o=>o.date===today());
+ $('#employee-content').innerHTML=(oc?'<div class="emp-oncall"><span>🛡️ Oficina de guardia hoy: <b>'+esc(oc.name)+'</b></span>'+(oc.phone?'<a href="tel:'+esc(oc.phone.replace(/[^+\d]/g,''))+'">Llamar '+esc(oc.phone)+'</a>':'')+'</div>':'')+(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
  ((todo.length||alerts.length)?'<div class="emp-todo-head"><h3>Lo que tienes pendiente</h3><small class="muted">'+(todo.length+alerts.length)+' paso'+(todo.length+alerts.length===1?'':'s')+'</small></div><div class="emp-todo">'+todo.map(([act,id,t,d,c],i)=>'<button class="emp-todo-item" data-action="'+act+'" data-id="'+esc(id)+'"><span class="step-num">'+(i+1)+'</span><span class="grow"><p>'+esc(t)+'</p><small>'+esc(d)+'</small></span><b>'+esc(c)+' →</b></button>').join('')+alerts.map(([p,t,c],i)=>'<button class="emp-todo-item" data-page="'+p+'"><span class="step-num">'+(todo.length+i+1)+'</span><span class="grow"><p>'+esc(t)+'</p></span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'<div class="emp-todo-head"><h3>Todo al día</h3><small class="muted">No tienes nada pendiente</small></div>')+
  (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
  box('Próximos 7 días',week.filter(a=>a.status!=='pending').length?'<div class="service-list">'+week.filter(a=>a.status!=='pending').slice(0,6).map(a=>serviceCard(a)).join('')+'</div>':'<div class="empty">No tienes turnos confirmados para los próximos 7 días.</div>');
@@ -149,7 +150,8 @@ let servicesTab='upcoming';
 function servicesPage(){
  const all=myAssignments();
  const groups={upcoming:all.filter(a=>!shiftClosed(a)&&['upcoming','live'].includes(shiftState(a))&&a.status!=='rejected').sort((a,b)=>startMs(a)-startMs(b)),pending:all.filter(a=>!shiftClosed(a)&&a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b)),history:all.filter(a=>shiftClosed(a)||['past','done'].includes(shiftState(a))||a.status==='rejected').sort((a,b)=>startMs(b)-startMs(a))};
- const tabs=[['upcoming','Próximos'],['pending','Por confirmar'],['history','Historial']];
+ if(servicesTab==='history')servicesTab='upcoming';
+ const tabs=[['upcoming','Próximos'],['pending','Por confirmar']];
  const rows=groups[servicesTab]||[];
  $('#employee-content').innerHTML='<div class="section-title"><h2>Mis servicios</h2><p class="muted">Confirma tus turnos, consulta los detalles y ficha desde aquí.</p></div>'+
  '<div class="seg">'+tabs.map(([k,l])=>'<button class="'+(servicesTab===k?'active':'')+'" data-action="services-tab" data-tab="'+k+'">'+l+'<b>'+groups[k].length+'</b></button>').join('')+'</div>'+
@@ -180,12 +182,12 @@ function availabilityPage(){
   const date=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===date),st=a?.status||'',past=date<today();
   const habit=weekly[keys[new Date(date+'T12:00:00').getDay()]],habitSlots=Array.isArray(habit?.slots)?habit.slots.length:habit?.available?1:0;
   const shift=as.find(x=>x.date<=date&&(x.endDate||x.date)>=date);
-  const label=shift?'Turno '+shift.start:a?.slots?.length?a.slots.length+' h':st==='unavailable'?'No disponible':st==='available'?'Disponible':habitSlots?'Habitual':'Sin indicar';
+  const label=shift?'Turno '+shift.start:a?.slots?.length?a.slots.length+' h':st==='unavailable'?'No disponible':st==='available'?'Disponible':habitSlots?(weekShiftLabel(habit)||'Habitual'):'Sin indicar';
   html+='<button class="availability-cell '+esc(st||(habitSlots?'habit':''))+(shift?' has-shift':'')+(date===today()?' today':'')+'" data-action="availability" data-date="'+date+'" '+(past?'disabled':'')+'><strong>'+d+'</strong><small>'+esc(label)+'</small></button>';
  }
  const hasWeekly=Object.values(weekly).some(d=>d?.slots?.length||d?.available);
  $('#employee-content').innerHTML='<div class="section-title"><h2>Disponibilidad</h2><p class="muted">Indica cuándo puedes trabajar. La oficina lo verá al planificar.</p></div>'+
- '<div class="avail-top panel"><div><strong>Semana habitual</strong><p class="muted">'+(hasWeekly?'Configurada. Se aplica a los días sin indicación puntual.':'Sin configurar. Define tus horas habituales de lunes a domingo.')+'</p></div>'+btn('weekly',hasWeekly?'Editar semana habitual':'Configurar semana habitual','','primary')+'</div>'+
+ '<div class="panel avail-habit"><div class="emp-todo-head"><h3>Disponibilidad habitual</h3><small class="muted">'+(hasWeekly?'Se aplica sola cada semana':'Sin configurar')+'</small></div><p class="muted compact">Marca los días y franjas en los que sueles poder trabajar. Mañana: 06:00–15:00 · Tarde: 15:00–24:00. Para un día concreto, cámbialo en el calendario de abajo.</p>'+weekGridHTML(weekly)+'</div>'+
  '<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month" aria-label="Mes anterior">‹</button><h2>'+esc(monthLabel(month))+'</h2><button class="secondary" data-action="next-month" aria-label="Mes siguiente">›</button></div>'+
  '<div class="availability-grid">'+html+'</div><div class="cal-legend"><span class="lg available">Disponible</span><span class="lg habit">Semana habitual</span><span class="lg unavail">No disponible</span><span class="lg shift">Con turno</span></div><p class="muted compact">Pulsa un día para elegir horas concretas o marcarlo como no disponible. Los días pasados no se pueden modificar.</p></div>';
 }
@@ -554,7 +556,7 @@ function openClockModal(preferredId=''){
   opt('scan','Escanear QRs','Ficha a tu personal escaneando su QR',scanIc,coord)+
   opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc)+
   opt('geo','Fichar por geolocalización',coord?'Tu propio fichaje como coordinador':'Este turno no tiene coordinador',geoIc,geo.length>0)+
-  '</div><div id="clock-mode-body"></div><button type="button" class="text-link clock-history" data-action="clock-history">Ver mi historial de fichajes ›</button></div>');
+  '</div><div id="clock-mode-body"></div></div>');
  $('#employee-modal').classList.add('clock-dialog');
  renderClockMode();
 }
@@ -892,10 +894,15 @@ function trainingPage(){
  $('#employee-content').innerHTML=box('Formación asignada',docs.length?docs.map(d=>'<div class="document"><div><strong>'+esc(d.name)+'</strong><br><small>'+human(d.createdAt.slice(0,10))+' · '+(acks.some(a=>a.documentId===d.id)?'Leída':'Pendiente')+'</small></div><div class="actions-row"><a class="secondary" style="display:inline-flex;align-items:center" href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a>'+(!acks.some(a=>a.documentId===d.id)?btn('training-ack','Marcar como leída',d.id,'primary'):'')+'</div></div>').join(''):'<div class="empty">No tienes formación documental asignada.</div>');
 }
 function contractsPage(){
- const docs=list('documents').filter(d=>d.type==='contract'),w=worker(),type=({eventual:'Eventual / por servicio',indefinite:'Indefinido',fixed_discontinuous:'Fijo discontinuo'})[w.contractType]||'Eventual / por servicio';
- $('#employee-content').innerHTML='<div class="notice">Modalidad registrada: <strong>'+esc(type)+'</strong>. Los documentos descargados son archivos almacenados por la oficina; no implica firma electrónica.</div>'+
- box('Mis contratos',docs.length?docs.map(d=>'<div class="document"><div><strong>'+esc(d.name)+'</strong><br><small>Documento contractual</small></div><a href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a></div>').join(''):'<div class="empty">No hay contratos cargados en tu ficha.</div>');
+ const t=today(),docs=list('documents').filter(d=>d.type==='contract').sort((a,b)=>(b.periodStart||b.createdAt||'').localeCompare(a.periodStart||a.createdAt||''));
+ const st=d=>d.periodStart&&d.periodStart>t?['pending','Próximo']:d.periodEnd&&d.periodEnd<t?['rejected','Finalizado']:['confirmed','Vigente'];
+ const cur=docs.find(d=>st(d)[1]==='Vigente');
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Contratos</h2><p class="muted">Los contratos que la oficina ha subido a tu ficha, por periodo.</p></div>'+
+ (cur?'<div class="panel contract-current"><span class="eyebrow">CONTRATO VIGENTE</span><h3>'+esc(cur.contractKind||'Contrato')+'</h3><p class="muted">'+(cur.periodStart?'Desde el '+human(cur.periodStart):'')+(cur.periodEnd?' hasta el '+human(cur.periodEnd):' · sin fecha de fin')+'</p><a class="primary btn-link" href="/api/office/document?id='+encodeURIComponent(cur.id)+'">Descargar contrato</a></div>':'')+
+ box('Todos mis contratos',docs.length?docs.map(d=>{const [tone,l]=st(d);return '<div class="document"><div><strong>'+esc(d.contractKind||d.name)+'</strong> <span class="badge '+tone+'">'+l+'</span><br><small>'+(d.periodStart?human(d.periodStart):'—')+' → '+(d.periodEnd?human(d.periodEnd):'Indefinido')+' · '+esc(d.name)+'</small></div><a href="/api/office/document?id='+encodeURIComponent(d.id)+'">Descargar</a></div>'}).join(''):'<div class="empty">No hay contratos cargados en tu ficha.</div>')+
+ '<p class="muted compact">Los documentos son archivos subidos por la oficina; no implican firma electrónica.</p>';
 }
+
 const guides=[
  ['Fichaje por QR','Abre Control horario, muestra tu QR temporal al coordinador y espera la validación. El código caduca a los 90 segundos.'],
  ['Gestión de coordinación','En Coordinación, selecciona el servicio asignado, consulta el personal y valida los QR. Solo puedes gestionar los servicios que coordinas.'],
@@ -950,6 +957,11 @@ function bindHourDrag(container,selected,paint){
  container.addEventListener('pointercancel',()=>dragging=false);
  container.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(!cell)return;const key=cell.dataset.weekday||'date',set=selected[key];if(set.has(Number(cell.dataset.hour)))set.delete(Number(cell.dataset.hour));else set.add(Number(cell.dataset.hour));paint()});
 }
+const WEEK_DAYS=[['mon','Lunes'],['tue','Martes'],['wed','Miércoles'],['thu','Jueves'],['fri','Viernes'],['sat','Sábado'],['sun','Domingo']];
+function weekShiftOf(d){if(!d)return {morning:false,afternoon:false};if(d.morning!=null||d.afternoon!=null)return {morning:!!d.morning,afternoon:!!d.afternoon};const s=Array.isArray(d.slots)?d.slots.map(Number):d.available?[8,16]:[];return {morning:s.some(h=>h<15),afternoon:s.some(h=>h>=15)};}
+function weekShiftLabel(d){const x=weekShiftOf(d);return x.morning&&x.afternoon?'Mañana y tarde':x.morning?'Mañana':x.afternoon?'Tarde':'';}
+function weekGridHTML(days){return '<div class="wk-grid"><span></span><b>Mañana</b><b>Tarde</b>'+WEEK_DAYS.map(([k,l])=>{const x=weekShiftOf(days[k]);return '<span>'+l+'</span>'+['morning','afternoon'].map(sl=>'<button type="button" class="wk-cell '+(x[sl]?'on':'')+'" data-action="emp-week" data-id="'+k+'|'+sl+'" aria-pressed="'+x[sl]+'">'+(x[sl]?'✓':'—')+'</button>').join('')}).join('')+'</div>'}
+async function toggleEmpWeek(cell){const [k,sl]=cell.split('|'),days={};for(const [d] of WEEK_DAYS)days[d]=weekShiftOf(state.weeklyAvailability?.days?.[d]);days[k][sl]=!days[k][sl];try{await api('availability-weekly',{days});await load();notice('Disponibilidad habitual guardada')}catch(e){error(e)}}
 function weeklyAvailabilityModal(){
  const current=state.weeklyAvailability?.days||{};
  const days={mon:'Lunes',tue:'Martes',wed:'Miércoles',thu:'Jueves',fri:'Viernes',sat:'Sábado',sun:'Domingo'};
@@ -979,7 +991,7 @@ function render(){
  if(page==='crewControl'&&!isCrewHead())page='dashboard';if(page==='coordination'&&!isNormalCoordinator())page='dashboard';
  renderNav();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
  $('#employee-avatar').innerHTML=state.hasProfilePhoto?'<img alt="Foto de perfil" src="/api/office/employee-photo?workerId='+encodeURIComponent(state.user.workerId)+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase());
- ({service:serviceDetailPage,dashboard,clock:clockPage,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,crewControl:crewControlPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
+ ({service:serviceDetailPage,dashboard,clock:dashboard,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,crewControl:crewControlPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
 }
 async function load(){
  if(isLoading)return;isLoading=true;
@@ -1087,6 +1099,7 @@ document.addEventListener('click',async ev=>{
  if(action==='incident-report')return incidentModal(id);
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
+ if(action==='emp-week')return toggleEmpWeek(id);
  if(action==='edit-profile')return extendedProfile();
  if(action==='profile-tab'){profileTab=el.dataset.tab;return profilePage()}
  if(action==='upload-photo')return employeePhotoModal();
@@ -1097,7 +1110,6 @@ document.addEventListener('click',async ev=>{
  if(action==='clock-mode'){clockMode=id;document.querySelectorAll('.clock-opt').forEach(x=>x.classList.toggle('active',x.dataset.id===id));return renderClockMode()}
  if(action==='clock-scan'){closeClock();return scanQr(id)}
  if(action==='clock-qr-new')return renderMyQr();
- if(action==='clock-history'){closeClock();page='clock';render();return window.scrollTo({top:0})}
  if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{const geoMode=coordinatesMyService(a);const location=geoMode?await forcedLocation():await attendanceLocation(a.serviceId,a.id);await mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location,...(geoMode?{mode:'geo'}:{})},'Fichaje registrado');if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();}catch(e){error(e)}return}}
 
  if(action==='logout'){try{await api('logout',{})}catch{}state={};location.replace('/empleado.html');return}
