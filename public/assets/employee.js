@@ -78,11 +78,34 @@ function renderNav(){
  const mob=['dashboard','services','clock',isCoord?'coordination':'messages','more'];
  $('#mobile-nav').innerHTML=mob.map(k=>k==='more'?'<button data-action="mobile-more">'+navIcon('more')+'<small>Más</small></button>':k==='clock'?'<button data-page="clock" class="mobile-clock"><span class="fab">'+navIcon('clock')+'</span><small>Fichar</small></button>':'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+(navCount(k)?'<b class="nav-count">'+navCount(k)+'</b>':'')+'<small>'+esc(k==='services'?'Servicios':k==='dashboard'?'Inicio':names[k])+'</small></button>').join('');
 }
+/* Hilo del turno: Asignado → Confirmado → Entrada → Salida → Certificado */
+const SHIFT_FLOW=['Asignado','Confirmación','Entrada','Salida','Certificado'];
+function shiftPhase(a){
+ const s=service(a.serviceId),place=placeForAssignment(a);
+ if(a.status==='rejected')return {step:-1,label:'Has indicado que no puedes',tone:'muted',text:'La oficina ya lo sabe. No tienes que hacer nada más.'};
+ if(a.noShow)return {step:2,tone:'bad',label:'No presentado',text:'Si fue un error, escribe a la oficina.',act:['go-messages','Escribir a la oficina']};
+ if(a.status==='pending')return {step:1,tone:'warn',label:'Pendiente de confirmar',text:'Confirma si puedes ir para que la oficina cuente contigo.',act:['confirm','Confirmar']};
+ if(!a.checkIn){
+  if(canClock(a))return {step:2,tone:'live',label:'Toca fichar entrada',text:'Ficha la entrada al llegar a '+(place?.name||s.venue||'el recinto')+'.',act:['open-clock','Fichar entrada']};
+  if(endMs(a)<Date.now())return {step:2,tone:'bad',label:'Sin fichaje',text:'No consta tu entrada. Escribe a la oficina si trabajaste.',act:['go-messages','Escribir a la oficina']};
+  return {step:2,tone:'warn',label:'Confirmado',text:'Preséntate '+(a.date===today()?'hoy':human(a.date))+' a las '+(s.callTime||a.start)+' en '+(place?.name||s.venue||'el recinto')+'. Revisa las observaciones y la documentación.'};
+ }
+ if(!a.checkOut)return {step:3,tone:'live',label:'Trabajando',text:'Cuando termines, ficha la salida.',act:canClock(a)?['open-clock','Fichar salida']:null};
+ if(a.payStatus!=='confirmed')return {step:4,tone:'warn',label:'Gestoría revisando',text:'Turno terminado. Gestoría revisará tus horas y certificará la liquidación.'};
+ return {step:5,tone:'ok',label:'Certificado',text:'Horas e importe certificados. Ya lo tienes en tus liquidaciones.',act:['go-settlements','Ver liquidación']};
+}
+function shiftStepper(ph,compact=false){
+ if(ph.step<0)return '';
+ return '<div class="flow shift-flow '+(compact?'compact':'')+'">'+SHIFT_FLOW.map((l,i)=>{const state=i<ph.step?'done':i===ph.step?'current '+ph.tone:'';return '<div class="flow-step '+state+'" title="'+l+'"><i>'+(i<ph.step?'✓':i+1)+'</i>'+(compact?'':'<span>'+l+'</span>')+'</div>'}).join('<b class="flow-line"></b>')+'</div>';
+}
+function shiftNext(ph,a,withButton=true){
+ return '<div class="shift-next '+(ph.tone==='ok'?'ok':'')+'"><span class="grow">'+esc(ph.text)+'</span>'+(withButton&&ph.act?btn(ph.act[0],ph.act[1],a.id,'primary'):'')+'</div>';
+}
 function serviceCard(a,opts={}){
  const s=service(a.serviceId),place=placeForAssignment(a),d=new Date(a.date+'T12:00:00'),st=shiftState(a);
  const dateTile='<div class="date-tile '+(a.date===today()?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div>';
  const when=a.date===today()?'Hoy':a.date===new Date(Date.now()+864e5).toLocaleDateString('en-CA')?'Mañana':human(a.date);
- const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(when)+' · '+esc(a.start)+'–'+esc(a.end)+(a.endDate&&a.endDate!==a.date?' (fin '+human(a.endDate)+')':'')+'</small><small>'+esc(place?.name||s.venue||'')+' · '+esc(a.role||'')+(a.team?' · '+esc(a.team):'')+'</small></div>';
+ const ph=shiftPhase(a);const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(when)+' · '+esc(a.start)+'–'+esc(a.end)+(a.endDate&&a.endDate!==a.date?' (fin '+human(a.endDate)+')':'')+'</small><small>'+esc(place?.name||s.venue||'')+' · '+esc(a.role||'')+(a.team?' · '+esc(a.team):'')+'</small>'+shiftStepper(ph,true)+'<small class="flow-label '+ph.tone+'">'+esc(ph.label)+'</small></div>';
  const badges=(st==='live'?status('live'):'')+(st==='done'?status('done'):'')+status(a.status);
  const acts='<div class="service-actions"><div class="badges">'+badges+'</div><div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','No puedo',a.id):'')+(canClock(a)?btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary'):'')+btn('detail','Detalles',a.id)+'</div></div>';
  return '<article class="service-card '+(st==='live'?'is-live':'')+'">'+dateTile+text+acts+'</article>';
@@ -100,11 +123,14 @@ function dashboard(){
  const hero='<section class="employee-next-hero '+(isLive?'live':'')+'"><div><span class="eyebrow">'+(isLive?'<span class="pulse"></span>TURNO EN CURSO':focus?'PRÓXIMO SERVICIO':'SIN SERVICIOS PRÓXIMOS')+'</span>'+
   '<h2>'+esc(sv?.name||'Nada programado por ahora')+'</h2>'+
   '<p class="muted">'+(focus?esc((focus.date===today()?'Hoy':human(focus.date))+' · '+focus.start+'–'+focus.end+' · '+(placeForAssignment(focus)?.name||sv.venue||'')+' · '+(focus.role||'')):'Cuando la oficina te asigne un turno aparecerá aquí. Mantén tu disponibilidad al día.')+'</p>'+
+  (focus?shiftStepper(shiftPhase(focus))+'<p class="muted">'+esc(shiftPhase(focus).text)+'</p>':'')+
   (focus&&!isLive?'<div class="employee-countdown" id="next-countdown" data-date="'+esc(focus.date)+'" data-start="'+esc(focus.start)+'"></div>':'')+
   (isLive?'<div class="live-clock"><div><small>Entrada</small><strong>'+(focus.checkIn?stamp(focus.checkIn):'Pendiente')+'</strong></div><div><small>Salida prevista</small><strong>'+esc(focus.end)+'</strong></div></div>':'')+
-  '<div class="actions-row">'+(focus&&canClock(focus)?btn('open-clock',focus.checkIn?'Fichar salida':'Fichar entrada',focus.id,'primary'):'')+(focus?btn('detail','Ver detalles',focus.id):btn('go-availability','Indicar disponibilidad','','primary'))+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div></div>'+
+  '<div class="actions-row">'+(focus&&focus.status==='pending'?btn('confirm','Confirmar turno',focus.id,'primary'):'')+(focus&&canClock(focus)?btn('open-clock',focus.checkIn?'Fichar salida':'Fichar entrada',focus.id,'primary'):'')+(focus?btn('detail','Ver detalles',focus.id):btn('go-availability','Indicar disponibilidad','','primary'))+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div></div>'+
   '<div class="employee-next-aside"><div><span>Esta semana</span><b>'+week.length+' turno'+(week.length===1?'':'s')+'</b></div><div><span>Horas previstas en '+esc(monthLabel(m).split(' ')[0].toLowerCase())+'</span><b>'+monthHours.toLocaleString('es-ES')+' h</b></div><div><span>Bruto certificado del mes</span><b>'+(monthRows.some(a=>a.payStatus==='confirmed')?euro(monthGross):'Pendiente')+'</b></div><div><span>Mensajes nuevos</span><b>'+unreadCount()+'</b></div></div></section>';
- const alerts=[];
+ const alerts=[],todo=[];
+ pending.forEach(a=>todo.push(['detail',a.id,'Confirma tu turno en '+(service(a.serviceId).name||'un servicio'),(a.date===today()?'Hoy':human(a.date))+' · '+a.start+'–'+a.end,'Confirmar']));
+ as.filter(a=>a.status==='confirmed'&&canClock(a)&&!a.checkOut&&a!==focus).forEach(a=>todo.push(['open-clock',a.id,(a.checkIn?'Ficha la salida de ':'Ficha la entrada en ')+(service(a.serviceId).name||'tu turno'),a.start+'–'+a.end,a.checkIn?'Fichar salida':'Fichar entrada']));
  if(pendingTraining().length)alerts.push(['training','Tienes '+pendingTraining().length+' formación(es) pendiente(s) de leer','Ver formación']);
  const expiring=list('documents').filter(d=>d.expires&&d.expires<=new Date(Date.now()+30*864e5).toLocaleDateString('en-CA'));
  if(expiring.length)alerts.push(['documents',expiring.length+' documento(s) caducado(s) o a punto de caducar','Renovar']);
@@ -113,7 +139,7 @@ function dashboard(){
  if(!hasWeekly&&!list('availability').some(a=>a.date>=today()))alerts.push(['availability','Aún no has indicado tu disponibilidad. Ayuda a la oficina a planificar.','Indicar']);
  const crewToday=crewDayList().filter(d=>d.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
  $('#employee-content').innerHTML=(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
- (alerts.length?'<div class="alert-list">'+alerts.map(([p,t,c])=>'<button class="alert-item" data-page="'+p+'"><span>'+esc(t)+'</span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'')+
+ ((todo.length||alerts.length)?'<div class="emp-todo-head"><h3>Lo que tienes pendiente</h3><small class="muted">'+(todo.length+alerts.length)+' paso'+(todo.length+alerts.length===1?'':'s')+'</small></div><div class="emp-todo">'+todo.map(([act,id,t,d,c],i)=>'<button class="emp-todo-item" data-action="'+act+'" data-id="'+esc(id)+'"><span class="step-num">'+(i+1)+'</span><span class="grow"><p>'+esc(t)+'</p><small>'+esc(d)+'</small></span><b>'+esc(c)+' →</b></button>').join('')+alerts.map(([p,t,c],i)=>'<button class="emp-todo-item" data-page="'+p+'"><span class="step-num">'+(todo.length+i+1)+'</span><span class="grow"><p>'+esc(t)+'</p></span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'<div class="emp-todo-head"><h3>Todo al día</h3><small class="muted">No tienes nada pendiente</small></div>')+
  (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
  box('Próximos 7 días',week.filter(a=>a.status!=='pending').length?'<div class="service-list">'+week.filter(a=>a.status!=='pending').slice(0,6).map(a=>serviceCard(a)).join('')+'</div>':'<div class="empty">No tienes turnos confirmados para los próximos 7 días.</div>');
  if(focus&&!isLive){nextServiceCountdown();if(nextCountTimer)clearInterval(nextCountTimer);nextCountTimer=setInterval(()=>{if($('#next-countdown'))nextServiceCountdown();else{clearInterval(nextCountTimer);nextCountTimer=null}},1000)}
@@ -209,6 +235,7 @@ function serviceDetailPage(){
  $('#employee-content').innerHTML='<button class="back-link" data-action="service-back">‹ Volver a '+esc((names[servicePrev]||'Mis servicios').toLowerCase())+'</button>'+
  '<header class="sd-head"><div><span class="eyebrow">RESUMEN DEL SERVICIO</span><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((a.date===today()?'Hoy':human(a.date))+' · '+a.start+'–'+a.end+' · '+(place?.name||s.venue||''))+'</p><div class="badges">'+(st==='live'?status('live'):'')+(st==='done'?status('done'):'')+status(a.status)+'</div></div>'+
  '<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar asistencia',a.id,'primary')+btn('reject','No puedo',a.id):'')+(canClock(a)?btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary'):'')+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+btn('ics-one','Añadir a mi calendario',a.id)+'</div></header>'+
+ (()=>{const ph=shiftPhase(a);return ph.step<0?'':'<section class="panel sd-flow"><span class="eyebrow">TU TURNO · SIGUIENTE PASO</span>'+shiftStepper(ph)+shiftNext(ph,a,false)+'</section>'})()+
  (c.staffNotice?'<div class="sd-mandatory"><b>!</b><p>'+esc(c.staffNotice)+'</p></div>':'')+
  '<div class="sd-grid"><section class="panel sd-notes"><h3>Observaciones</h3>'+(s.employeeNotes?'<p class="sd-pre">'+esc(s.employeeNotes)+'</p>':'<p class="muted">Sin observaciones para este servicio.</p>')+'</section>'+
  '<section class="panel"><h3>Documentación del servicio</h3>'+(docs.length?'<p class="muted">Léela atentamente antes de acudir.</p>'+docs.map(d=>'<a class="sd-doc" href="/api/office/document?id='+encodeURIComponent(d.id)+'">'+esc(d.name)+'<span>Descargar</span></a>').join(''):'<p class="muted">No hay documentación específica para este servicio.</p>')+'</section></div>'+
@@ -846,6 +873,7 @@ document.addEventListener('click',async ev=>{
  if(action==='coord-worker-incident'){const a=coordRoster().find(x=>x.id===id);if(a)return incidentModal(a.serviceId,{workerId:a.workerId});return}
  if(action==='service-back'){history.replaceState(null,'',location.pathname);page=servicePrev||'services';render();return window.scrollTo({top:0})}
  if(action==='go-messages'){page='messages';return render()}
+ if(action==='go-settlements'){page='settlements';return render()}
  if(action==='ics-one'){const a=myAssignments().find(x=>x.id===id);if(a)downloadIcs([a],'NOVA_'+(service(a.serviceId).name||'servicio').replace(/[^\w-]+/g,'_')+'_'+a.date+'.ics');return}
  if(action==='ics-all'){downloadIcs(myAssignments().filter(a=>a.status!=='rejected'&&endMs(a)>Date.now()),'NOVA_mis_servicios.ics');return}
  if(action==='services-tab'){servicesTab=el.dataset.tab;return servicesPage()}

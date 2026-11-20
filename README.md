@@ -1,5 +1,21 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v24 · El ciclo del servicio, de principio a fin
+
+La aplicación se organiza ahora alrededor del recorrido real de cada servicio:
+**Presupuesto → Planificar → Personal → Día del servicio → Cierre → Facturación → Cobro**.
+
+- **Gestoría**
+  - Menú ordenado por etapas: *Hoy*, *1 · Planificar*, *2 · Equipo*, *3 · Cerrar y cobrar* y *Configuración*.
+  - **Inicio** con el embudo de servicios (cuántos hay en cada fase, clicable) y una lista numerada de **Siguientes pasos**, cada uno con su botón para hacerlo directamente.
+  - **Servicios** filtrado por fase (Por planificar, Por cubrir o confirmar, Listos, En curso, Por cerrar, Por facturar, Por cobrar, Terminados), con la línea de progreso y el botón del siguiente paso en cada fila.
+  - La ficha del servicio muestra en qué fase está y qué toca hacer ahora (asignar, recordar a quien no ha confirmado, cerrar fichajes, marcar finalizado, certificar, facturar, enviar, cobrar).
+  - «Recordar a quien no ha confirmado» envía un mensaje a cada trabajador pendiente.
+- **Área de empleado**
+  - Cada turno muestra su progreso: Asignado → Confirmación → Entrada → Salida → Certificado, con una frase de qué toca hacer.
+  - Inicio con **Lo que tienes pendiente**, en orden y con acceso directo (confirmar, fichar, disponibilidad, formación, mensajes).
+- **Movimiento**: entrada suave al cambiar de pantalla y contadores animados (se desactiva si el sistema pide reducir movimiento; no se anima en los refrescos automáticos).
+
 ## Novedades v23 · Ficha del trabajador y asignación inteligente
 
 - **Ficha del trabajador como página**, con foto (Gestoría puede subirla), antigüedad, contrato, datos, disponibilidad habitual, próximos turnos, historial, horas y coste del mes y documentación.
