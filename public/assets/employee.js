@@ -265,7 +265,7 @@ function crewControlPage(){
  const leadBlocks=blocks.filter(b=>b.lead),delegates=leadBlocks.length?
  '<section class="panel" style="margin-bottom:15px"><div class="panel-head"><h2>Crew Head · mis bloques</h2></div>'+
  leadBlocks.map(block=>'<div class="line"><span>'+esc(block.date)+' · '+esc(block.serviceType)+' · '+esc(block.start)+'–'+esc(block.end)+'</span>'+
- btn('crew-delegate','Añadir coordinador',block.id,'secondary')+'</div>').join('')+'</section>':'';
+ '<div class="actions-row">'+btn('crew-block-edit','Tipo / equipo',block.id)+btn('crew-delegate','Añadir coordinador',block.id,'secondary')+'</div></div>').join('')+'</section>':'';
  const slots=blocks.map(b=>'<option value="'+esc(b.id)+'" '+(selectedCrewBlock===b.id?'selected':'')+'>'+esc(b.date+' · '+b.serviceType+' · '+b.start+'–'+b.end)+(b.lead?' · Crew Head':'')+'</option>').join('');
  const stats='<div class="stats">'+[['Todos',records.length,'all'],['Presentes',present,'present'],['No presentados',absent,'absent'],['Contactados',contacted,'contacted']].map(([label,count,f])=>'<button class="stat '+(crewFilter===f?'orange':'')+'" data-action="crew-filter" data-filter="'+f+'" style="text-align:left;cursor:pointer"><span class="muted">'+label+'</span><strong>'+count+'</strong></button>').join('')+'</div>';
  const table=records.filter(matches).length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Equipo / chaleco</th><th>Turno</th><th>Asistencia</th><th>Operativa</th></tr></thead><tbody>'+
@@ -304,6 +304,14 @@ function crewOperationalModal(id){
    $('#employee-modal').close();await load();notice('Control operativo guardado');
   }catch(e){error(e)}
  };
+}
+function crewLeadBlockEditor(blockId){
+ const block=(state.coordinatorBlocks||[]).find(b=>b.id===blockId&&b.lead);if(!block)return;
+ modal('Crew Head · gestionar bloque','<form id="crew-block-form" style="display:grid;gap:12px"><div class="notice">'+esc(block.date+' · '+block.start+'–'+block.end)+'<p>Solo puedes modificar el tipo de servicio y equipo del bloque autorizado. Las horas de cada trabajador se modifican desde su ficha en Crew Control.</p></div>'+
+ '<label class="form-label">Tipo de servicio<input class="field" name="serviceType" required maxlength="150" value="'+esc(block.serviceType)+'"></label>'+
+ '<label class="form-label">Equipo / escenario<input class="field" name="team" maxlength="100" value="'+esc(block.team||'')+'"></label>'+
+ '<button type="submit" class="primary">Guardar bloque</button></form>');
+ $('#crew-block-form').onsubmit=async e=>{e.preventDefault();try{await api('service-block-lead-update',{id:block.id,revision:block.revision,...Object.fromEntries(new FormData(e.target))});$('#employee-modal').close();await load();notice('Bloque actualizado')}catch(ex){error(ex)}};
 }
 function crewDelegateModal(blockId){
  const block=(state.coordinatorBlocks||[]).find(b=>b.id===blockId&&b.lead);if(!block)return;
@@ -513,6 +521,7 @@ document.addEventListener('click',async ev=>{
  if(action==='crew-contact'){const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(a)return mutation('coordinator-control',{id,revision:a.revision,field:'contacted',value:!a.contacted},'Estado de contacto actualizado')}
  if(action==='crew-team')return crewTeamModal(id);
  if(action==='crew-details')return crewOperationalModal(id);
+ if(action==='crew-block-edit')return crewLeadBlockEditor(id);
  if(action==='crew-delegate')return crewDelegateModal(id);
  if(action==='crew-remove-delegate'){const block=(state.coordinatorBlocks||[]).find(b=>b.lead&&b.operators?.some(o=>o.id===id));const record=block?.operators.find(o=>o.id===id);if(record)return mutation('service-block-operator-remove',{id,revision:record.revision},'Coordinador retirado')}
  if(action==='incident-report')return incidentModal(id);
