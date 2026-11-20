@@ -109,12 +109,20 @@ function calendarPage(){
  $('#employee-content').innerHTML='<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+first.toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="calendar-grid">'+cells+'</div></div>';
 }
 function availabilityPage(){
- const [y,m]=month.split('-').map(Number),last=new Date(y,m,0).getDate(),records=list('availability');let html='';
+ const [y,m]=month.split('-').map(Number),last=new Date(y,m,0).getDate(),records=list('availability');
+ const offset=(new Date(y,m-1,1).getDay()+6)%7;
+ const dayNames=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+ let html=dayNames.map(d=>'<div class="availability-day-heading">'+d+'</div>').join('');
+ html+=Array.from({length:offset},()=>'<div class="availability-cell-spacer" aria-hidden="true"></div>').join('');
  for(let d=1;d<=last;d++){
-  const day=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===day),st=a?.status||'';
-  html+='<button class="availability-cell '+esc(st)+'" data-action="availability" data-date="'+day+'"><strong>'+d+'</strong><small>'+esc(st==='unavailable'?'No disponible':st==='available'?'Disponible':'Sin indicar')+'</small></button>';
+  const date=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===date),st=a?.status||'';
+  const selected=a?.slots?.length?a.slots.length+' h disponibles':st==='unavailable'?'No disponible':st==='available'?'Disponible':'Sin indicar';
+  html+='<button class="availability-cell '+esc(st)+'" data-action="availability" data-date="'+date+'"><strong>'+d+'</strong><small>'+selected+'</small></button>';
  }
- $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Configurar semana habitual','','primary')+'</div><div class="notice">Selecciona un día para indicar tu disponibilidad. Los cambios se guardan en tu perfil y los verá la oficina.</div><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="availability-grid">'+html+'</div>';
+ $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Semana habitual · L–D','','primary')+'</div>'+
+ '<div class="notice">Selecciona un día para marcar las horas disponibles. Puedes elegir horas sueltas o varias franjas arrastrando.</div>'+
+ '<div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div>'+
+ '<div class="availability-grid">'+html+'</div>';
 }
 function documentsPage(){
  const docs=list('documents');
@@ -320,14 +328,46 @@ function extendedProfile(){
  modal('Editar mi perfil', '<form id="employee-profile-form" style="display:grid;gap:12px;grid-template-columns:1fr 1fr">'+fields+'<button class="primary" style="grid-column:1/-1" type="submit">Guardar cambios</button></form>');
  $('#employee-profile-form').onsubmit=async ev=>{ev.preventDefault();const input=Object.fromEntries(new FormData(ev.target));for(const k of ['languages','skills','education'])input[k]=input[k].split(',').map(x=>x.trim()).filter(Boolean);input.revision=p.revision;try{await api('employee-profile',{record:input});$('#employee-modal').close();await load();notice('Perfil actualizado')}catch(e){error(e)}};
 }
+
+function hoursFromLegacy(value){if(Array.isArray(value?.slots))return new Set(value.slots.map(Number));if(!value?.available)return new Set();const start=Number((value.start||'08:00').slice(0,2)),end=Number((value.end||'23:00').slice(0,2));return new Set(Array.from({length:Math.max(0,end-start)},(_,i)=>i+start))}
+function availabilityHourCells(key,selected){
+ return Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour '+(selected.has(h)?'selected':'')+'" data-weekday="'+key+'" data-hour="'+h+'" aria-pressed="'+selected.has(h)+'">'+String(h).padStart(2,'0')+'</button>').join('');
+}
+function bindHourDrag(container,selected,paint){
+ let dragging=false,start=0,mode=true,original=null,activeKey='';
+ const cellAt=e=>document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-hour]');
+ container.addEventListener('pointerdown',e=>{
+  const cell=e.target.closest('[data-hour]');if(!cell)return;
+  activeKey=cell.dataset.weekday||'date';const picked=selected[activeKey];if(!picked)return;
+  start=Number(cell.dataset.hour);mode=!picked.has(start);original=new Set(picked);dragging=true;
+  try{container.setPointerCapture(e.pointerId)}catch{}
+  apply(start);e.preventDefault();
+ });
+ function apply(end){
+  const set=new Set(original);
+  for(let n=Math.min(start,end);n<=Math.max(start,end);n++)mode?set.add(n):set.delete(n);
+  selected[activeKey]=set;paint();
+ }
+ container.addEventListener('pointermove',e=>{if(!dragging)return;const cell=cellAt(e);if(cell&&(cell.dataset.weekday||'date')===activeKey)apply(Number(cell.dataset.hour))});
+ container.addEventListener('pointerup',e=>{dragging=false;try{container.releasePointerCapture(e.pointerId)}catch{}});
+ container.addEventListener('pointercancel',()=>dragging=false);
+ container.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(!cell)return;const key=cell.dataset.weekday||'date',set=selected[key];if(set.has(Number(cell.dataset.hour)))set.delete(Number(cell.dataset.hour));else set.add(Number(cell.dataset.hour));paint()});
+}
 function weeklyAvailabilityModal(){
  const current=state.weeklyAvailability?.days||{};
  const days={mon:'Lunes',tue:'Martes',wed:'Miércoles',thu:'Jueves',fri:'Viernes',sat:'Sábado',sun:'Domingo'};
- modal('Disponibilidad semanal','<form id="weekly-form" style="display:grid;gap:12px">'+Object.entries(days).map(([key,label])=>{
-  const val=current[key]||{available:false,start:'08:00',end:'23:00'};
-  return '<div class="line" style="align-items:center;gap:8px"><label style="flex:1"><input type="checkbox" name="'+key+'_available" '+(val.available?'checked':'')+'> '+label+'</label><input class="field" style="width:100px" aria-label="Inicio '+label+'" name="'+key+'_start" type="time" value="'+esc(val.start)+'"><input class="field" style="width:100px" aria-label="Fin '+label+'" name="'+key+'_end" type="time" value="'+esc(val.end)+'"></div>'
- }).join('')+'<button class="primary" type="submit">Guardar semana habitual</button></form>');
- $('#weekly-form').onsubmit=async e=>{e.preventDefault();const f=e.target,input=Object.fromEntries(new FormData(f)),data={};for(const key of Object.keys(days))data[key]={available:!!input[key+'_available'],start:input[key+'_start'],end:input[key+'_end']};try{await api('availability-weekly',{days:data});$('#employee-modal').close();await load();notice('Semana guardada')}catch(ex){error(ex)}};
+ const selected=Object.fromEntries(Object.keys(days).map(key=>[key,hoursFromLegacy(current[key])]));
+ const headers='<div class="hour-row-label">Día / hora</div>'+Array.from({length:24},(_,h)=>'<span class="availability-hour-heading">'+String(h).padStart(2,'0')+'</span>').join('');
+ const rows=Object.entries(days).map(([key,label])=>'<div class="hour-row-label">'+label+'</div>'+availabilityHourCells(key,selected[key])).join('');
+ modal('Disponibilidad semanal · lunes a domingo','<p class="muted">Arrastra para seleccionar o quitar cada hora. Puedes marcar varias franjas separadas en el mismo día.</p>'+
+ '<div class="weekly-hours-scroll"><div id="weekly-hour-grid" class="weekly-hour-grid">'+headers+rows+'</div></div>'+
+ '<div class="actions-row" style="margin-top:14px"><button type="button" class="secondary" id="week-all">Toda la semana</button><button type="button" class="secondary" id="week-clear">Limpiar</button><button type="button" class="primary" id="week-save">Guardar disponibilidad semanal</button></div>');
+ const grid=$('#weekly-hour-grid');
+ const paint=()=>grid.querySelectorAll('[data-hour]').forEach(el=>{const on=selected[el.dataset.weekday].has(Number(el.dataset.hour));el.classList.toggle('selected',on);el.setAttribute('aria-pressed',String(on))});
+ bindHourDrag(grid,selected,paint);
+ $('#week-all').onclick=()=>{for(const d of Object.keys(days))selected[d]=new Set(Array.from({length:24},(_,i)=>i));paint()};
+ $('#week-clear').onclick=()=>{for(const d of Object.keys(days))selected[d].clear();paint()};
+ $('#week-save').onclick=async()=>{try{const data=Object.fromEntries(Object.keys(days).map(key=>[key,{slots:[...selected[key]].sort((a,b)=>a-b)}]));await api('availability-weekly',{days:data});$('#employee-modal').close();await load();notice('Semana guardada')}catch(e){error(e)}};
 }
 function redeemQr(serviceId){
  modal('Validar QR de personal','<form id="qr-redeem-form" style="display:grid;gap:12px"><p class="muted">Introduce el código temporal que muestra el trabajador.</p><label class="form-label">Código QR<input class="field" name="token" required autocomplete="off"></label><button class="primary" type="submit">Registrar fichaje</button></form>');
@@ -393,42 +433,22 @@ async function detail(id){
  modal('Detalle de mi servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Control horario',a.id,'primary'):'')+'</div>');
 }
 
-let selectedAvailabilityStart=8,selectedAvailabilityEnd=23,availabilityDragFrom=null;
-function availabilityHoursPaint(){
- const cells=[...document.querySelectorAll('#availability-time-grid [data-hour]')];
- for(const el of cells){
-  const n=Number(el.dataset.hour),active=n>=selectedAvailabilityStart&&n<selectedAvailabilityEnd;
-  el.classList.toggle('selected',active);
-  el.setAttribute('aria-pressed',String(active));
- }
- const s=$('#available-start'),e=$('#available-end');
- if(s)s.value=String(selectedAvailabilityStart).padStart(2,'0')+':00';
- if(e)e.value=String(selectedAvailabilityEnd).padStart(2,'0')+':00';
-}
-function availabilityHoursSelect(from,to){
- const lo=Math.max(0,Math.min(23,Math.min(from,to))),hi=Math.min(24,Math.max(from,to)+1);
- selectedAvailabilityStart=lo;selectedAvailabilityEnd=hi;availabilityHoursPaint();
-}
+
+let selectedAvailabilitySlots={date:new Set()};
 function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
- selectedAvailabilityStart=Math.min(23,Math.max(0,Number((old?.start||'08:00').slice(0,2))));
- selectedAvailabilityEnd=Math.max(selectedAvailabilityStart+1,Math.min(24,Number((old?.end||'23:00').slice(0,2))));
+ selectedAvailabilitySlots={date:hoursFromLegacy(old)};
  const grid=Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour" data-hour="'+h+'" aria-pressed="false">'+String(h).padStart(2,'0')+':00</button>').join('');
- modal('Disponibilidad · '+human(date),'<p class="muted">Selecciona una franja arrastrando sobre las horas, o indica las horas de inicio y fin.</p>'+
- '<div class="availability-hour-grid" id="availability-time-grid">'+grid+'</div>'+
- '<div class="availability-time-inputs"><label class="form-label">Desde<input type="time" class="field" id="available-start" value="'+esc(old?.start||'08:00')+'"></label>'+
- '<label class="form-label">Hasta<input type="time" class="field" id="available-end" value="'+esc(old?.end||'23:00')+'"></label></div>'+
- '<div class="actions-row">'+btn('set-available','Disponible',date,'primary')+btn('set-unavailable','No disponible',date)+'</div>');
- availabilityHoursPaint();
- const gridEl=$('#availability-time-grid');
- function commit(h){if(availabilityDragFrom!=null)availabilityHoursSelect(availabilityDragFrom,h)}
- gridEl.addEventListener('pointerdown',e=>{const cell=e.target.closest('[data-hour]');if(!cell)return;availabilityDragFrom=Number(cell.dataset.hour);availabilityHoursSelect(availabilityDragFrom,availabilityDragFrom);gridEl.setPointerCapture(e.pointerId);e.preventDefault()});
- gridEl.addEventListener('pointermove',e=>{if(availabilityDragFrom==null)return;const cell=document.elementFromPoint(e.clientX,e.clientY)?.closest('#availability-time-grid [data-hour]');if(cell)commit(Number(cell.dataset.hour))});
- gridEl.addEventListener('pointerup',e=>{availabilityDragFrom=null;try{gridEl.releasePointerCapture(e.pointerId)}catch{}});
- gridEl.addEventListener('pointercancel',()=>availabilityDragFrom=null);
- gridEl.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(cell)availabilityHoursSelect(Number(cell.dataset.hour),Number(cell.dataset.hour))});
- $('#available-start').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
- $('#available-end').addEventListener('change',()=>{const start=$('#available-start').value,end=$('#available-end').value;selectedAvailabilityStart=Number(start.slice(0,2));selectedAvailabilityEnd=Number(end.slice(0,2));if(selectedAvailabilityStart<selectedAvailabilityEnd)availabilityHoursPaint()});
+ modal('Disponibilidad · '+human(date),'<p class="muted">Selecciona o deselecciona horas sueltas, o arrastra para marcar varias horas. Se pueden crear franjas separadas.</p>'+
+ '<div id="availability-time-grid" class="availability-hour-grid">'+grid+'</div>'+
+ '<p class="muted" id="availability-hours-count"></p><div class="actions-row">'+
+ btn('set-available','Guardar horas disponibles',date,'primary')+btn('set-unavailable','Marcar no disponible',date)+'</div>');
+ const root=$('#availability-time-grid');
+ const paint=()=>{
+  root.querySelectorAll('[data-hour]').forEach(el=>{const checked=selectedAvailabilitySlots.date.has(Number(el.dataset.hour));el.classList.toggle('selected',checked);el.setAttribute('aria-pressed',String(checked))});
+  $('#availability-hours-count').textContent=selectedAvailabilitySlots.date.size+' horas seleccionadas';
+ };
+ bindHourDrag(root,selectedAvailabilitySlots,paint);paint();
 }
 function passwordModal(){
  modal('Cambiar contraseña','<form id="password-form" style="display:grid;gap:12px"><label class="form-label">Contraseña actual<input class="field" name="current" type="password" required></label><label class="form-label">Nueva contraseña (12 caracteres mínimo)<input class="field" name="password" type="password" minlength="12" required></label><button class="primary">Cambiar contraseña</button></form>');
@@ -467,8 +487,9 @@ document.addEventListener('click',async ev=>{
  if(action==='qr')return showQR(id);
  if(action==='availability')return availabilityModal(el.dataset.date);
  if(action==='set-available'||action==='set-unavailable'){
-  const a=list('availability').find(x=>x.date===id);const start=$('#available-start')?.value,end=$('#available-end')?.value;$('#employee-modal').close();
-  return mutation('availability',{date:id,status:action==='set-available'?'available':'unavailable',start,end,...(a?{revision:a.revision}:{})},'Disponibilidad actualizada');
+  const a=list('availability').find(x=>x.date===id),slots=action==='set-available'?[...selectedAvailabilitySlots.date].sort((x,y)=>x-y):[];
+  if(action==='set-available'&&!slots.length)return error(new Error('Selecciona al menos una hora disponible.'));
+  $('#employee-modal').close();return mutation('availability',{date:id,status:action==='set-available'?'available':'unavailable',slots,...(a?{revision:a.revision}:{})},'Disponibilidad actualizada');
  }
  if(action==='prev-month'||action==='next-month'){
   const [y,m]=month.split('-').map(Number),d=new Date(y,m-1+(action==='next-month'?1:-1),1);month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');return render();
