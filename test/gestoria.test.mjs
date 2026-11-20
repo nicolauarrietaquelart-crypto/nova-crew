@@ -383,3 +383,73 @@ test('different workers coordinate independent day/type blocks without office pr
  assert.equal((await f.call('qr-redeem',{token:qr.body.token})).status,403);
  assert.equal((await call('qr-redeem',{token:qr.body.token},cookie2)).status,200);
 });
+
+test('daily and weekly availability retain multiple non-contiguous hourly selections',async()=>{
+ const f=await setup();
+ await f.call('user',{record:{username:'hours-worker',name:'Horario',role:'worker',workerId:f.worker.id,password:'hours-worker-secret-2026'}});
+ const api=createOfficeApi(f.db,{});
+ const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'hours-worker',password:'hours-worker-secret-2026'})}));
+ assert.equal(login.status,200);const cookie=login.headers.get('set-cookie').split(';')[0];
+ async function call(op,data){
+  const r=await api(new Request('https://nova.test/api/office/'+op,{method:data?'POST':'GET',headers:{cookie,...(data?{origin:'https://nova.test','content-type':'application/json'}:{})},body:data?JSON.stringify(data):undefined}));
+  return {status:r.status,body:await r.json()};
+ }
+ const weekly=await call('availability-weekly',{days:{mon:{slots:[8,9,13,18]},sat:{slots:[1,2]},sun:{slots:[21,22,23]}}});
+ assert.equal(weekly.status,200,JSON.stringify(weekly.body));
+ const single=await call('availability',{date:'2027-02-01',status:'available',slots:[7,8,12,18,19]});
+ assert.equal(single.status,200,JSON.stringify(single.body));
+ const state=(await call('state')).body;
+ assert.deepEqual(state.weeklyAvailability.days.mon.slots,[8,9,13,18]);
+ assert.deepEqual(state.weeklyAvailability.days.sun.slots,[21,22,23]);
+ assert.equal(state.weeklyAvailability.days.tue.available,false);
+ assert.deepEqual(state.availability.find(a=>a.date==='2027-02-01').slots,[7,8,12,18,19]);
+ assert.equal((await call('availability',{date:'2027-02-02',status:'available',slots:[-1,25]})).status,400);
+});
+test('Crew Head delegation is bounded to assigned service block and never grants office access',async()=>{
+ const f=await setup();
+ const lead=await f.save('workers',{name:'Crew Head',specialty:'CREW HEAD',costRate:14.4,createAccess:false});
+ const helper=await f.save('workers',{name:'Coordinador normal',specialty:'HAND B',costRate:9.3,createAccess:false});
+ const outsider=await f.save('workers',{name:'Ajeno al bloque',specialty:'HAND B',costRate:9.3,createAccess:false});
+ const make=async(username,workerId)=>{
+  const r=await f.call('user',{record:{username,name:username,role:'worker',workerId,password:'worker-secret-'+username}});
+  assert.equal(r.status,200,JSON.stringify(r.body));return r.body.record;
+ };
+ const leadAccount=await make('lead-operator',lead.id),helperAccount=await make('helper-operator',helper.id),outsideAccount=await make('outside-operator',outsider.id);
+ const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'LOAD IN',date:'2027-02-01',endDate:'2027-02-01',start:'09:00',end:'12:00',team:'Principal'},categories:[{categoryId:'HAND B',quantity:1}]});
+ assert.equal(block.status,200,JSON.stringify(block.body));
+ const slot=block.body.positions[0];
+ const turn=await f.save('assignments',{serviceId:f.service.id,orderLineId:slot.id,categoryId:'HAND B',workerId:helper.id,date:'2027-02-01',start:'09:00',endDate:'2027-02-01',end:'12:00',costRate:9.3,chargeRate:18.6});
+ const grant=await f.call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:leadAccount.id,kind:'crew_head'}});
+ assert.equal(grant.status,200,JSON.stringify(grant.body));
+ const api=createOfficeApi(f.db,{});
+ const login=async(username)=>{
+  const response=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username,password:'worker-secret-'+username})}));
+  assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];
+ };
+ const lc=await login('lead-operator'),hc=await login('helper-operator');
+ const call=async(op,data,cookie)=>{
+  const r=await api(new Request('https://nova.test/api/office/'+op,{method:data?'POST':'GET',headers:{cookie,...(data?{origin:'https://nova.test','content-type':'application/json'}:{})},body:data?JSON.stringify(data):undefined}));
+  return {status:r.status,body:await r.json()};
+ };
+ const initial=(await call('state',null,lc)).body;
+ assert.equal(initial.user.role,'worker');
+ assert.equal(initial.coordinatorBlocks.find(b=>b.id===block.body.record.id).lead,true);
+ assert.equal(initial.coordinatorRoster[0].id,turn.id);
+ assert.equal(initial.clients,undefined);
+ assert.equal(initial.coordinatorRoster[0].costRate,undefined);
+ assert.equal((await call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:outsideAccount.id,kind:'coordinator'}},lc)).status,403);
+ assert.equal((await call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:helperAccount.id,kind:'crew_head'}},lc)).status,200);
+ const helperState=(await call('state',null,hc)).body;
+ assert.equal(helperState.coordinatorBlocks.find(b=>b.id===block.body.record.id).lead,false);
+ assert.equal(helperState.coordinatorRoster.length,1);
+ const updated=await call('service-block-lead-update',{id:block.body.record.id,revision:block.body.record.revision,serviceType:'SHOW CALL',team:'Escenario B'},lc);
+ assert.equal(updated.status,200,JSON.stringify(updated.body));
+ assert.equal((await call('service-block-lead-update',{id:block.body.record.id,revision:updated.body.record.revision,serviceType:'LOAD OUT',team:''},hc)).status,403);
+ const control=await call('coordinator-control',{id:turn.id,revision:turn.revision,field:'vestColor',value:'Naranja'},hc);
+ assert.equal(control.status,200,JSON.stringify(control.body));
+ assert.equal((await call('coordinator-shift',{id:turn.id,revision:control.body.record.revision,date:'2027-02-01',endDate:'2027-02-01',start:'07:00',end:'12:00'},hc)).status,403);
+ const incident=await call('incident-report',{serviceId:f.service.id,workerId:outsider.id,description:'Incorrecto'},lc);
+ assert.equal(incident.status,403);
+ const operatorRemove=await call('service-block-operator-remove',{id:grant.body.record.id,revision:grant.body.record.revision},hc);
+ assert.equal(operatorRemove.status,403);
+});
