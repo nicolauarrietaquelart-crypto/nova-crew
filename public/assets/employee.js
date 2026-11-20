@@ -250,37 +250,171 @@ function coordinationPage(){
 }
 
 
+
 let selectedCrewService='',selectedCrewBlock='all',crewFilter='all';
-function crewControlPage(){
- const svcs=coordinatingServices();
- if(!svcs.length){$('#employee-content').innerHTML='<div class="panel empty">Aún no tienes turnos asignados para coordinar.</div>';return}
- if(!svcs.some(s=>s.id===selectedCrewService))selectedCrewService=svcs[0].id;
- const sv=service(selectedCrewService),blocks=(state.coordinatorBlocks||[]).filter(x=>x.serviceId===selectedCrewService),
- all=(state.coordinatorRoster||[]).filter(a=>a.serviceId===selectedCrewService),people=state.coordinatorWorkers||[];
- if(selectedCrewBlock!=='all'&&!blocks.some(b=>b.id===selectedCrewBlock))selectedCrewBlock='all';
- const records=all.filter(a=>selectedCrewBlock==='all'||a.blockId===selectedCrewBlock);
- const person=id=>people.find(w=>w.id===id)?.name||'Personal';
- const present=records.filter(a=>a.checkIn&&!a.checkOut).length,absent=records.filter(a=>!a.checkIn).length,contacted=records.filter(a=>a.contacted).length,noTeam=records.filter(a=>!a.team).length;
- const matches=a=>crewFilter==='all'||(crewFilter==='present'&&a.checkIn&&!a.checkOut)||(crewFilter==='absent'&&!a.checkIn)||(crewFilter==='contacted'&&a.contacted)||(crewFilter==='no-team'&&!a.team);
- const leadBlocks=blocks.filter(b=>b.lead),delegates=leadBlocks.length?
- '<section class="panel" style="margin-bottom:15px"><div class="panel-head"><h2>Crew Head · mis bloques</h2></div>'+
- leadBlocks.map(block=>'<div class="line"><span>'+esc(block.date)+' · '+esc(block.serviceType)+' · '+esc(block.start)+'–'+esc(block.end)+'</span>'+
- '<div class="actions-row">'+btn('crew-block-edit','Tipo / equipo',block.id)+btn('crew-delegate','Añadir coordinador',block.id,'secondary')+'</div></div>').join('')+'</section>':'';
- const slots=blocks.map(b=>'<option value="'+esc(b.id)+'" '+(selectedCrewBlock===b.id?'selected':'')+'>'+esc(b.date+' · '+b.serviceType+' · '+b.start+'–'+b.end)+(b.lead?' · Crew Head':'')+'</option>').join('');
- const stats='<div class="stats">'+[['Todos',records.length,'all'],['Presentes',present,'present'],['No presentados',absent,'absent'],['Contactados',contacted,'contacted']].map(([label,count,f])=>'<button class="stat '+(crewFilter===f?'orange':'')+'" data-action="crew-filter" data-filter="'+f+'" style="text-align:left;cursor:pointer"><span class="muted">'+label+'</span><strong>'+count+'</strong></button>').join('')+'</div>';
- const table=records.filter(matches).length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Trabajador</th><th>Equipo / chaleco</th><th>Turno</th><th>Asistencia</th><th>Operativa</th></tr></thead><tbody>'+
- records.filter(matches).map(a=>'<tr><td><strong>'+esc(person(a.workerId))+'</strong><small>'+esc(a.role)+'</small></td>'+
- '<td>'+esc(a.team||'Sin equipo')+'<small>'+esc(a.vestColor||'Sin chaleco')+'</small></td>'+
- '<td>'+esc(a.date)+' · '+esc(a.serviceType||'Servicio')+'<small>'+esc(a.start)+'–'+esc(a.end)+'</small></td>'+
- '<td>'+esc(a.checkOut?'Salida registrada':a.checkIn?'Presente':'Pendiente')+'<small>'+esc(a.contacted?'Contactado':'Sin contactar')+'</small></td>'+
- '<td><div class="actions-row">'+btn('crew-contact',a.contacted?'Quitar contacto':'Contactado',a.id)+btn('crew-team','Equipo',a.id)+btn('crew-details','Pausa / chaleco / dieta',a.id)+btn('edit-coord-shift','Horario',a.id)+'</div></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No hay trabajadores con este filtro.</div>';
- $('#employee-content').innerHTML='<div class="section-title"><h2>Crew Control</h2><p class="muted">Personal, fichajes, equipos y pausas solo de los turnos que coordinas.</p></div>'+
- '<div class="panel"><div class="panel-head"><h2>'+esc(sv.name)+'</h2><div class="actions-row">'+btn('scan-qr','Escanear QR',sv.id,'primary')+btn('redeem-qr','Introducir código',sv.id)+'</div></div>'+
- '<div class="crew-filters"><label class="form-label">Servicio<select class="field" id="crew-service-select">'+svcs.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===selectedCrewService?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label>'+
- '<label class="form-label">Día, tipo de servicio y horario<select class="field" id="crew-block-select"><option value="all">Todos mis turnos autorizados</option>'+slots+'</select></label></div></div>'+
- stats+'<div class="actions-row" style="margin-bottom:14px">'+btn('crew-filter','Sin equipo ('+noTeam+')','','secondary')+btn('incident-report','Registrar incidencia',sv.id)+'</div>'+
- delegates+box('Plantilla · '+records.filter(matches).length+' trabajadores',table);
+let crewSelectedIds=new Set(),crewDay='all',crewWorkTypes=new Set(),crewSearch='',crewShowHidden=false;
+function crewAllRoster(){return state.coordinatorRoster||[]}
+function crewServiceRoster(){return crewAllRoster().filter(a=>a.serviceId===selectedCrewService)}
+function crewBlocks(){return (state.coordinatorBlocks||[]).filter(b=>b.serviceId===selectedCrewService)}
+function crewAuthorizedWorkers(){return state.coordinatorWorkers||[]}
+function crewName(a){return crewAuthorizedWorkers().find(w=>w.id===a.workerId)?.name||'Personal'}
+function crewPhone(a){return crewAuthorizedWorkers().find(w=>w.id===a.workerId)?.phone||''}
+function crewRecordOpen(a){return !!a.checkIn&&!a.checkOut}
+function crewTeamItems(blockId){return (state.crewTeams||[]).filter(x=>x.blockId===blockId)}
+function crewWorkLabel(a){return a.serviceType||'Sin tipo'}
+function crewShiftId(a){return [a.date,a.start,a.end,a.serviceType].join('|')}
+function crewScopedRecords(){
+ const records=crewServiceRoster();
+ const valid=new Set(records.map(a=>a.id));crewSelectedIds=new Set([...crewSelectedIds].filter(id=>valid.has(id)));
+ return records.filter(a=>(crewDay==='all'||a.date===crewDay)&&(selectedCrewBlock==='all'||a.blockId===selectedCrewBlock)&&
+ (!crewWorkTypes.size||crewWorkTypes.has(crewWorkLabel(a)))&&(!crewSearch||[crewName(a),crewPhone(a),a.role,a.team].join(' ').toLocaleLowerCase().includes(crewSearch.toLocaleLowerCase())));
 }
+function crewCard(a){
+ const present=crewRecordOpen(a),checked=crewSelectedIds.has(a.id);
+ const speciality=(crewAuthorizedWorkers().find(w=>w.id===a.workerId)?.specialty||a.role).toUpperCase();
+ const exempt=/CREW\s*HEAD|FORKLIFT/.test(speciality);
+ const phone=crewPhone(a);
+ return '<article class="cc-person '+(checked?'cc-selected':'')+' '+(present?'cc-present':'')+'" data-id="'+esc(a.id)+'">'+
+ '<div class="cc-person-top"><label class="cc-pick"><input type="checkbox" data-crew-select="'+esc(a.id)+'" '+(checked?'checked':'')+'><span class="cc-person-name">'+esc(crewName(a))+'</span></label>'+
+ '<button type="button" class="cc-presence '+(present?'on':'')+'" data-action="crew-attendance" data-id="'+esc(a.id)+'">'+(present?'Presente':a.checkOut?'Finalizado':'Pendiente')+'</button></div>'+
+ '<div class="cc-person-role">'+esc(a.role)+' · '+esc(a.date)+' · '+esc(a.start)+'–'+esc(a.end)+(exempt?' · Especialidad protegida':'')+'</div>'+
+ '<div class="cc-person-fields">'+
+ '<button type="button" data-action="crew-team" data-id="'+esc(a.id)+'" class="cc-mini"><span>Equipo</span><b>'+esc(a.team||'Sin equipo')+'</b></button>'+
+ '<button type="button" data-action="crew-details" data-id="'+esc(a.id)+'" class="cc-mini"><span>Chaleco</span><b>'+esc(a.vestColor||'—')+'</b></button>'+
+ '<button type="button" data-action="crew-details" data-id="'+esc(a.id)+'" class="cc-mini"><span>Pausa</span><b>'+esc(a.pauseStart||'—')+'</b></button>'+
+ '<button type="button" data-action="crew-details" data-id="'+esc(a.id)+'" class="cc-mini"><span>Dieta</span><b>'+Number(a.dietCount||0)+'</b></button>'+
+ '<button type="button" data-action="crew-details" data-id="'+esc(a.id)+'" class="cc-mini"><span>Valoración</span><b>'+Number(a.rating||0)+'/5</b></button></div>'+
+ '<div class="cc-person-bottom">'+
+ '<button type="button" data-action="crew-contact" data-id="'+esc(a.id)+'" class="cc-action '+(a.contacted?'contacted':'')+'">'+(a.contacted?'Contactado':'Marcar contacto')+'</button>'+
+ (phone?'<a class="cc-action" href="tel:'+esc(phone.replace(/[^+\d]/g,''))+'">Llamar</a>':'')+
+ '<button type="button" class="cc-action" data-action="edit-coord-shift" data-id="'+esc(a.id)+'">Horario</button>'+
+ '</div></article>';
+}
+function crewControlPage(){
+ const services=coordinatingServices();
+ if(!services.length){$('#employee-content').innerHTML='<div class="panel empty">No tienes servicios asignados para coordinar.</div>';return}
+ if(!services.some(s=>s.id===selectedCrewService)){selectedCrewService=services[0].id;crewDay='all';selectedCrewBlock='all';crewWorkTypes.clear();crewSelectedIds.clear()}
+ const svc=service(selectedCrewService),roster=crewServiceRoster(),blocks=crewBlocks();
+ if(selectedCrewBlock!=='all'&&!blocks.some(b=>b.id===selectedCrewBlock))selectedCrewBlock='all';
+ const dates=[...new Set(roster.map(a=>a.date))].sort(),types=[...new Set(roster.map(crewWorkLabel))].sort();
+ const records=crewScopedRecords();
+ const present=records.filter(crewRecordOpen).length,absent=records.filter(a=>!a.checkIn).length,contacted=records.filter(a=>a.contacted).length,noTeam=records.filter(a=>!a.team).length;
+ const stats=[['present','Presentes',present],['absent','No presentados',absent],['contacted','Contactados',contacted],['no-team','Sin equipo',noTeam]];
+ const groupIds=[...new Set(records.map(a=>crewShiftId(a)))];
+ const leads=blocks.filter(x=>x.lead);
+ const rosterGroups=groupIds.map(k=>{
+  const items=records.filter(a=>crewShiftId(a)===k),first=items[0],block=blocks.find(b=>b.id===first.blockId);
+  return '<section class="cc-work-group"><div class="cc-work-heading"><div><strong>'+esc(crewWorkLabel(first))+'</strong><small>'+esc(first.date)+' · '+esc(first.start)+'–'+esc(first.end)+' · '+items.length+' trabajadores'+(block?.lead?' · Crew Head':'')+'</small></div>'+
+  '<button type="button" data-action="crew-plan-teams" data-id="'+esc(first.blockId)+'" class="cc-small-btn">Planificar equipos</button></div>'+
+  '<div class="cc-people">'+items.filter(a=>crewFilter==='all'||(crewFilter==='present'&&crewRecordOpen(a))||(crewFilter==='absent'&&!a.checkIn)||(crewFilter==='contacted'&&a.contacted)||(crewFilter==='no-team'&&!a.team)).map(crewCard).join('')+'</div></section>';
+ }).join('');
+ const menu=services.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===selectedCrewService?'selected':'')+'>'+esc(x.name)+'</option>').join('');
+ const dayOptions='<option value="all">Todos los días</option>'+dates.map(d=>'<option value="'+esc(d)+'" '+(crewDay===d?'selected':'')+'>'+esc(d)+'</option>').join('');
+ const shiftOptions='<option value="all">Todos los horarios autorizados</option>'+blocks.map(b=>'<option value="'+esc(b.id)+'" '+(selectedCrewBlock===b.id?'selected':'')+'>'+esc(b.start)+'–'+esc(b.end)+' · '+esc(b.serviceType)+(b.lead?' · Crew Head':'')+'</option>').join('');
+ const typeButtons=types.map(t=>'<button type="button" class="cc-filter-chip '+(!crewWorkTypes.size||crewWorkTypes.has(t)?'active':'')+'" data-action="crew-toggle-type" data-value="'+esc(t)+'">'+esc(t)+'</button>').join('');
+ const summary=stats.map(([key,label,n])=>'<button type="button" class="cc-stat '+(crewFilter===key?'selected':'')+'" data-action="crew-filter" data-filter="'+key+'"><strong>'+n+'</strong><small>'+label+'</small></button>').join('');
+ $('#employee-content').innerHTML='<section class="cc-app"><div class="cc-app-header"><div><span class="cc-kicker">CREW CONTROL · OPERACIONES</span><h2>'+esc(svc.name)+'</h2><p>'+esc(svc.venue||'')+' · '+roster.length+' puestos visibles según tus permisos</p></div>'+
+ '<div class="cc-top-actions">'+btn('scan-qr','Escanear QR',svc.id,'primary')+btn('incident-report','Incidencias',svc.id)+btn('crew-print','PDF / imprimir',svc.id)+'</div></div>'+
+ '<div class="cc-layout"><aside class="cc-operational"><div class="cc-operational-title"><strong>Control operativo</strong><small>Solo tus turnos</small></div>'+
+ '<label class="form-label">Servicio<select class="field" id="crew-service-select">'+menu+'</select></label>'+
+ '<label class="form-label">Día<select class="field" id="crew-day-select">'+dayOptions+'</select></label>'+
+ '<label class="form-label">Horario / bloque<select class="field" id="crew-block-select">'+shiftOptions+'</select></label>'+
+ '<span class="cc-sidebar-heading">Tipos de servicio</span><div class="cc-work-filters">'+typeButtons+'</div>'+
+ '<div class="cc-stats">'+summary+'</div>'+
+ '<button class="cc-side-btn" type="button" data-action="crew-plan-teams" data-id="'+esc(selectedCrewBlock)+'">Planificar equipos</button>'+
+ '<button class="cc-side-btn" type="button" data-action="crew-bulk">Edición masiva / pausas</button>'+
+ '<button class="cc-side-btn" type="button" data-action="crew-incident-board">Ver incidencias</button>'+
+ (leads.length?'<div class="cc-leads"><span>Crew Head</span>'+leads.map(b=>'<button type="button" data-action="crew-delegate" data-id="'+esc(b.id)+'">'+esc(b.date+' · '+b.serviceType)+' · Añadir coordinador</button>').join('')+'</div>':'')+
+ '</aside><div class="cc-main"><div class="cc-toolbar"><div class="cc-search"><span>Buscar</span><input type="search" id="crew-search" placeholder="Nombre, categoría, equipo..." value="'+esc(crewSearch)+'"></div>'+
+ '<div class="cc-toolbar-right"><span>'+crewSelectedIds.size+' seleccionados</span>'+
+ '<button type="button" data-action="crew-select-visible">Seleccionar visibles</button><button type="button" data-action="crew-clear-selected">Deseleccionar</button>'+
+ '<button type="button" class="cc-mass-btn" data-action="crew-bulk">Editar seleccionados</button></div></div>'+
+ '<div class="cc-groups">'+(rosterGroups||'<div class="cc-empty">Sin trabajadores para estos filtros.</div>')+'</div></div></div>'+
+ '<div class="cc-mobile-foot"><strong>'+present+'/'+records.length+' presentes</strong><span>'+contacted+' contactados</span><span>'+absent+' ausentes</span><span>'+noTeam+' sin equipo</span><button type="button" data-action="crew-bulk">Ajustes</button></div></section>';
+}
+
+function crewBulkModal(){
+ const chosen=crewAllRoster().filter(a=>crewSelectedIds.has(a.id));
+ if(!chosen.length)return error(new Error('Selecciona primero uno o varios trabajadores.'));
+ const fields=[['team','Equipo'],['vestColor','Chaleco'],['contacted','Contacto'],['pauseScheduledHours','Duración de pausa (h)'],['pauseStart','Inicio de pausa'],['pauseEnd','Fin de pausa'],['dietCount','Dietas'],['rating','Valoración (0–5)']];
+ const choices='<select class="field" name="field" id="cc-bulk-field">'+fields.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select>';
+ modal('Edición masiva · '+chosen.length+' trabajadores','<form id="cc-bulk-form" style="display:grid;gap:13px"><p class="muted">Solo se modifican los turnos seleccionados y autorizados. Se respetan los permisos individuales.</p>'+
+ '<label class="form-label">Campo a modificar'+choices+'</label><label class="form-label">Nuevo valor<input id="cc-bulk-value" name="value" class="field" required autocomplete="off" placeholder="Nombre de equipo o valor"></label>'+
+ '<button class="primary" type="submit">Aplicar a '+chosen.length+' trabajadores</button></form>');
+ const field=$('#cc-bulk-field'),value=$('#cc-bulk-value');
+ function update(){const k=field.value;value.type=k==='contacted'?'checkbox':['pauseScheduledHours','dietCount','rating'].includes(k)?'number':k.startsWith('pause')?'time':'text';value.required=k!=='contacted';value.placeholder=k==='team'?'Nombre del equipo':k==='vestColor'?'Color de chaleco':'Valor';if(value.type==='number'){value.min=0;value.max=k==='rating'?5:3;value.step=k==='pauseScheduledHours'?'0.5':'1'}else{value.removeAttribute('min');value.removeAttribute('max');value.removeAttribute('step')}}
+ field.onchange=update;update();
+ $('#cc-bulk-form').onsubmit=async e=>{
+  e.preventDefault();
+  const k=field.value,v=value.type==='checkbox'?value.checked:value.type==='number'?Number(value.value):value.value;
+  try{await api('crew-bulk-control',{field:k,value:v,items:chosen.map(a=>({id:a.id,revision:a.revision}))});
+   crewSelectedIds.clear();$('#employee-modal').close();await load();notice('Actualizados '+chosen.length+' trabajadores');
+  }catch(ex){error(ex)}
+ };
+}
+function crewAttendanceModal(id){
+ const a=crewAllRoster().find(x=>x.id===id);if(!a)return;
+ const actions=!a.checkIn?[['in','Registrar entrada']]:!a.checkOut?[['out','Registrar salida'],['undo-in','Anular entrada']]:[['undo-out','Anular salida']];
+ modal('Asistencia · '+crewName(a),'<form id="cc-attendance-form" style="display:grid;gap:13px"><p class="muted">El fichaje manual queda registrado con tu usuario, la hora y el motivo. Para asistencia ordinaria utiliza el QR.</p>'+
+ '<label class="form-label">Acción<select name="event" class="field">'+actions.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('')+'</select></label>'+
+ '<label class="form-label">Motivo de corrección<textarea name="reason" class="field" maxlength="400" required placeholder="Ej.: QR no disponible en el recinto"></textarea></label>'+
+ '<button class="primary" type="submit">Guardar asistencia</button></form>');
+ $('#cc-attendance-form').onsubmit=async e=>{e.preventDefault();try{await api('crew-attendance',{id,revision:a.revision,...Object.fromEntries(new FormData(e.target))});$('#employee-modal').close();await load();notice('Asistencia actualizada y auditada')}catch(ex){error(ex)}};
+}
+function crewPlanningModal(blockId='all'){
+ const blocks=crewBlocks(),chosen=blocks.find(b=>b.id===blockId)||blocks[0];
+ if(!chosen)return error(new Error('No hay un bloque disponible para planificar.'));
+ const list=crewTeamItems(chosen.id),roster=crewServiceRoster().filter(a=>a.blockId===chosen.id);
+ const numberFor=name=>roster.filter(a=>a.team===name).length;
+ const teams=list.map(t=>'<div class="cc-planning-team"><div><strong>'+esc(t.name)+'</strong><small>'+numberFor(t.name)+' / '+t.capacity+' trabajadores · '+esc(t.vestColor||'Sin chaleco definido')+'</small></div>'+
+ '<button type="button" class="secondary" data-action="crew-delete-team" data-id="'+esc(t.id)+'">Eliminar</button></div>').join('');
+ const blockOptions=blocks.map(b=>'<option value="'+esc(b.id)+'" '+(b.id===chosen.id?'selected':'')+'>'+esc(b.date+' · '+b.serviceType+' · '+b.start+'–'+b.end)+'</option>').join('');
+ modal('Planificar equipos · '+chosen.serviceType,'<label class="form-label">Día y turno<select class="field" id="cc-plan-block">'+blockOptions+'</select></label>'+
+ '<div class="cc-planning-teams">'+(teams||'<p class="muted">Todavía no hay equipos definidos para este bloque.</p>')+'</div>'+
+ '<form id="cc-team-create" style="display:grid;gap:11px"><label class="form-label">Nuevo equipo<input class="field" name="name" placeholder="Principal, Secundario, Luces..." required maxlength="100"></label>'+
+ '<div class="crew-filters"><label class="form-label">Personal requerido<input class="field" name="capacity" type="number" min="1" max="200" value="10"></label>'+
+ '<label class="form-label">Chaleco<input class="field" name="vestColor" maxlength="30" placeholder="Naranja"></label></div>'+
+ '<button type="submit" class="primary">Crear equipo</button></form>'+
+ '<div class="actions-row" style="margin-top:15px">'+btn('crew-auto-teams','Distribuir personal sin equipo',chosen.id,'primary')+'</div>'+
+ '<p class="muted">La distribución automática no cambia a Crew Head ni a Forklifter. Puedes asignar cualquier equipo manualmente desde la ficha del trabajador.</p>');
+ $('#cc-plan-block').onchange=e=>crewPlanningModal(e.target.value);
+ $('#cc-team-create').onsubmit=async e=>{
+  e.preventDefault();try{await api('crew-team-save',{record:{blockId:chosen.id,...Object.fromEntries(new FormData(e.target))}});await load();crewPlanningModal(chosen.id);notice('Equipo creado')}catch(ex){error(ex)}
+ };
+}
+async function crewAutoTeams(blockId){
+ const teams=crewTeamItems(blockId),workers=crewServiceRoster().filter(a=>a.blockId===blockId);
+ if(!teams.length)return error(new Error('Define primero al menos un equipo.'));
+ const person=crewAuthorizedWorkers(),protectedWorker=a=>{
+  const spec=(person.find(x=>x.id===a.workerId)?.specialty||a.role||'').toUpperCase();
+  return /CREW\s*HEAD|FORKLIFT/.test(spec);
+ };
+ const target=workers.filter(a=>!a.team&&!protectedWorker(a));
+ if(!target.length)return notice('No queda personal sin equipo que pueda distribuirse automáticamente.');
+ const remaining=new Map(teams.map(t=>[t.name,Math.max(0,t.capacity-workers.filter(a=>a.team===t.name).length)]));
+ const allocation=new Map(teams.map(t=>[t.name,[]]));
+ for(const worker of target){
+  const team=[...remaining].filter(([_,count])=>count>0).sort((a,b)=>b[1]-a[1])[0];
+  if(!team)break;allocation.get(team[0]).push(worker);remaining.set(team[0],team[1]-1);
+ }
+ const total=[...allocation.values()].reduce((n,v)=>n+v.length,0);
+ if(!total)return error(new Error('Todos los equipos están completos.'));
+ try{
+  for(const [name,group] of allocation)if(group.length){
+   const assigned=await api('crew-bulk-control',{field:'team',value:name,items:group.map(a=>({id:a.id,revision:a.revision}))});
+   const vestColor=teams.find(t=>t.name===name)?.vestColor;
+   if(vestColor)await api('crew-bulk-control',{field:'vestColor',value:vestColor,items:assigned.records.map(a=>({id:a.id,revision:a.revision}))});
+  }
+  await load();crewPlanningModal(blockId);notice('Asignados '+total+' trabajadores a sus equipos');
+ }catch(ex){error(ex)}
+}
+function crewIncidentBoard(){
+ const incidents=(state.incidents||[]).filter(i=>i.serviceId===selectedCrewService);
+ modal('Incidencias del servicio',incidents.length?incidents.map(i=>
+  '<div class="cc-planning-team"><div><strong>'+esc(i.status==='resolved'?'Resuelta':'Abierta')+'</strong><p>'+esc(i.description)+'</p><small>'+esc(i.createdAt?.slice(0,16)||'')+'</small></div></div>'
+ ).join(''):'<div class="empty">No hay incidencias visibles.</div>');
+}
+
 function crewTeamModal(id){
  const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(!a)return;
  modal('Equipo del trabajador','<form id="crew-team-form" style="display:grid;gap:12px"><label class="form-label">Equipo / escenario<input class="field" name="team" maxlength="100" value="'+esc(a.team||'')+'"></label><button class="primary" type="submit">Guardar equipo</button></form>');
@@ -517,7 +651,17 @@ document.addEventListener('click',async ev=>{
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
  if(action==='crew-open'){selectedCrewService=id;page='crewControl';return render()}
- if(action==='crew-filter'){crewFilter=el.dataset.filter||'no-team';return crewControlPage()}
+ if(action==='crew-filter'){const f=el.dataset.filter||'all';crewFilter=crewFilter===f?'all':f;return crewControlPage()}
+ if(action==='crew-toggle-type'){const t=el.dataset.value;if(crewWorkTypes.has(t))crewWorkTypes.delete(t);else crewWorkTypes.add(t);return crewControlPage()}
+ if(action==='crew-select-visible'){crewScopedRecords().forEach(a=>crewSelectedIds.add(a.id));return crewControlPage()}
+ if(action==='crew-clear-selected'){crewSelectedIds.clear();return crewControlPage()}
+ if(action==='crew-bulk')return crewBulkModal();
+ if(action==='crew-attendance')return crewAttendanceModal(id);
+ if(action==='crew-plan-teams')return crewPlanningModal(id);
+ if(action==='crew-auto-teams')return crewAutoTeams(id);
+ if(action==='crew-incident-board')return crewIncidentBoard();
+ if(action==='crew-print')return window.print();
+ if(action==='crew-delete-team'){const t=(state.crewTeams||[]).find(x=>x.id===id);if(!t)return;return api('crew-team-delete',{id:t.id,revision:t.revision}).then(()=>load().then(()=>{crewPlanningModal(t.blockId);notice('Equipo eliminado')})).catch(error)}
  if(action==='crew-contact'){const a=(state.coordinatorRoster||[]).find(x=>x.id===id);if(a)return mutation('coordinator-control',{id,revision:a.revision,field:'contacted',value:!a.contacted},'Estado de contacto actualizado')}
  if(action==='crew-team')return crewTeamModal(id);
  if(action==='crew-details')return crewOperationalModal(id);
@@ -555,7 +699,17 @@ $('#login-form').onsubmit=async e=>{
  e.preventDefault();const b=e.target.querySelector('button[type=submit]'),err=$('#login-error');b.disabled=true;err.hidden=true;
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
-$('#employee-content').addEventListener('change',e=>{if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;selectedCrewBlock='all';crewControlPage()}if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}});
+$('#employee-content').addEventListener('change',e=>{
+ if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;crewDay='all';selectedCrewBlock='all';crewWorkTypes.clear();crewSelectedIds.clear();crewControlPage()}
+ if(e.target.id==='crew-day-select'){crewDay=e.target.value;selectedCrewBlock='all';crewControlPage()}
+ if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}
+ if(e.target.matches('[data-crew-select]')){const id=e.target.dataset.crewSelect;if(e.target.checked)crewSelectedIds.add(id);else crewSelectedIds.delete(id);e.target.closest('.cc-person')?.classList.toggle('cc-selected',e.target.checked);const counter=$('.cc-toolbar-right span');if(counter)counter.textContent=crewSelectedIds.size+' seleccionados'}
+});
+$('#employee-content').addEventListener('input',e=>{
+ if(e.target.id!=='crew-search')return;
+ crewSearch=e.target.value;const cursor=e.target.selectionStart;crewControlPage();
+ const field=$('#crew-search');if(field){field.focus();field.setSelectionRange(cursor,cursor)}
+});
 $('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();$('#employee-modal').classList.remove('clock-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
 load();

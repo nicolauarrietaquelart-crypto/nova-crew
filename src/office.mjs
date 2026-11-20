@@ -87,16 +87,17 @@ async function view(db,actor){
   const ownAssignedServices=new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId)]);
   const assignedSlots=new Set(allSlots.filter(l=>!l.archived&&(l.coordinatorId&&l.coordinatorId!==allBlocks.find(b=>b.id===l.blockId)?.coordinatorId?l.coordinatorId===actor.id:ownBlockIds.has(l.blockId)||l.coordinatorId===actor.id)).map(l=>l.id));
   const coordinatorBlocks=actor.role==='manager'?[]:allBlocks.filter(b=>!b.archived&&(ownAssignedServices.has(b.serviceId)||ownBlockIds.has(b.id))).map(b=>({id:b.id,serviceId:b.serviceId,date:b.date,endDate:b.endDate,start:b.start,end:b.end,serviceType:b.serviceType,team:b.team,placeId:b.placeId,revision:b.revision,lead:allOperators.some(o=>o.blockId===b.id&&o.userId===actor.id&&o.kind==='crew_head'&&!o.archived),operators:allOperators.filter(o=>o.blockId===b.id&&!o.archived).map(o=>({id:o.id,userId:o.userId,kind:o.kind,revision:o.revision}))}));
-  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,vestColor:a.vestColor||'',dietCount:a.dietCount??0,pauseScheduledHours:a.pauseScheduledHours??0,rating:a.rating??0,checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}});
+  const coordinatorRoster=actor.role==='manager'?[]:(await rows(db,'assignments')).filter(a=>!a.archived&&(ownAssignedServices.has(a.serviceId)||assignedSlots.has(a.orderLineId))).map(a=>{const slot=allSlots.find(l=>l.id===a.orderLineId);return {id:a.id,serviceId:a.serviceId,workerId:a.workerId,role:a.role,team:a.team,placeId:a.placeId,date:a.date,start:a.start,endDate:a.endDate,end:a.end,blockId:slot?.blockId||'',serviceType:slot?.serviceType||'',status:a.status,contacted:a.contacted===true,vestColor:a.vestColor||'',dietCount:a.dietCount??0,pauseScheduledHours:a.pauseScheduledHours??0,rating:a.rating??0,pauseStart:a.pauseStart||'',pauseEnd:a.pauseEnd||'',checkIn:a.checkIn,checkOut:a.checkOut,revision:a.revision}});
   const coordinatorWorkers=actor.role==='manager'?[]:(await rows(db,'workers')).filter(w=>coordinatorRoster.some(a=>a.workerId===w.id)).map(w=>({id:w.id,name:w.name,phone:w.phone,specialty:w.specialty}));
   const coordinatorCandidates=actor.role==='manager'?[]:(await rows(db,'users')).filter(u=>u.active&&u.role==='worker'&&coordinatorRoster.some(a=>a.workerId===u.workerId)).map(u=>({id:u.id,name:u.name,workerId:u.workerId}));
   const messages=(await rows(db,'messages')).filter(m=>actor.role==='manager'||m.senderId===actor.id||m.recipientId===actor.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).slice(-200);
   const profile=actor.workerId?await db.get(key('employeeProfiles',actor.workerId))||{}:{};
   const trainingAcks=(await rows(db,'trainingAcks')).filter(a=>actor.role==='manager'||a.workerId===actor.workerId);
   const hasProfilePhoto=!!(actor.workerId&&await db.get(key('employeePhotos',actor.workerId)));
-  const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||assignedServices.includes(i.serviceId)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const controlledWorkerIds=new Set(coordinatorRoster.map(a=>a.workerId));
+  const incidents=(await rows(db,'incidents')).filter(i=>actor.role==='manager'||(assignedServices.includes(i.serviceId)&&(i.createdBy===actor.id||!!i.workerId&&controlledWorkerIds.has(i.workerId)))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const companySettings=await settings(db);
-  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorCandidates,coordinatorServiceIds:assignedServices,documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
+  const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email},users:directory,workers,services,assignments:assignments.map(a=>publicAssignment(a,actor)),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorCandidates,coordinatorServiceIds:assignedServices,crewTeams:(await rows(db,'crewTeams')).filter(t=>!t.archived&&actor.role!=='manager'&&ownBlockIds.has(t.blockId)),documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
  if(actor.role==='manager')Object.assign(result,{employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -734,7 +735,96 @@ export function createOfficeApi(storage,env={}){
     await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed'}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
     await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
    }
-   if(op==='coordinator-control'){
+   
+    if(op==='crew-attendance'){
+      if(actor.role!=='worker'||!actor.workerId)fail('Solo coordinadores trabajadores.',403);
+      const a=await record(db,'assignments',b.id);revision(a,b);await canCoordinateAssignment(db,actor,a);
+      const service=await record(db,'services',a.serviceId);
+      if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
+      const reason=required(b.reason,'el motivo del fichaje manual').slice(0,400);
+      const event=b.event;
+      if(!['in','out','undo-in','undo-out'].includes(event))fail('Acción de fichaje inválida.');
+      if(event==='in'&&a.checkIn)fail('Entrada ya registrada.',409);
+      if(event==='out'&&(!a.checkIn||a.checkOut))fail('Registra primero una entrada abierta.',409);
+      if(event==='undo-in'&&(!a.checkIn||a.checkOut))fail('No puede deshacerse esta entrada.',409);
+      if(event==='undo-out'&&!a.checkOut)fail('No hay salida registrada.',409);
+      const next={...a,revision:a.revision+1,updatedAt:now()};
+      if(event==='in')next.checkIn=now();
+      if(event==='out')next.checkOut=now();
+      if(event==='undo-in')next.checkIn='';
+      if(event==='undo-out')next.checkOut='';
+      await db.put(key('assignments',a.id),next);
+      await audit(db,actor,'crew-attendance-'+event,'assignments',a.id);
+      const id=uid();await db.put('office/crewAttendanceAudit/'+id,{id,assignmentId:a.id,actorId:actor.id,reason,event,before:{checkIn:a.checkIn,checkOut:a.checkOut},after:{checkIn:next.checkIn,checkOut:next.checkOut},createdAt:now()});
+      return {record:publicAssignment(next,actor)};
+    }
+    if(op==='crew-team-save'){
+      if(actor.role!=='worker'||!actor.workerId)fail('Solo trabajadores coordinadores.',403);
+      const data=b.record||{},block=await record(db,'serviceBlocks',required(data.blockId,'el turno'));
+      if(block.archived)fail('Turno archivado.',409);
+      const service=await record(db,'services',block.serviceId);
+      if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
+      const slots=(await rows(db,'orderLines')).filter(l=>l.blockId===block.id&&!l.archived);
+      const assignments=(await rows(db,'assignments')).filter(a=>!a.archived&&slots.some(l=>l.id===a.orderLineId));
+      let permitted=false;for(const a of assignments){try{await canCoordinateAssignment(db,actor,a);permitted=true;break}catch{}}
+      if(!permitted)fail('No coordinas este bloque.',403);
+      const old=data.id?await record(db,'crewTeams',data.id):null;
+      revision(old,data);if(old&&old.blockId!==block.id)fail('No se puede mover un equipo.',409);
+      const name=required(data.name,'el nombre del equipo').slice(0,100);
+      const others=(await rows(db,'crewTeams')).filter(t=>t.blockId===block.id&&!t.archived&&t.id!==old?.id);
+      if(others.some(t=>t.name.toLowerCase()===name.toLowerCase()))fail('Equipo ya existente.',409);
+      const value={...old,id:old?.id||uid(),blockId:block.id,serviceId:block.serviceId,name,capacity:number(data.capacity??20,1,200),
+        vestColor:text(data.vestColor,30),revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now()};
+      await db.put(key('crewTeams',value.id),value);await audit(db,actor,'crew-team-save','crewTeams',value.id);return {record:value};
+    }
+    if(op==='crew-team-delete'){
+      if(actor.role!=='worker'||!actor.workerId)fail('Solo coordinadores.',403);
+      const old=await record(db,'crewTeams',b.id);revision(old,b);
+      const slots=(await rows(db,'orderLines')).filter(l=>l.blockId===old.blockId&&!l.archived);
+      const assigned=(await rows(db,'assignments')).filter(a=>!a.archived&&slots.some(l=>l.id===a.orderLineId));
+      let permitted=false;for(const a of assigned){try{await canCoordinateAssignment(db,actor,a);permitted=true;break}catch{}}
+      if(!permitted)fail('No coordinas este equipo.',403);
+      if(assigned.some(a=>a.team===old.name))fail('Reasigna al personal antes de eliminar el equipo.',409);
+      await db.put(key('crewTeams',old.id),{...old,archived:true,revision:old.revision+1});
+      await audit(db,actor,'crew-team-delete','crewTeams',old.id);return {};
+    }
+    if(op==='crew-bulk-control'){
+      if(actor.role!=='worker'||!actor.workerId)fail('Solo coordinadores trabajadores.',403);
+      const items=Array.isArray(b.items)?b.items:[];
+      if(!items.length||items.length>120)fail('Selecciona entre 1 y 120 trabajadores.');
+      const seen=new Set(),prepared=[];
+      const allowedFields=['team','vestColor','contacted','dietCount','pauseScheduledHours','pauseStart','pauseEnd','rating'];
+      if(!allowedFields.includes(b.field))fail('Cambio masivo no permitido.');
+      for(const item of items){
+        if(seen.has(item.id))fail('Trabajador duplicado en la selección.',409);seen.add(item.id);
+        const a=await record(db,'assignments',item.id);revision(a,item);
+        await canCoordinateAssignment(db,actor,a);
+        const service=await record(db,'services',a.serviceId);
+        if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
+        let value=b.value;
+        if(b.field==='team')value=text(value,100);
+        if(b.field==='vestColor')value=text(value,30);
+        if(b.field==='contacted')value=value===true;
+        if(b.field==='dietCount')value=number(value,0,3);
+        if(b.field==='pauseScheduledHours')value=number(value,0,3);
+        if(b.field==='rating')value=number(value,0,5);
+        if(b.field==='pauseStart'||b.field==='pauseEnd'){
+          value=value?time(value):'';
+          const start=b.field==='pauseStart'?value:(a.pauseStart||''),end=b.field==='pauseEnd'?value:(a.pauseEnd||'');
+          if(start&&end&&(start>=end||start<a.start||end>a.end))fail('La pausa debe estar dentro del horario del trabajador.',409);
+        }
+        prepared.push({old:a,value});
+      }
+      // No writes occur until every worker, revision and permission is checked.
+      const updated=[];
+      for(const {old,value} of prepared){
+        const next={...old,[b.field]:value,revision:old.revision+1,updatedAt:now()};
+        await db.put(key('assignments',old.id),next);updated.push(publicAssignment(next,actor));
+        await audit(db,actor,'crew-bulk-'+b.field,'assignments',old.id);
+      }
+      return {records:updated};
+    }
+    if(op==='coordinator-control'){
      const a=await record(db,'assignments',b.id);revision(a,b);
      if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);
      const service=await record(db,'services',a.serviceId);
