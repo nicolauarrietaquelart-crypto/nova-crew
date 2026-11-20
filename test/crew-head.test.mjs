@@ -169,3 +169,20 @@ test('original Crew Control interface works on NOVA data only for the Crew Head 
  const after=await cc(code,s.people.head.cookie);assert.equal(after.body.service.closedDays['01/03/2027']!==undefined,true);
  assert.equal((await cc(code,s.people.head.cookie,'PUT',{service:after.body.service,revision:after.body.service._syncRevision})).status,409);
 });
+
+test('invoicing per closed day and for the rest of a finished service never bills a worker twice',async()=>{
+ const s=await scenario();
+ assert.equal((await s.m('settings',{record:{name:'NOVA',taxId:'B0',address:'BCN',invoicePrefix:'NOVA',vat:21,paymentDays:30}})).status,200);
+ const day1=await s.m('invoice-from-service',{serviceId:s.service.id,date:'2027-03-01'});
+ assert.equal(day1.status,200,JSON.stringify(day1.body));
+ assert.equal(day1.body.record.scope,'day');assert.equal(day1.body.record.lines.length,3);
+ assert.equal((await s.m('invoice-from-service',{serviceId:s.service.id,date:'2027-03-01'})).status,409);
+ const rest=await s.m('invoice-from-service',{serviceId:s.service.id});
+ assert.equal(rest.status,200);assert.equal(rest.body.record.lines.length,1);assert.deepEqual(rest.body.record.assignmentIds,[s.a3.id]);
+ assert.equal((await s.m('invoice-from-service',{serviceId:s.service.id})).status,409);
+ const draft=rest.body.record;
+ assert.equal((await s.m('invoice-mark-sent',{id:draft.id,revision:draft.revision})).status,409,'drafts are not sent');
+ const issued=await s.m('issue',{kind:'invoices',id:draft.id,revision:draft.revision});assert.equal(issued.status,200);
+ const sent=await s.m('invoice-mark-sent',{id:draft.id,revision:issued.body.record.revision,to:'prod@cliente.test'});
+ assert.equal(sent.status,200);assert.ok(sent.body.record.sentAt);assert.equal(sent.body.record.assignmentIds.length,1);
+});

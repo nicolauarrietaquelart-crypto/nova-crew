@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v22 · Facturación de servicios finalizados y cierres parciales
+
+- **Facturación → Pendiente de facturar**: aparecen los servicios finalizados y los días cerrados por el Crew Head con personal sin facturar, con importe estimado. Se puede facturar el servicio completo, solo un día (cierre parcial) o lo que quede pendiente; ningún trabajador se factura dos veces.
+- Facturas por pestañas (borradores, emitidas por cobrar, cobradas), **enviar por correo** con el mensaje preparado y registro de factura enviada.
+- Menú de Gestoría compacto, visible entero sin desplazarse.
+- Empleado: **Control horario** como página (turno en curso, historial de fichajes y horas del mes) y **añadir servicios al calendario del móvil** (.ics).
+
 ## Novedades v21 · Fichaje QR y Coordinación
 
 - **Lector QR continuo** para coordinadores y Crew Head: cámara a pantalla completa, valida un QR tras otro y funciona también en iPhone/iPad (jsQR, incluido en `public/assets/vendor/`). Si el recinto exige ubicación, la pide una vez por minuto.

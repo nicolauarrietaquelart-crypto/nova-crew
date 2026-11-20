@@ -196,3 +196,18 @@ td small.sev-high{color:#b44232;font-weight:700}td small.sev-medium{color:#a3551
 .bubble-tag{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#b4531a;background:#fff;border-radius:99px;padding:2px 8px;margin-bottom:5px}
 .avatar-sm.group{background:#15171b;color:#ff9a4d}.avatar-sm.group svg{width:16px;height:16px}
 .chat-head .btn{margin-left:auto}
+/* Facturación */
+.billing-queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.billing-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 28px rgba(30,36,48,.06)}
+.billing-kind{align-self:flex-start;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border-radius:99px;padding:4px 10px;background:#e9f5ed;color:#2b8051}
+.billing-kind.day{background:#fff1e5;color:#b4531a}
+.billing-card h3{font-size:17px}.billing-card p{font-size:12px;color:var(--muted)}
+.billing-meta{display:flex;gap:6px;flex-wrap:wrap}.billing-meta span{font-size:11px;background:#f4f5f7;border-radius:8px;padding:5px 8px}
+.billing-note{font-size:11px;color:var(--muted)}
+.billing-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
+.billing-foot small{display:block;color:var(--muted);font-size:10px}.billing-foot strong{font-size:22px;letter-spacing:-.5px}
+.billing-foot .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+/* Menú más compacto: todo visible sin desplazarse */
+#app #sidebar nav button{padding:7px 12px!important;min-height:0!important;font-size:13px}
+#app #sidebar nav .nav-label{margin:12px 12px 5px!important}
+#app #sidebar .workspace-tag{margin:18px 0 10px!important}

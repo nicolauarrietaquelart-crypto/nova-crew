@@ -1003,10 +1003,22 @@ export function createOfficeApi(storage,env={}){
     }
     if(op==='invoice-from-service'){
     managerOnly(actor);const service=await record(db,'services',b.serviceId);if(service.archived||service.status==='cancelled')fail('Servicio inactivo.');
-    if((await rows(db,'invoices')).some(i=>i.serviceId===service.id&&!i.archived))fail('Este servicio ya tiene una factura o borrador.',409);
-    const assignments=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&(a.clientUnits??a.billableHours??a.hours)>0&&(a.status!=='rejected'||a.noShowChargeApproved));if(!assignments.length)fail('El servicio no tiene personal asignado.');
-    const config=await settings(db),workers=await rows(db,'workers'),lines=assignments.map(a=>({description:`${service.name} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'} · ${a.role}${a.noShow?' · Cancelación pactada (no presentado)':''}`,quantity:a.clientUnits??a.billableHours??a.hours,price:a.chargeRate,vat:config.vat}));
-    const day=now().slice(0,10),due=new Date(Date.parse(day+'T12:00:00Z')+config.paymentDays*86400000).toISOString().slice(0,10);return {record:await saveEntity(db,actor,'invoices',{clientId:service.clientId,serviceId:service.id,date:day,dueDate:due,lines})};
+    const day=b.date?date(b.date):'';
+    const existing=(await rows(db,'invoices')).filter(i=>i.serviceId===service.id&&!i.archived);
+    if(existing.some(i=>!Array.isArray(i.assignmentIds)))fail('Este servicio ya tiene una factura completa o borrador.',409);
+    const invoiced=new Set(existing.flatMap(i=>i.assignmentIds));
+    const assignments=(await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&!invoiced.has(a.id)&&(!day||a.date===day)&&(a.clientUnits??a.billableHours??a.hours)>0&&(a.status!=='rejected'||a.noShowChargeApproved));
+    if(!assignments.length)fail(day?'No queda personal pendiente de facturar ese día.':'Todo el personal de este servicio ya está facturado.',409);
+    const config=await settings(db),workers=await rows(db,'workers'),dmy=d=>d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
+    const lines=assignments.sort((x,y)=>(x.date+x.start).localeCompare(y.date+y.start)).map(a=>({description:`${service.name} · ${dmy(a.date)} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'} · ${a.role}${a.noShow?' · Cancelación pactada (no presentado)':''}`,quantity:a.clientUnits??a.billableHours??a.hours,price:a.chargeRate,vat:config.vat}));
+    const today=now().slice(0,10),due=new Date(Date.parse(today+'T12:00:00Z')+config.paymentDays*86400000).toISOString().slice(0,10);
+    const saved=await saveEntity(db,actor,'invoices',{clientId:service.clientId,serviceId:service.id,date:today,dueDate:due,lines,notes:day?'Cierre parcial del servicio · jornada del '+dmy(day):(existing.length?'Resto del servicio pendiente de facturar':'')});
+    const value={...saved,scope:day?'day':'service',serviceDate:day,assignmentIds:assignments.map(a=>a.id)};
+    await db.put(key('invoices',value.id),value);return {record:value};
+   }
+   if(op==='invoice-mark-sent'){
+    managerOnly(actor);const r=await record(db,'invoices',b.id);revision(r,b);if(r.status==='draft')fail('Emite la factura antes de marcarla como enviada.',409);
+    const value={...r,sentAt:now(),sentTo:text(b.to,200),revision:r.revision+1};await db.put(key('invoices',r.id),value);await audit(db,actor,'invoice-sent','invoices',r.id);return {record:value};
    }
    if(op==='issue'){
     managerOnly(actor);const kind=b.kind==='quotes'?'quotes':'invoices',r=await record(db,kind,b.id);revision(r,b);if(r.archived||r.status!=='draft')fail('El documento ya está emitido.',409);
