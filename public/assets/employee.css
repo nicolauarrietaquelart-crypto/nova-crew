@@ -302,3 +302,33 @@ button.cal-event.pending{background:#fff3e5;color:#a35514}
 .bubble-tag{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#b4531a;background:#fff;border-radius:99px;padding:2px 8px;margin-bottom:5px}
 .crew-banner{display:flex;justify-content:space-between;align-items:center;gap:14px;background:#15171b;color:#fff;border-radius:18px;padding:16px 20px;margin-bottom:16px;text-decoration:none;box-shadow:0 10px 30px rgba(20,22,28,.18)}
 .crew-banner b{display:block;font-size:15px}.crew-banner small{color:#c9cbd0}.crew-banner strong{color:#ff9a4d;white-space:nowrap}
+/* Coordinación */
+.coord-list{display:grid;gap:10px}
+.coord-card{display:grid;grid-template-columns:62px minmax(0,1fr) auto auto;gap:14px;align-items:center;text-align:left;border:1px solid #e8e9ec;background:#fff;border-radius:18px;padding:14px 16px;cursor:pointer;font:inherit;color:inherit;box-shadow:0 6px 18px rgba(20,25,35,.04)}
+.coord-card:hover{border-color:#ffc79c}.coord-card.today{border-color:#ff9a4d;box-shadow:0 0 0 3px rgba(255,127,31,.12)}.coord-card.past{opacity:.7}
+.coord-card-main strong{display:block;font-size:15px}.coord-card-main small{display:block;color:#6d727c;margin-top:3px}
+.coord-role{display:inline-block;margin-top:7px;font-size:11px;font-weight:800;color:#b4531a;background:#fff1e5;border-radius:99px;padding:3px 9px}
+.coord-card-count{text-align:right}.coord-card-count b{font-size:20px;display:block}.coord-card-count small{color:#6d727c;font-size:10px}
+.coord-go{color:#c35d14;font-weight:800;white-space:nowrap}
+.coord-head-row{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.coord-head h2{font-size:clamp(22px,3vw,32px);margin:6px 0 4px;letter-spacing:-.6px}
+.coord-actions{display:flex;gap:8px;flex-wrap:wrap}
+.coord-scan{font-size:15px!important;padding:13px 22px!important}
+.coord-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.coord-stat{border:1px solid #e8e9ec;background:#fff;border-radius:14px;padding:12px;text-align:left;cursor:pointer;font:inherit}
+.coord-stat b{display:block;font-size:24px}.coord-stat small{color:#6d727c;font-size:11px}
+.coord-stat.present b{color:#1f7a4c}.coord-stat.pending b{color:#c35d14}.coord-stat.done b{color:#555}
+.coord-stat.selected{border-color:#ff9a4d;box-shadow:0 0 0 3px rgba(255,127,31,.13)}
+.coord-shifts{display:flex;gap:6px;overflow:auto;margin-bottom:10px;padding-bottom:2px}
+.coord-shifts button{white-space:nowrap;border:1px solid #e1e4e8;background:#fff;border-radius:99px;padding:8px 12px;font-weight:700;font-size:12px}
+.coord-shifts button.active{background:#15171b;color:#fff;border-color:#15171b}
+.coord-search input{width:100%;border:1px solid #e1e4e8;border-radius:14px;padding:12px 14px;font:inherit;margin-bottom:10px;background:#fff}
+.coord-people{display:grid;gap:8px}
+.coord-person{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:12px;align-items:center;background:#fff;border:1px solid #eceef1;border-radius:14px;padding:12px 14px}
+.coord-person.present{border-color:#c6e6d2;background:#f6fcf8}
+.coord-dot{width:10px;height:10px;border-radius:50%;background:#ffb27a}.coord-person.present .coord-dot{background:#2aa465}.coord-person.done .coord-dot{background:#9aa0a8}
+.coord-person-main strong{display:block;font-size:14px}.coord-person-main small{color:#6d727c}
+.coord-person-time{text-align:right}.coord-person-time small{display:block;color:#888;font-size:10px;margin-top:3px}
+.coord-person-actions{display:flex;gap:6px}
+.icon-call{width:36px;height:36px;border-radius:12px;border:1px solid #e1e4e8;background:#fff;display:grid;place-items:center;text-decoration:none;color:#15171b;font-weight:800;cursor:pointer}
+@media(max-width:750px){.coord-card{grid-template-columns:52px minmax(0,1fr) auto}.coord-go{display:none}.coord-stats{grid-template-columns:repeat(2,1fr)}.coord-person{grid-template-columns:10px minmax(0,1fr) auto}.coord-person-actions{grid-column:2/-1}.coord-actions{width:100%}.coord-scan{flex:1}}

@@ -18,3 +18,7 @@
 header{position:relative}
 #novaCrewStart .nova-back{position:static;transform:none;display:inline-flex}
 @media(max-width:700px){.nova-back{right:58px;padding:8px 11px;font-size:13px}.nova-back span{display:none}.nova-day{right:104px;max-width:120px;font-size:11px}}
+.nova-scan{position:absolute;right:272px;top:50%;transform:translateY(-50%);z-index:5;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:999px;border:0;background:#fff;color:#111;font:800 12px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.nova-scan[hidden]{display:none}
+.nova-day{right:420px}
+@media(max-width:700px){.nova-scan{right:104px;padding:9px}.nova-scan span{display:none}.nova-day{right:150px;max-width:100px}}
