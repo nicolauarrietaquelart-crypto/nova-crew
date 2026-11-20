@@ -477,7 +477,7 @@ test('Crew Control team planning and bulk operations are isolated to assigned bl
  assert.deepEqual(data.coordinatorRoster.map(x=>x.id),[t1.id]);
  const batch=await call('crew-bulk-control',{field:'team',value:'Principal',items:[{id:t1.id,revision:t1.revision}]});
  assert.equal(batch.status,200,JSON.stringify(batch.body));assert.equal(batch.body.records[0].team,'Principal');
- assert.equal((await call('crew-bulk-control',{field:'team',value:'Secundario',items:[{id:t1.id,revision:t1.revision},{id:t2.id,revision:t2.revision}]})).status,409);
+ assert.equal((await call('crew-bulk-control',{field:'team',value:'Secundario',items:[{id:t1.id,revision:batch.body.records[0].revision},{id:t2.id,revision:t2.revision}]})).status,403);
  assert.equal((await call('crew-team-delete',{id:team.body.record.id,revision:team.body.record.revision})).status,409);
  assert.equal((await call('crew-team-save',{record:{blockId:second.body.record.id,name:'Intruso',capacity:1}})).status,403);
  const state=(await f.call('state')).body;assert.equal(state.assignments.find(x=>x.id===t1.id).team,'Principal');assert.equal(state.assignments.find(x=>x.id===t2.id).team||'', '');
