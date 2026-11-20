@@ -332,3 +332,9 @@ button.cal-event.pending{background:#fff3e5;color:#a35514}
 .coord-person-actions{display:flex;gap:6px}
 .icon-call{width:36px;height:36px;border-radius:12px;border:1px solid #e1e4e8;background:#fff;display:grid;place-items:center;text-decoration:none;color:#15171b;font-weight:800;cursor:pointer}
 @media(max-width:750px){.coord-card{grid-template-columns:52px minmax(0,1fr) auto}.coord-go{display:none}.coord-stats{grid-template-columns:repeat(2,1fr)}.coord-person{grid-template-columns:10px minmax(0,1fr) auto}.coord-person-actions{grid-column:2/-1}.coord-actions{width:100%}.coord-scan{flex:1}}
+.clock-hero{background:linear-gradient(145deg,#fff,#f6f7fa);border:1px solid #eceef1;border-radius:22px;padding:20px 22px;display:grid;gap:14px;box-shadow:0 12px 32px rgba(30,40,55,.06)}
+.clock-hero.live{background:linear-gradient(145deg,#f3fbf6,#e7f6ee);border-color:#c9ead7}
+.clock-hero-row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.clock-hero h3{font-size:22px;margin:8px 0 4px;letter-spacing:-.4px}.clock-hero .eyebrow{display:inline-flex;gap:8px;align-items:center}
+.clock-big{font-size:16px!important;padding:15px 26px!important}
+@media(max-width:750px){.clock-big{width:100%}}

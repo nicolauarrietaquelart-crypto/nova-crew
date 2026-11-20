@@ -139,7 +139,7 @@ function calendarPage(){
  }
  const monthAs=as.filter(a=>a.date.startsWith(month));
  $('#employee-content').innerHTML='<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month" aria-label="Mes anterior">‹</button><h2>'+esc(monthLabel(month))+'</h2><button class="secondary" data-action="next-month" aria-label="Mes siguiente">›</button></div>'+
- '<p class="muted cal-summary">'+monthAs.length+' turno(s) · '+monthAs.reduce((n,a)=>n+Number(a.hours||0),0).toLocaleString('es-ES')+' h previstas'+(month!==today().slice(0,7)?' · <button class="text-link" data-action="this-month">Volver a hoy</button>':'')+'</p><div class="calendar-grid">'+cells+'</div>'+
+ '<div class="actions-row" style="justify-content:flex-end;margin:-4px 0 10px">'+btn('ics-all','Añadir mis servicios al calendario del móvil','')+'</div><p class="muted cal-summary">'+monthAs.length+' turno(s) · '+monthAs.reduce((n,a)=>n+Number(a.hours||0),0).toLocaleString('es-ES')+' h previstas'+(month!==today().slice(0,7)?' · <button class="text-link" data-action="this-month">Volver a hoy</button>':'')+'</p><div class="calendar-grid">'+cells+'</div>'+
  '<div class="cal-legend"><span class="lg confirmed">Confirmado</span><span class="lg pending">Por confirmar</span><span class="lg unavail">No disponible</span></div></div>';
 }
 function availabilityPage(){
@@ -208,7 +208,7 @@ function serviceDetailPage(){
  $('#page-title').textContent=s.name||'Servicio';
  $('#employee-content').innerHTML='<button class="back-link" data-action="service-back">‹ Volver a '+esc((names[servicePrev]||'Mis servicios').toLowerCase())+'</button>'+
  '<header class="sd-head"><div><span class="eyebrow">RESUMEN DEL SERVICIO</span><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((a.date===today()?'Hoy':human(a.date))+' · '+a.start+'–'+a.end+' · '+(place?.name||s.venue||''))+'</p><div class="badges">'+(st==='live'?status('live'):'')+(st==='done'?status('done'):'')+status(a.status)+'</div></div>'+
- '<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar asistencia',a.id,'primary')+btn('reject','No puedo',a.id):'')+(canClock(a)?btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary'):'')+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div></header>'+
+ '<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar asistencia',a.id,'primary')+btn('reject','No puedo',a.id):'')+(canClock(a)?btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary'):'')+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+btn('ics-one','Añadir a mi calendario',a.id)+'</div></header>'+
  (c.staffNotice?'<div class="sd-mandatory"><b>!</b><p>'+esc(c.staffNotice)+'</p></div>':'')+
  '<div class="sd-grid"><section class="panel sd-notes"><h3>Observaciones</h3>'+(s.employeeNotes?'<p class="sd-pre">'+esc(s.employeeNotes)+'</p>':'<p class="muted">Sin observaciones para este servicio.</p>')+'</section>'+
  '<section class="panel"><h3>Documentación del servicio</h3>'+(docs.length?'<p class="muted">Léela atentamente antes de acudir.</p>'+docs.map(d=>'<a class="sd-doc" href="/api/office/document?id='+encodeURIComponent(d.id)+'">'+esc(d.name)+'<span>Descargar</span></a>').join(''):'<p class="muted">No hay documentación específica para este servicio.</p>')+'</section></div>'+
@@ -290,6 +290,39 @@ function scanQr(serviceId){
 }
 function redeemQr(serviceId){return scanQr(serviceId)}
 
+/* Control horario como página e integración con el calendario del móvil (.ics). */
+let clockMonth='';
+function clockPage(){
+ const as=myAssignments().filter(a=>a.status!=='rejected');
+ const now=Date.now(),todayShifts=as.filter(a=>canClock(a)).sort((a,b)=>startMs(a)-startMs(b));
+ const months=[...new Set([today().slice(0,7),...as.filter(a=>a.checkIn).map(a=>a.date.slice(0,7))])].sort().reverse();
+ if(!clockMonth||!months.includes(clockMonth))clockMonth=months[0];
+ const hm=iso=>iso?new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
+ const worked=a=>a.checkIn&&a.checkOut?Math.max(0,(Date.parse(a.checkOut)-Date.parse(a.checkIn))/3600000):0;
+ const history=as.filter(a=>a.date.startsWith(clockMonth)&&(a.checkIn||endMs(a)<now)).sort((a,b)=>startMs(b)-startMs(a));
+ const total=history.reduce((n,a)=>n+worked(a),0),days=new Set(history.filter(a=>a.checkIn).map(a=>a.date)).size,missing=history.filter(a=>!a.checkIn).length;
+ const open=as.find(a=>a.checkIn&&!a.checkOut);
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Control horario</h2><p class="muted">Ficha tus turnos y consulta tu historial de entradas y salidas.</p></div>'+
+ '<section class="clock-hero '+(open?'live':'')+'">'+(todayShifts.length?todayShifts.map(a=>{const s=service(a.serviceId);return '<div class="clock-hero-row"><div><span class="eyebrow">'+(a.checkIn?'<span class="pulse"></span>EN CURSO':'TURNO DE '+(a.date===today()?'HOY':human(a.date).toUpperCase()))+'</span><h3>'+esc(s.name||'Servicio')+'</h3><p class="muted">'+esc(a.start+'–'+a.end+' · '+(placeForAssignment(a)?.name||s.venue||'')+' · '+(a.role||''))+'</p><p class="muted">Entrada: <b>'+hm(a.checkIn)+'</b> · Salida: <b>'+hm(a.checkOut)+'</b></p></div>'+btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary clock-big')+'</div>';}).join(''):'<div class="clock-hero-row"><div><span class="eyebrow">SIN TURNOS PARA FICHAR</span><h3>No tienes ningún turno en curso</h3><p class="muted">El botón de fichar se activa desde unas horas antes del inicio de cada turno.</p></div></div>')+'</section>'+
+ '<div class="actions-row" style="margin:18px 0 12px"><label class="month-pick">Mes<select class="field" id="clock-month">'+months.map(m=>'<option value="'+m+'" '+(m===clockMonth?'selected':'')+'>'+esc(monthLabel(m))+'</option>').join('')+'</select></label></div>'+
+ '<div class="stats"><div class="stat orange"><span class="muted">Horas fichadas</span><strong>'+total.toLocaleString('es-ES',{maximumFractionDigits:1})+' h</strong><small>Entre entrada y salida</small></div><div class="stat"><span class="muted">Días trabajados</span><strong>'+days+'</strong><small>'+esc(monthLabel(clockMonth))+'</small></div><div class="stat"><span class="muted">Turnos sin fichaje</span><strong>'+missing+'</strong><small>Turnos pasados sin entrada</small></div><div class="stat"><span class="muted">Fichaje abierto</span><strong>'+(open?'Sí':'No')+'</strong><small>'+(open?esc(service(open.serviceId).name||''):'Todo cerrado')+'</small></div></div>'+
+ box('Historial de fichajes',history.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Fecha</th><th>Servicio</th><th>Turno previsto</th><th>Entrada</th><th>Salida</th><th>Horas</th></tr></thead><tbody>'+history.map(a=>'<tr><td>'+human(a.date)+'</td><td><button class="text-link" data-action="detail" data-id="'+esc(a.id)+'">'+esc(service(a.serviceId).name||'Servicio')+'</button></td><td>'+esc(a.start+'–'+a.end)+'</td><td>'+(a.checkIn?hm(a.checkIn):'<span class="badge pending">Sin fichar</span>')+'</td><td>'+(a.checkOut?hm(a.checkOut):a.checkIn?'<span class="badge live">Abierto</span>':'—')+'</td><td>'+(worked(a)?worked(a).toLocaleString('es-ES',{maximumFractionDigits:2})+' h':'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">Sin fichajes en este mes.</div>')+
+ '<p class="muted compact">Si ves un error en un fichaje, escribe a la oficina desde Mensajes indicando el día y la hora correctos.</p>';
+}
+function icsEscape(v){return String(v||'').replace(/\\/g,'\\\\').replace(/[,;]/g,m=>'\\'+m).replace(/\r?\n/g,'\\n')}
+function icsFor(list){
+ const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
+ const dt=(d,t)=>d.replace(/-/g,'')+'T'+String(t||'00:00').replace(':','')+'00';
+ const ev=list.map(a=>{const s=service(a.serviceId),p=placeForAssignment(a);return ['BEGIN:VEVENT','UID:'+a.id+'@nova-crew','DTSTAMP:'+stamp,'DTSTART:'+dt(a.date,a.start),'DTEND:'+dt(a.endDate||a.date,a.end),'SUMMARY:'+icsEscape((s.name||'Servicio')+' · '+(a.role||'')),'LOCATION:'+icsEscape([p?.name||s.venue,p?.address].filter(Boolean).join(', ')),'DESCRIPTION:'+icsEscape([(s.callTime?'Hora de llamada '+s.callTime:''),(a.team?'Equipo '+a.team:''),s.employeeNotes||''].filter(Boolean).join('\n')),'END:VEVENT'].join('\r\n');});
+ return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//NOVA Crew//Area de empleado//ES','CALSCALE:GREGORIAN',...ev,'END:VCALENDAR'].join('\r\n');
+}
+function downloadIcs(list,filename){
+ if(!list.length)return notice('No hay servicios para añadir al calendario.');
+ const url=URL.createObjectURL(new Blob([icsFor(list)],{type:'text/calendar;charset=utf-8'})),link=document.createElement('a');
+ link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ notice('Calendario descargado: ábrelo para añadirlo a tu móvil.');
+}
+
 function rejectModal(id){
  const a=myAssignments().find(x=>x.id===id);if(!a)return;
  modal('No puedo hacer este turno','<form id="reject-form" style="display:grid;gap:12px"><p class="muted">'+esc(service(a.serviceId).name||'Servicio')+' · '+human(a.date)+' '+esc(a.start)+'–'+esc(a.end)+'</p><p class="muted">La oficina recibirá tu respuesta. Si quieres, explica el motivo en un mensaje.</p><label class="form-label">Motivo (opcional, se enviará como mensaje)<textarea class="field" name="reason" maxlength="500"></textarea></label><button class="primary" type="submit">Confirmar que no puedo</button></form>');
@@ -355,7 +388,6 @@ function closeClock(){
  if(clockCountdown){clearInterval(clockCountdown);clockCountdown=null}
  if($('#employee-modal').open)$('#employee-modal').close();
 }
-function clockPage(){openClockModal()}
 function openClockModal(preferredId=''){
  stopQrCamera();
  const all=clockAssignments();
@@ -802,7 +834,7 @@ document.addEventListener('click',async ev=>{
  const el=ev.target.closest('[data-page],[data-action]');if(!el)return;
  const p=el.dataset.page,action=el.dataset.action,id=el.dataset.id;
  if(p==='crewControl'){location.href='/crew-control/';return}
- if(p){stopQrCamera();$('.sidebar').classList.remove('open');if(location.hash)history.replaceState(null,'',location.pathname);if(p==='clock')return openClockModal();page=p;render();window.scrollTo({top:0});return}
+ if(p){stopQrCamera();const fromMobileFab=el.classList.contains('mobile-clock');$('.sidebar').classList.remove('open');if(location.hash)history.replaceState(null,'',location.pathname);if(p==='clock'&&fromMobileFab){const live=clockAssignments().find(a=>a.checkIn&&!a.checkOut)||clockAssignments().find(a=>canClock(a));if(live)return openClockModal(live.id);}page=p;render();window.scrollTo({top:0});return}
  if(action==='refresh')return load();
  if(action==='check-location')return verifyClockPosition(id);
  if(action==='open-clock')return openClockModal(id);
@@ -814,6 +846,8 @@ document.addEventListener('click',async ev=>{
  if(action==='coord-worker-incident'){const a=coordRoster().find(x=>x.id===id);if(a)return incidentModal(a.serviceId,{workerId:a.workerId});return}
  if(action==='service-back'){history.replaceState(null,'',location.pathname);page=servicePrev||'services';render();return window.scrollTo({top:0})}
  if(action==='go-messages'){page='messages';return render()}
+ if(action==='ics-one'){const a=myAssignments().find(x=>x.id===id);if(a)downloadIcs([a],'NOVA_'+(service(a.serviceId).name||'servicio').replace(/[^\w-]+/g,'_')+'_'+a.date+'.ics');return}
+ if(action==='ics-all'){downloadIcs(myAssignments().filter(a=>a.status!=='rejected'&&endMs(a)>Date.now()),'NOVA_mis_servicios.ics');return}
  if(action==='services-tab'){servicesTab=el.dataset.tab;return servicesPage()}
  if(action==='go-availability'){page='availability';return render()}
  if(action==='this-month'){month=today().slice(0,7);return render()}
@@ -876,6 +910,7 @@ $('#login-form').onsubmit=async e=>{
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
 $('#employee-content').addEventListener('change',e=>{
+ if(e.target.id==='clock-month'){clockMonth=e.target.value;return clockPage()}
  if(e.target.id==='payroll-month'){selectedPayrollMonth=e.target.value;return settlementsPage()}
  if(e.target.id==='crew-key-select'){crewKey=e.target.value;selectedCrewBlock='all';crewWorkTypes.clear();crewSelectedIds.clear();crewControlPage()}
  if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}
