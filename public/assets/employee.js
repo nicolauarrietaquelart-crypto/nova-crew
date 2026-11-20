@@ -21,7 +21,8 @@ const navPaths={
  settlements:'M3 3h18v18H3z M7 10h10 M7 14h10',
  contracts:'M5 3h10l4 4v14H5z M15 3v5h4 M8 12h8 M8 16h5',
  messages:'M3 4h18v14H7l-4 3z M7 9h10 M7 13h7',
- profile:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2'
+ profile:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',
+ more:'M5 12h.01 M12 12h.01 M19 12h.01'
 };
 const navIcon=k=>'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(navPaths[k]||navPaths.dashboard)+'"/></svg>';
 
@@ -29,7 +30,7 @@ let state={},page='dashboard',month=today().slice(0,7),isLoading=false;
 async function api(op,body){
  const r=await fetch('/api/office/'+op,{method:body?'POST':'GET',credentials:'same-origin',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
  let d;try{d=await r.json()}catch{throw Error('Respuesta inválida del servidor.')}
- if(!r.ok)throw Error(d.error||'No se ha podido completar la operación.');
+ if(!r.ok)throw Object.assign(Error(d.error||'No se ha podido completar la operación.'),{status:r.status});
  return d;
 }
 function placeForAssignment(a){return (state.servicePlaces||[]).find(p=>p.id===a?.placeId&&!p.archived)||null}
@@ -44,27 +45,158 @@ async function attendanceLocation(serviceId,assignmentId=''){
  const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:0}));
  return {latitude:position.coords.latitude,longitude:position.coords.longitude};
 }
-function notice(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500)}
-function error(e){notice(e.message||String(e))}
+let toastTimer=null;
+function notice(m,isError=false){const t=$('#toast');t.textContent=m;t.classList.toggle('error-toast',isError);t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),isError?6000:3500)}
+function error(e){if(e?.code===1)return notice('Permiso de ubicación denegado. Actívalo en el navegador para fichar en este recinto.',true);if(e?.code===3)return notice('No se ha podido obtener tu ubicación a tiempo. Inténtalo de nuevo.',true);notice(e?.message||String(e),true)}
 function list(k){return(state[k]||[]).filter(x=>!x.archived)}
 function worker(){return state.workers?.find(w=>w.id===state.user?.workerId)||{}}
 function service(id){return state.services?.find(s=>s.id===id)||{}}
 function myAssignments(){return list('assignments').filter(a=>a.workerId===state.user.workerId)}
-function status(s){return '<span class="badge '+esc(s)+'">'+esc(({confirmed:'Confirmado',pending:'Pendiente',rejected:'Rechazado',planned:'Planificado',completed:'Finalizado',in_progress:'En curso',cancelled:'Cancelado'})[s]||s)+'</span>'}
 function box(title,content){return '<section class="panel"><div class="panel-head"><h2>'+esc(title)+'</h2></div>'+content+'</section>'}
 function btn(action,label,id,cls='secondary'){return '<button type="button" class="'+cls+'" data-action="'+action+'" data-id="'+esc(id||'')+'">'+esc(label)+'</button>'}
 function modal(title,html){$('#employee-modal').classList.remove('clock-dialog');$('#modal-title').textContent=title;$('#modal-body').innerHTML=html;if(!$('#employee-modal').open)$('#employee-modal').showModal()}
-function serviceCard(a){
- const s=service(a.serviceId),place=placeForAssignment(a),d=new Date(a.date+'T12:00:00');
- const dateTile='<div class="date-tile"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div>';
- const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(place?.name||s.venue||'')+' · '+esc(a.role)+' · '+esc(a.team||'Equipo por confirmar')+'</small><small>'+human(a.date)+' '+esc(a.start)+' → '+human(a.endDate)+' '+esc(a.end)+' · '+a.hours+' h previstas</small></div>';
- const acts='<div class="service-actions">'+status(a.status)+btn('detail','Ver detalles',a.id)+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Fichar',a.id,'primary'):'')+'</div>';
- return '<article class="service-card">'+dateTile+text+acts+'</article>';
-}
+/* ---------- NOVA Crew · área de empleado v18 ---------- */
+const STATUS_ES={confirmed:'Confirmado',pending:'Por confirmar',rejected:'Rechazado',planned:'Planificado',completed:'Finalizado',in_progress:'En curso',cancelled:'Cancelado',live:'En curso ahora',done:'Fichaje cerrado'};
+function status(s){return '<span class="badge '+esc(s)+'">'+esc(STATUS_ES[s]||s)+'</span>'}
+const startMs=a=>Date.parse(a.date+'T'+(a.start||'00:00')+':00');
+const endMs=a=>Date.parse((a.endDate||a.date)+'T'+(a.end||'23:59')+':00');
+function shiftState(a){if(a.checkOut)return 'done';if(a.checkIn)return 'live';const now=Date.now();if(now>=startMs(a)&&now<=endMs(a))return 'live';return now<startMs(a)?'upcoming':'past';}
+const canClock=a=>{const sv=service(a.serviceId);if(a.status==='rejected'||a.checkOut||['completed','cancelled'].includes(sv.status))return false;if(a.checkIn)return true;return Date.now()>=startMs(a)-4*3600000&&Date.now()<=endMs(a)+4*3600000;};
+const monthLabel=m=>{const d=new Date(m+'-01T12:00:00');const t=d.toLocaleDateString('es-ES',{month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1)};
+const empSeenKey=()=>'nova-emp-msg-seen-'+(state.user?.id||'');
+function empSeen(){try{return localStorage.getItem(empSeenKey())||''}catch{return ''}}
+function empMarkSeen(){try{localStorage.setItem(empSeenKey(),new Date().toISOString())}catch{}}
+function unreadCount(){const seen=empSeen();return (state.messages||[]).filter(m=>m.senderId!==state.user?.id&&m.createdAt>seen).length}
+function pendingTraining(){return list('documents').filter(d=>d.type==='training'&&!(state.trainingAcks||[]).some(ack=>ack.documentId===d.id))}
+function mapsLink(a){const p=placeForAssignment(a),s=service(a.serviceId);if(p?.mapsUrl)return p.mapsUrl;const q=p?.lat!=null?p.lat+','+p.lng:[p?.name||s.venue,p?.address].filter(Boolean).join(', ');return q?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q):''}
+const NAV_GROUPS=[['DÍA A DÍA',['dashboard','clock','services','calendar','availability']],['COORDINACIÓN',['coordination','crewControl']],['MI EMPRESA',['messages','documents','contracts','training','settlements','company','tutorials']],['CUENTA',['profile']]];
+function navCount(k){if(k==='services')return myAssignments().filter(a=>a.status==='pending'&&endMs(a)>Date.now()).length;if(k==='messages')return unreadCount();if(k==='training')return pendingTraining().length;if(k==='coordination')return (state.coordinatorRoster||[]).filter(a=>a.date===today()&&!a.checkIn&&endMs(a)>Date.now()).length;return 0}
 function renderNav(){
- const pc=Object.entries(names).filter(([key])=>key!=='crewControl'||coordinatingServices().length>0).map(([key,label])=>'<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span>'+esc(label)+'</span>'+(key==='coordination'&&state.coordinatorRoster?.length?'<b>'+state.coordinatorRoster.length+'</b>':'')+'</button>').join('');
- $('#employee-nav').innerHTML=pc;
- $('#mobile-nav').innerHTML=['dashboard','clock','services','calendar','coordination'].map(k=>'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+'<small>'+esc(names[k])+'</small></button>').join('');
+ const isCoord=coordinatingServices().length>0;
+ const item=key=>{const n=navCount(key);return '<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span class="nav-text">'+esc(names[key])+'</span>'+(n?'<b class="nav-count">'+n+'</b>':'')+'</button>'};
+ $('#employee-nav').innerHTML=NAV_GROUPS.filter(([g])=>g!=='COORDINACIÓN'||isCoord).map(([g,keys])=>'<div class="nav-group">'+esc(g)+'</div>'+keys.map(item).join('')).join('');
+ const mob=['dashboard','services','clock',isCoord?'coordination':'messages','more'];
+ $('#mobile-nav').innerHTML=mob.map(k=>k==='more'?'<button data-action="mobile-more">'+navIcon('more')+'<small>Más</small></button>':k==='clock'?'<button data-page="clock" class="mobile-clock"><span class="fab">'+navIcon('clock')+'</span><small>Fichar</small></button>':'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+(navCount(k)?'<b class="nav-count">'+navCount(k)+'</b>':'')+'<small>'+esc(k==='services'?'Servicios':k==='dashboard'?'Inicio':names[k])+'</small></button>').join('');
+}
+function serviceCard(a,opts={}){
+ const s=service(a.serviceId),place=placeForAssignment(a),d=new Date(a.date+'T12:00:00'),st=shiftState(a);
+ const dateTile='<div class="date-tile '+(a.date===today()?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div>';
+ const when=a.date===today()?'Hoy':a.date===new Date(Date.now()+864e5).toLocaleDateString('en-CA')?'Mañana':human(a.date);
+ const text='<div class="service-info"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc(when)+' · '+esc(a.start)+'–'+esc(a.end)+(a.endDate&&a.endDate!==a.date?' (fin '+human(a.endDate)+')':'')+'</small><small>'+esc(place?.name||s.venue||'')+' · '+esc(a.role||'')+(a.team?' · '+esc(a.team):'')+'</small></div>';
+ const badges=(st==='live'?status('live'):'')+(st==='done'?status('done'):'')+status(a.status);
+ const acts='<div class="service-actions"><div class="badges">'+badges+'</div><div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','No puedo',a.id):'')+(canClock(a)?btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary'):'')+btn('detail','Detalles',a.id)+'</div></div>';
+ return '<article class="service-card '+(st==='live'?'is-live':'')+'">'+dateTile+text+acts+'</article>';
+}
+function dashboard(){
+ const as=myAssignments().filter(a=>a.status!=='rejected');
+ const live=as.filter(a=>shiftState(a)==='live').sort((a,b)=>startMs(a)-startMs(b));
+ const upcoming=as.filter(a=>shiftState(a)==='upcoming').sort((a,b)=>startMs(a)-startMs(b));
+ const pending=myAssignments().filter(a=>a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b));
+ const week=upcoming.filter(a=>startMs(a)<Date.now()+7*864e5);
+ const m=today().slice(0,7),monthRows=as.filter(a=>a.date.startsWith(m));
+ const monthHours=monthRows.reduce((n,a)=>n+Number(a.hours||0),0),monthGross=monthRows.reduce((n,a)=>n+Number(a.grossPay||0),0);
+ const focus=live[0]||upcoming[0],sv=focus&&service(focus.serviceId),isLive=focus&&live.includes(focus);
+ const maps=focus&&mapsLink(focus);
+ const hero='<section class="employee-next-hero '+(isLive?'live':'')+'"><div><span class="eyebrow">'+(isLive?'<span class="pulse"></span>TURNO EN CURSO':focus?'PRÓXIMO SERVICIO':'SIN SERVICIOS PRÓXIMOS')+'</span>'+
+  '<h2>'+esc(sv?.name||'Nada programado por ahora')+'</h2>'+
+  '<p class="muted">'+(focus?esc((focus.date===today()?'Hoy':human(focus.date))+' · '+focus.start+'–'+focus.end+' · '+(placeForAssignment(focus)?.name||sv.venue||'')+' · '+(focus.role||'')):'Cuando la oficina te asigne un turno aparecerá aquí. Mantén tu disponibilidad al día.')+'</p>'+
+  (focus&&!isLive?'<div class="employee-countdown" id="next-countdown" data-date="'+esc(focus.date)+'" data-start="'+esc(focus.start)+'"></div>':'')+
+  (isLive?'<div class="live-clock"><div><small>Entrada</small><strong>'+(focus.checkIn?stamp(focus.checkIn):'Pendiente')+'</strong></div><div><small>Salida prevista</small><strong>'+esc(focus.end)+'</strong></div></div>':'')+
+  '<div class="actions-row">'+(focus&&canClock(focus)?btn('open-clock',focus.checkIn?'Fichar salida':'Fichar entrada',focus.id,'primary'):'')+(focus?btn('detail','Ver detalles',focus.id):btn('go-availability','Indicar disponibilidad','','primary'))+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div></div>'+
+  '<div class="employee-next-aside"><div><span>Esta semana</span><b>'+week.length+' turno'+(week.length===1?'':'s')+'</b></div><div><span>Horas previstas en '+esc(monthLabel(m).split(' ')[0].toLowerCase())+'</span><b>'+monthHours.toLocaleString('es-ES')+' h</b></div><div><span>Bruto estimado del mes</span><b>'+euro(monthGross)+'</b></div><div><span>Mensajes nuevos</span><b>'+unreadCount()+'</b></div></div></section>';
+ const alerts=[];
+ if(pendingTraining().length)alerts.push(['training','Tienes '+pendingTraining().length+' formación(es) pendiente(s) de leer','Ver formación']);
+ const expiring=list('documents').filter(d=>d.expires&&d.expires<=new Date(Date.now()+30*864e5).toLocaleDateString('en-CA'));
+ if(expiring.length)alerts.push(['documents',expiring.length+' documento(s) caducado(s) o a punto de caducar','Renovar']);
+ if(unreadCount())alerts.push(['messages','Tienes '+unreadCount()+' mensaje(s) nuevo(s) de la oficina','Leer']);
+ const hasWeekly=Object.values(state.weeklyAvailability?.days||{}).some(d=>d?.slots?.length||d?.available);
+ if(!hasWeekly&&!list('availability').some(a=>a.date>=today()))alerts.push(['availability','Aún no has indicado tu disponibilidad. Ayuda a la oficina a planificar.','Indicar']);
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
+ (alerts.length?'<div class="alert-list">'+alerts.map(([p,t,c])=>'<button class="alert-item" data-page="'+p+'"><span>'+esc(t)+'</span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'')+
+ (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
+ box('Próximos 7 días',week.filter(a=>a.status!=='pending').length?'<div class="service-list">'+week.filter(a=>a.status!=='pending').slice(0,6).map(a=>serviceCard(a)).join('')+'</div>':'<div class="empty">No tienes turnos confirmados para los próximos 7 días.</div>');
+ if(focus&&!isLive){nextServiceCountdown();if(nextCountTimer)clearInterval(nextCountTimer);nextCountTimer=setInterval(()=>{if($('#next-countdown'))nextServiceCountdown();else{clearInterval(nextCountTimer);nextCountTimer=null}},1000)}
+}
+let servicesTab='upcoming';
+function servicesPage(){
+ const all=myAssignments();
+ const groups={upcoming:all.filter(a=>['upcoming','live'].includes(shiftState(a))&&a.status!=='rejected').sort((a,b)=>startMs(a)-startMs(b)),pending:all.filter(a=>a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b)),history:all.filter(a=>['past','done'].includes(shiftState(a))||a.status==='rejected').sort((a,b)=>startMs(b)-startMs(a))};
+ const tabs=[['upcoming','Próximos'],['pending','Por confirmar'],['history','Historial']];
+ const rows=groups[servicesTab]||[];
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Mis servicios</h2><p class="muted">Confirma tus turnos, consulta los detalles y ficha desde aquí.</p></div>'+
+ '<div class="seg">'+tabs.map(([k,l])=>'<button class="'+(servicesTab===k?'active':'')+'" data-action="services-tab" data-tab="'+k+'">'+l+'<b>'+groups[k].length+'</b></button>').join('')+'</div>'+
+ (rows.length?'<div class="service-list">'+rows.map(a=>serviceCard(a)).join('')+'</div>':'<div class="panel empty">'+({upcoming:'No tienes servicios próximos.',pending:'No tienes asignaciones pendientes de respuesta.',history:'Todavía no hay servicios en tu historial.'})[servicesTab]+'</div>');
+}
+function calendarPage(){
+ const [y,m]=month.split('-').map(Number),first=new Date(y,m-1,1),last=new Date(y,m,0).getDate(),offset=(first.getDay()+6)%7;
+ const as=myAssignments().filter(a=>a.status!=='rejected'),avail=list('availability');
+ let cells=['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map(d=>'<div class="cal-weekday">'+d+'</div>').join('');
+ for(let i=0;i<offset;i++)cells+='<div class="cal-day off"></div>';
+ for(let i=1;i<=last;i++){
+  const date=month+'-'+String(i).padStart(2,'0'),events=as.filter(a=>a.date<=date&&(a.endDate||a.date)>=date),av=avail.find(r=>r.date===date);
+  cells+='<div class="cal-day '+(date===today()?'today ':'')+(date<today()?'past ':'')+(av?.status==='unavailable'?'unavail':'')+'"><strong>'+i+'</strong>'+events.map(a=>'<button class="cal-event '+esc(a.status)+'" data-action="detail" data-id="'+esc(a.id)+'" title="'+esc(service(a.serviceId).name)+'"><b>'+esc(a.start)+'</b> '+esc(service(a.serviceId).name||'Turno')+'</button>').join('')+(av?.status==='unavailable'&&!events.length?'<small class="cal-note">No disponible</small>':'')+'</div>';
+ }
+ const monthAs=as.filter(a=>a.date.startsWith(month));
+ $('#employee-content').innerHTML='<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month" aria-label="Mes anterior">‹</button><h2>'+esc(monthLabel(month))+'</h2><button class="secondary" data-action="next-month" aria-label="Mes siguiente">›</button></div>'+
+ '<p class="muted cal-summary">'+monthAs.length+' turno(s) · '+monthAs.reduce((n,a)=>n+Number(a.hours||0),0).toLocaleString('es-ES')+' h previstas'+(month!==today().slice(0,7)?' · <button class="text-link" data-action="this-month">Volver a hoy</button>':'')+'</p><div class="calendar-grid">'+cells+'</div>'+
+ '<div class="cal-legend"><span class="lg confirmed">Confirmado</span><span class="lg pending">Por confirmar</span><span class="lg unavail">No disponible</span></div></div>';
+}
+function availabilityPage(){
+ const [y,m]=month.split('-').map(Number),last=new Date(y,m,0).getDate(),records=list('availability'),as=myAssignments().filter(a=>a.status!=='rejected');
+ const offset=(new Date(y,m-1,1).getDay()+6)%7;
+ const weekly=state.weeklyAvailability?.days||{},keys=['sun','mon','tue','wed','thu','fri','sat'];
+ const dayNames=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+ let html=dayNames.map(d=>'<div class="availability-day-heading">'+d+'</div>').join('');
+ html+=Array.from({length:offset},()=>'<div class="availability-cell-spacer" aria-hidden="true"></div>').join('');
+ for(let d=1;d<=last;d++){
+  const date=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===date),st=a?.status||'',past=date<today();
+  const habit=weekly[keys[new Date(date+'T12:00:00').getDay()]],habitSlots=Array.isArray(habit?.slots)?habit.slots.length:habit?.available?1:0;
+  const shift=as.find(x=>x.date<=date&&(x.endDate||x.date)>=date);
+  const label=shift?'Turno '+shift.start:a?.slots?.length?a.slots.length+' h':st==='unavailable'?'No disponible':st==='available'?'Disponible':habitSlots?'Habitual':'Sin indicar';
+  html+='<button class="availability-cell '+esc(st||(habitSlots?'habit':''))+(shift?' has-shift':'')+(date===today()?' today':'')+'" data-action="availability" data-date="'+date+'" '+(past?'disabled':'')+'><strong>'+d+'</strong><small>'+esc(label)+'</small></button>';
+ }
+ const hasWeekly=Object.values(weekly).some(d=>d?.slots?.length||d?.available);
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Disponibilidad</h2><p class="muted">Indica cuándo puedes trabajar. La oficina lo verá al planificar.</p></div>'+
+ '<div class="avail-top panel"><div><strong>Semana habitual</strong><p class="muted">'+(hasWeekly?'Configurada. Se aplica a los días sin indicación puntual.':'Sin configurar. Define tus horas habituales de lunes a domingo.')+'</p></div>'+btn('weekly',hasWeekly?'Editar semana habitual':'Configurar semana habitual','','primary')+'</div>'+
+ '<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month" aria-label="Mes anterior">‹</button><h2>'+esc(monthLabel(month))+'</h2><button class="secondary" data-action="next-month" aria-label="Mes siguiente">›</button></div>'+
+ '<div class="availability-grid">'+html+'</div><div class="cal-legend"><span class="lg available">Disponible</span><span class="lg habit">Semana habitual</span><span class="lg unavail">No disponible</span><span class="lg shift">Con turno</span></div><p class="muted compact">Pulsa un día para elegir horas concretas o marcarlo como no disponible. Los días pasados no se pueden modificar.</p></div>';
+}
+function settlementsPage(){
+ const all=myAssignments().filter(a=>a.status!=='rejected').sort((a,b)=>b.date.localeCompare(a.date));
+ const months=[...new Set([today().slice(0,7),...all.map(a=>a.date.slice(0,7))])].sort().reverse(),current=selectedPayrollMonth||months[0];
+ selectedPayrollMonth=current;
+ const rows=all.filter(a=>a.date.startsWith(current)),confirmed=rows.filter(a=>a.payStatus==='confirmed'),pend=rows.filter(a=>a.payStatus!=='confirmed');
+ const sum=r=>r.reduce((n,a)=>n+(a.grossPay||0),0),hours=rows.reduce((n,a)=>n+Number(a.hours||0),0);
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Liquidaciones</h2><p class="muted">Importes brutos estimados según tus turnos y tarifas.</p></div>'+
+ '<div class="actions-row" style="margin-bottom:16px"><label class="month-pick">Periodo<select class="field" id="payroll-month">'+months.map(m=>'<option value="'+esc(m)+'" '+(m===current?'selected':'')+'>'+esc(monthLabel(m))+'</option>').join('')+'</select></label>'+btn('download-payroll','Descargar CSV','','secondary')+'</div>'+
+ '<div class="stats"><div class="stat orange"><span class="muted">Confirmado</span><strong>'+euro(sum(confirmed))+'</strong><small>'+confirmed.length+' servicio(s) liquidados</small></div><div class="stat"><span class="muted">Pendiente de liquidar</span><strong>'+euro(sum(pend))+'</strong><small>'+pend.length+' servicio(s)</small></div><div class="stat"><span class="muted">Total estimado</span><strong>'+euro(sum(rows))+'</strong><small>'+esc(monthLabel(current))+'</small></div><div class="stat"><span class="muted">Horas previstas</span><strong>'+hours.toLocaleString('es-ES')+' h</strong><small>'+rows.length+' turno(s)</small></div></div>'+
+ box('Detalle del periodo',rows.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Servicio</th><th>Fecha</th><th>Categoría</th><th>Horas</th><th>Importe bruto</th><th>Estado</th></tr></thead><tbody>'+
+ rows.map(a=>'<tr><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+human(a.date)+'</td><td>'+esc(a.role||'—')+'</td><td>'+Number(a.hours||0).toLocaleString('es-ES')+' h</td><td><strong>'+euro(a.grossPay)+'</strong></td><td>'+(a.payStatus==='confirmed'?status('confirmed'):'<span class="badge pending">Pendiente</span>')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">Sin servicios durante este periodo.</div>')+
+ '<div class="notice">Liquidación <strong>bruta estimada</strong>. No es una nómina ni acredita transferencias; no incluye retenciones, cotizaciones ni otros ajustes laborales.</div>';
+}
+function tutorialsPage(){
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Guías rápidas</h2><p class="muted">Todo lo que necesitas para usar tu área de empleado.</p></div><div class="guide-list">'+guides.map(([title,body],i)=>'<details class="panel guide" '+(i===0?'open':'')+'><summary>'+esc(title)+'</summary><p class="muted">'+esc(body)+'</p></details>').join('')+'</div>';
+}
+function messagesPage(){
+ const messages=state.messages||[],users=(state.users||[]).filter(u=>u.role==='manager'),seen=empSeen();
+ const chat=messages.map(m=>{const mine=m.senderId===state.user.id;return '<div class="bubble '+(mine?'mine':'')+(!mine&&m.createdAt>seen?' new':'')+'"><p>'+esc(m.content)+'</p><small>'+(mine?'Tú':esc((state.users||[]).find(u=>u.id===m.senderId)?.name||'Oficina'))+' · '+stamp(m.createdAt)+'</small></div>'}).join('');
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Mensajes</h2><p class="muted">Conversación privada con la oficina.</p></div><section class="panel chat"><div class="chat-scroll" id="emp-chat">'+(chat||'<p class="empty">Todavía no hay mensajes. Escribe a la oficina si necesitas algo.</p>')+'</div>'+
+ '<form id="employee-message-form" class="chat-compose">'+(users.length>1?'<select class="field" name="recipientId" required aria-label="Destinatario">'+users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select>':'<input type="hidden" name="recipientId" value="'+esc(users[0]?.id||'')+'">')+'<textarea name="content" class="field" maxlength="2000" required rows="2" placeholder="Escribe tu mensaje…"></textarea><button class="primary" type="submit">Enviar</button></form></section>';
+ empMarkSeen();renderNav();
+ const sc=$('#emp-chat');if(sc)sc.scrollTop=sc.scrollHeight;
+ const f=$('#employee-message-form');if(!users.length){f.querySelector('button').disabled=true}
+ f.onsubmit=async ev=>{ev.preventDefault();const b=f.querySelector('button');b.disabled=true;try{await api('message-send',Object.fromEntries(new FormData(f)));await load();notice('Mensaje enviado')}catch(e){error(e)}finally{b.disabled=false}};
+}
+async function detail(id){
+ const a=myAssignments().find(x=>x.id===id);if(!a)return;const s=service(a.serviceId),place=placeForAssignment(a),maps=mapsLink(a);
+ const coord=(state.users||[]).find(u=>u.id===s.coordinatorId)?.name;
+ const rows=[['Servicio',s.name],['Lugar',[place?.name||s.venue,place?.address].filter(Boolean).join(' · ')],['Inicio',human(a.date)+' · '+a.start],['Fin',human(a.endDate||a.date)+' · '+a.end],['Categoría',a.role],['Equipo',a.team||'Por asignar'],['Horas previstas',a.hours+' h'+(a.pause?' (pausa '+a.pause+' h)':'')],['Coordinador',coord||'Oficina'],['Estado',STATUS_ES[a.status]||a.status],['Entrada',stamp(a.checkIn)],['Salida',stamp(a.checkOut)]];
+ modal('Detalle del servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row" style="margin-top:16px">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','No puedo',a.id):'')+(canClock(a)?btn('open-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary'):'')+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div>');
+}
+function rejectModal(id){
+ const a=myAssignments().find(x=>x.id===id);if(!a)return;
+ modal('No puedo hacer este turno','<form id="reject-form" style="display:grid;gap:12px"><p class="muted">'+esc(service(a.serviceId).name||'Servicio')+' · '+human(a.date)+' '+esc(a.start)+'–'+esc(a.end)+'</p><p class="muted">La oficina recibirá tu respuesta. Si quieres, explica el motivo en un mensaje.</p><label class="form-label">Motivo (opcional, se enviará como mensaje)<textarea class="field" name="reason" maxlength="500"></textarea></label><button class="primary" type="submit">Confirmar que no puedo</button></form>');
+ $('#reject-form').onsubmit=async e=>{e.preventDefault();const reason=e.target.elements.reason.value.trim();try{await api('confirm',{id,revision:a.revision,status:'rejected'});const to=(state.users||[]).find(u=>u.role==='manager');if(reason&&to)await api('message-send',{recipientId:to.id,content:'No puedo hacer el turno '+(service(a.serviceId).name||'')+' del '+human(a.date)+' ('+a.start+'–'+a.end+'). Motivo: '+reason});$('#employee-modal').close();await load();notice('Respuesta enviada a la oficina')}catch(ex){error(ex)}};
 }
 
 let nextCountTimer=null;
@@ -75,54 +207,6 @@ function nextServiceCountdown(){
  const delta=Math.max(0,target-Date.now()),seconds=Math.floor(delta/1000);
  const units=[Math.floor(seconds/86400),Math.floor(seconds%86400/3600),Math.floor(seconds%3600/60),seconds%60],labels=['días','horas','min','seg'];
  root.innerHTML=units.map((v,i)=>'<div><b>'+String(v).padStart(2,'0')+'</b><span>'+labels[i]+'</span></div>').join('');
-}
-function dashboard(){
- const as=myAssignments(),future=as.filter(a=>a.date>=today()&&a.status!=='rejected').sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)),open=as.filter(a=>a.checkIn&&!a.checkOut);
- const pending=as.filter(a=>a.status==='pending'),training=list('documents').filter(d=>d.type==='training'&&!(state.trainingAcks||[]).some(ack=>ack.documentId===d.id));
- const stats='<div class="stats"><div class="stat orange"><span class="muted">Próximos servicios</span><strong>'+future.length+'</strong><small>Programados</small></div><div class="stat"><span class="muted">Por confirmar</span><strong>'+pending.length+'</strong><small>Responde a tus asignaciones</small></div><div class="stat"><span class="muted">Fichajes abiertos</span><strong>'+open.length+'</strong><small>Entradas sin salida</small></div><div class="stat"><span class="muted">Documentos</span><strong>'+list('documents').length+'</strong><small>Disponibles para descargar</small></div></div>';
- const next=future[0],nextService=next&&service(next.serviceId);
- const hero='<section class="employee-next-hero"><div><span class="eyebrow">PRÓXIMO SERVICIO</span>'+
- '<h2>'+esc(nextService?.name||'Sin servicios próximos')+'</h2>'+
- '<p class="muted">'+(next?esc(human(next.date)+' · '+next.start+'–'+next.end+' · '+(nextService.venue||'')):'En cuanto tengas una asignación aparecerá aquí.')+'</p>'+
- (next?'<div class="employee-countdown" id="next-countdown" data-date="'+esc(next.date)+'" data-start="'+esc(next.start)+'"></div>':'')+
- '<div class="actions-row">'+btn('open-clock','Fichar',next?.id||'','primary')+(next?btn('detail','Ver servicio',next.id):'')+'</div></div>'+
- '<div class="employee-next-aside"><div><span>Servicios próximos</span><b>'+future.length+'</b></div><div><span>Coordinaciones</span><b>'+coordinatingServices().length+'</b></div><div><span>Documentos pendientes</span><b>'+list('documents').filter(d=>d.expires&&d.expires<today()).length+'</b></div><div><span>Formación</span><b>'+training.length+' pendiente(s)</b></div></div></section>';
- $('#employee-content').innerHTML='<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">Bienvenido a tu espacio personal</p></div>'+hero+stats+
- (pending.length?'<div class="notice"><strong>'+pending.length+' servicio(s) pendiente(s) de confirmar.</strong><div class="actions-row" style="margin-top:10px">'+btn('go-services','Ver asignaciones')+'</div></div>':'')+
- box('Próximos servicios',future.slice(0,5).length?'<div class="service-list">'+future.slice(0,5).map(serviceCard).join('')+'</div>':'<div class="empty">Todavía no tienes servicios próximos.</div>')+
- box('Control horario',open.length?'<div class="notice">Tienes '+open.length+' fichaje(s) abiertos. '+btn('open-clock','Abrir control horario')+'</div>':'<p class="muted">Abre el control horario para registrar entrada o salida. El fichaje se muestra en una ventana emergente.</p>');
- if(next){nextServiceCountdown();if(nextCountTimer)clearInterval(nextCountTimer);nextCountTimer=setInterval(()=>{if($('#next-countdown'))nextServiceCountdown();else{clearInterval(nextCountTimer);nextCountTimer=null}},1000)}
-}
-function servicesPage(){
- const as=myAssignments().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
- $('#employee-content').innerHTML='<div class="section-title"><h2>Servicios y confirmaciones</h2><p class="muted">Tus turnos, estados y registro horario.</p></div>'+(as.length?'<div class="service-list">'+as.map(serviceCard).join('')+'</div>':'<div class="panel empty">No tienes asignaciones actualmente.</div>');
-}
-function calendarPage(){
- const [y,m]=month.split('-').map(Number),first=new Date(y,m-1,1),last=new Date(y,m,0).getDate(),offset=(first.getDay()+6)%7;
- const as=myAssignments();
- let cells=['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map(d=>'<div class="cal-weekday">'+d+'</div>').join('');
- for(let i=0;i<offset;i++)cells+='<div class="cal-day off"></div>';
- for(let i=1;i<=last;i++){
-  const date=month+'-'+String(i).padStart(2,'0'),events=as.filter(a=>a.date<=date&&a.endDate>=date);
-  cells+='<div class="cal-day '+(date===today()?'today':'')+'"><strong>'+i+'</strong>'+events.map(a=>'<span class="cal-event" title="'+esc(service(a.serviceId).name)+'">'+esc(service(a.serviceId).name||'Turno')+'</span>').join('')+'</div>';
- }
- $('#employee-content').innerHTML='<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+first.toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div><div class="calendar-grid">'+cells+'</div></div>';
-}
-function availabilityPage(){
- const [y,m]=month.split('-').map(Number),last=new Date(y,m,0).getDate(),records=list('availability');
- const offset=(new Date(y,m-1,1).getDay()+6)%7;
- const dayNames=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
- let html=dayNames.map(d=>'<div class="availability-day-heading">'+d+'</div>').join('');
- html+=Array.from({length:offset},()=>'<div class="availability-cell-spacer" aria-hidden="true"></div>').join('');
- for(let d=1;d<=last;d++){
-  const date=month+'-'+String(d).padStart(2,'0'),a=records.find(r=>r.date===date),st=a?.status||'';
-  const selected=a?.slots?.length?a.slots.length+' h disponibles':st==='unavailable'?'No disponible':st==='available'?'Disponible':'Sin indicar';
-  html+='<button class="availability-cell '+esc(st)+'" data-action="availability" data-date="'+date+'"><strong>'+d+'</strong><small>'+selected+'</small></button>';
- }
- $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:16px">'+btn('weekly','Semana habitual · L–D','','primary')+'</div>'+
- '<div class="notice">Selecciona un día para marcar las horas disponibles. Puedes elegir horas sueltas o varias franjas arrastrando.</div>'+
- '<div class="cal-head"><button class="secondary" data-action="prev-month">Anterior</button><h2>'+new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})+'</h2><button class="secondary" data-action="next-month">Siguiente</button></div>'+
- '<div class="availability-grid">'+html+'</div>';
 }
 function documentsPage(){
  const docs=list('documents');
@@ -142,18 +226,6 @@ async function uploadPersonalDocument(){
  };
 }
 let selectedPayrollMonth='';
-function settlementsPage(){
- const all=myAssignments().filter(a=>a.status!=='rejected').sort((a,b)=>b.date.localeCompare(a.date));
- const months=[...new Set(all.map(a=>a.date.slice(0,7)))],current=selectedPayrollMonth||months[0]||today().slice(0,7);
- selectedPayrollMonth=current;
- const rows=all.filter(a=>a.date.startsWith(current)),confirmed=rows.filter(a=>a.payStatus==='confirmed');
- const total=confirmed.reduce((sum,a)=>sum+(a.grossPay||0),0);
- $('#employee-content').innerHTML='<div class="notice">Liquidación <strong>bruta estimada</strong> según turnos y tarifas registrados. No es una nómina ni acredita transferencias; no incluye retenciones, cotizaciones del empleado ni otros ajustes laborales.</div>'+
- '<div class="actions-row" style="margin-bottom:16px">'+months.map(m=>'<button class="'+(m===current?'primary':'secondary')+'" data-action="payroll-month" data-month="'+esc(m)+'">'+esc(m)+'</button>').join('')+btn('download-payroll','Descargar CSV','','secondary')+'</div>'+
- '<div class="stats"><div class="stat orange"><span class="muted">Periodo '+esc(current)+'</span><strong>'+euro(total)+'</strong><small>Importes confirmados</small></div><div class="stat"><span class="muted">Servicios</span><strong>'+rows.length+'</strong><small>Del periodo</small></div></div>'+
- box('Detalle de liquidación',rows.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Servicio</th><th>Fecha</th><th>Importe bruto</th><th>Estado</th></tr></thead><tbody>'+
- rows.map(a=>'<tr><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+human(a.date)+'</td><td>'+euro(a.grossPay)+'</td><td>'+(a.payStatus==='confirmed'?'Confirmada':'Pendiente')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">Sin servicios durante este periodo.</div>');
-}
 function downloadPayroll(){
  const entries=myAssignments().filter(a=>a.date.startsWith(selectedPayrollMonth));
  const csvCell=v=>{let x=String(v??'');if(/^[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"';};
@@ -483,15 +555,6 @@ const guides=[
  ['Disponibilidad','Marca tu disponibilidad por día o define horarios semanales habituales.'],
  ['Liquidaciones','Consulta los importes brutos por servicio y los periodos confirmados, antes de retenciones.']
 ];
-function tutorialsPage(){
- $('#employee-content').innerHTML='<div class="section-title"><h2>Guías rápidas del portal</h2></div><div class="stats" style="grid-template-columns:repeat(2,minmax(0,1fr))">'+guides.map(([title,body],i)=>'<div class="panel"><h3>'+esc(title)+'</h3><p class="muted" style="margin:12px 0">'+esc(body)+'</p>'+btn('tutorial','Abrir guía',String(i))+'</div>').join('')+'</div>';
-}
-function messagesPage(){
- const messages=state.messages||[],users=(state.users||[]).filter(u=>u.role==='manager');
- $('#employee-content').innerHTML=box('Mensajes a la oficina','<div class="service-list">'+(messages.length?messages.map(m=>'<div class="document"><div><strong>'+(m.senderId===state.user.id?'Tú':'la oficina')+'</strong><small> · '+stamp(m.createdAt)+'</small><p>'+esc(m.content)+'</p></div></div>').join(''):'<p class="muted">No hay mensajes.</p>')+'</div><form id="employee-message-form" style="display:grid;gap:12px;margin-top:18px"><label class="form-label">Enviar a<select class="field" name="recipientId" required>'+users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><label class="form-label">Mensaje<textarea name="content" class="field" maxlength="2000" required></textarea></label><button class="primary" type="submit">Enviar mensaje</button></form>');
- $('#employee-message-form').onsubmit=async ev=>{ev.preventDefault();try{await api('message-send',Object.fromEntries(new FormData(ev.target)));await load();notice('Mensaje enviado')}catch(e){error(e)}};
-}
-
 function employeePhotoModal(){
  modal('Fotografía de perfil','<form id="employee-photo-form" style="display:grid;gap:12px"><p class="muted">Sube una fotografía PNG o JPEG de menos de 1 MB. Solo tú y la oficina podrán consultarla.</p><label class="form-label">Fotografía<input type="file" name="photo" accept="image/png,image/jpeg" required></label><button class="primary" type="submit">Guardar fotografía</button></form>');
  $('#employee-photo-form').onsubmit=async ev=>{
@@ -596,7 +659,7 @@ async function load(){
   if(state.user.role!=='worker'){window.location.replace('/');return}
   $('#employee-login').hidden=true;$('#employee-app').hidden=false;render();
  }catch(e){
-  if(String(e.message).includes('sesión')||String(e.message).includes('Inicia sesión')){$('#employee-app').hidden=true;$('#employee-login').hidden=false}else error(e);
+  if(e.status===401||String(e.message).includes('sesión')){state={};$('#employee-app').hidden=true;$('#employee-login').hidden=false}else error(e);
  }finally{isLoading=false}
 }
 async function mutation(op,body,msg){try{await api(op,body);await load();notice(msg)}catch(e){error(e)}}
@@ -612,13 +675,6 @@ async function showQR(id){
   modal(d.action==='in'?'Mi QR de entrada':'Mi QR de salida',img+'<p class="muted">Muéstralo al coordinador. Caduca a los 90 segundos y solo puede utilizarse una vez.</p><p class="qr-token">'+esc(d.token)+'</p>'+btn('qr','Generar nuevo QR',id,'primary'));
  }catch(e){error(e)}
 }
-async function detail(id){
- const a=myAssignments().find(x=>x.id===id);if(!a)return;const s=service(a.serviceId);
- const rows=[['Servicio',s.name],['Recinto',s.venue],['Fecha y hora',human(a.date)+' '+a.start+' → '+human(a.endDate)+' '+a.end],['Especialidad',a.role],['Equipo',a.team||'Por asignar'],['Horas previstas',a.hours+' h'],['Pausa',a.pause+' h'],['Estado',a.status],['Entrada',stamp(a.checkIn)],['Salida',stamp(a.checkOut)]];
- modal('Detalle de mi servicio',rows.map(([k,v])=>'<div class="line"><span>'+esc(k)+'</span><strong>'+esc(v||'—')+'</strong></div>').join('')+'<div class="actions-row">'+(a.status==='pending'?btn('confirm','Confirmar',a.id,'primary')+btn('reject','Rechazar',a.id):'')+(a.status!=='rejected'&&!a.checkOut&&s.status!=='completed'&&s.status!=='cancelled'?btn('open-clock','Control horario',a.id,'primary'):'')+'</div>');
-}
-
-
 let selectedAvailabilitySlots={date:new Set()};
 function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
@@ -642,11 +698,15 @@ function passwordModal(){
 document.addEventListener('click',async ev=>{
  const el=ev.target.closest('[data-page],[data-action]');if(!el)return;
  const p=el.dataset.page,action=el.dataset.action,id=el.dataset.id;
- if(p){stopQrCamera();$('.sidebar').classList.remove('open');if(p==='clock')return openClockModal();page=p;render();return}
+ if(p){stopQrCamera();$('.sidebar').classList.remove('open');if(p==='clock')return openClockModal();page=p;render();window.scrollTo({top:0});return}
  if(action==='refresh')return load();
  if(action==='check-location')return verifyClockPosition(id);
  if(action==='open-clock')return openClockModal(id);
  if(action==='go-services'){page='services';return render()}
+ if(action==='services-tab'){servicesTab=el.dataset.tab;return servicesPage()}
+ if(action==='go-availability'){page='availability';return render()}
+ if(action==='this-month'){month=today().slice(0,7);return render()}
+ if(action==='mobile-more'){$('.sidebar').classList.toggle('open');return}
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
@@ -682,7 +742,8 @@ document.addEventListener('click',async ev=>{
 
  if(action==='logout'){try{await api('logout',{})}catch{}state={};location.replace('/empleado.html');return}
  if(action==='detail')return detail(id);
- if(action==='confirm'||action==='reject'){const a=myAssignments().find(x=>x.id===id);if(a)return mutation('confirm',{id,revision:a.revision,status:action==='confirm'?'confirmed':'rejected'},'Respuesta guardada')}
+ if(action==='reject')return rejectModal(id);
+ if(action==='confirm'){const a=myAssignments().find(x=>x.id===id);if(a){if($('#employee-modal').open)$('#employee-modal').close();return mutation('confirm',{id,revision:a.revision,status:'confirmed'},'Turno confirmado')}}
  if(action==='qr')return showQR(id);
  if(action==='availability')return availabilityModal(el.dataset.date);
  if(action==='set-available'||action==='set-unavailable'){
@@ -700,6 +761,7 @@ $('#login-form').onsubmit=async e=>{
  try{await api('login',Object.fromEntries(new FormData(e.target)));await load()}catch(ex){err.textContent=ex.message;err.hidden=false}finally{b.disabled=false}
 };
 $('#employee-content').addEventListener('change',e=>{
+ if(e.target.id==='payroll-month'){selectedPayrollMonth=e.target.value;return settlementsPage()}
  if(e.target.id==='crew-service-select'){selectedCrewService=e.target.value;crewDay='all';selectedCrewBlock='all';crewWorkTypes.clear();crewSelectedIds.clear();crewControlPage()}
  if(e.target.id==='crew-day-select'){crewDay=e.target.value;selectedCrewBlock='all';crewControlPage()}
  if(e.target.id==='crew-block-select'){selectedCrewBlock=e.target.value;crewControlPage()}
@@ -712,5 +774,9 @@ $('#employee-content').addEventListener('input',e=>{
 });
 $('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();$('#employee-modal').classList.remove('clock-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
+function canAutoRefresh(){const f=document.activeElement;return state.user&&!document.hidden&&!$('#employee-modal').open&&!isLoading&&!(f&&f.matches('input,textarea,select'))&&!$('.sidebar').classList.contains('open')}
+setInterval(()=>{if(canAutoRefresh()){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},45000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&canAutoRefresh())load()});
+window.addEventListener('online',()=>{if(state.user)load()});
 load();
 })();

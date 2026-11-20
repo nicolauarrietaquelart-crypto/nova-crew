@@ -2,14 +2,14 @@
 (() => {
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const paths={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',briefcase:'M3 7h18v14H3z M8 7V3h8v4 M3 12a30 30 0 0 0 18 0 M12 10v5',calendar:'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2 M8 17h2',file:'M14 2H5v20h14V7z M14 2v5h5 M8 12h8 M8 16h6',folder:'M3 7V4h6l2 3h10v13H3z',wallet:'M3 6h16v4 M3 6v14h18V10H3z M16 14h5',shield:'M12 3 3 7v5c0 5 9 10 9 10s9-5 9-10V7z M8 12l3 3 5-6',clock:'M12 8v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z',plus:'M12 5v14 M5 12h14',search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',refresh:'M20 7V3l-4 4 M20 7a9 9 0 1 0 1 9 M20 7h-5',close:'M6 6l12 12 M18 6 6 18',arrow:'M5 12h14 M14 7l5 5-5 5',logout:'M9 4H3v16h6 M8 12h13 M16 7l5 5-5 5',menu:'M3 6h18 M3 12h18 M3 18h18',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',upload:'M12 16V3 M7 8l5-5 5 5 M4 16v5h16v-5',edit:'m16 3 5 5-13 13H3v-5z M13 6l5 5',trash:'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',check:'M5 12l4 4L20 5',chevron:'M9 5l7 7-7 7',left:'M15 5l-7 7 7 7',chart:'M4 3v18h18 M8 16v-5 M13 16V6 M18 16V9',building:'M4 21V3h12v18 M16 10h5v11 M8 7h4 M8 11h4 M8 15h4 M8 21v-3h4v3',info:'M12 11v6 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'};
+const paths={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',briefcase:'M3 7h18v14H3z M8 7V3h8v4 M3 12a30 30 0 0 0 18 0 M12 10v5',calendar:'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2 M8 17h2',file:'M14 2H5v20h14V7z M14 2v5h5 M8 12h8 M8 16h6',folder:'M3 7V4h6l2 3h10v13H3z',wallet:'M3 6h16v4 M3 6v14h18V10H3z M16 14h5',shield:'M12 3 3 7v5c0 5 9 10 9 10s9-5 9-10V7z M8 12l3 3 5-6',clock:'M12 8v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z',plus:'M12 5v14 M5 12h14',search:'M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',refresh:'M20 7V3l-4 4 M20 7a9 9 0 1 0 1 9 M20 7h-5',close:'M6 6l12 12 M18 6 6 18',arrow:'M5 12h14 M14 7l5 5-5 5',logout:'M9 4H3v16h6 M8 12h13 M16 7l5 5-5 5',menu:'M3 6h18 M3 12h18 M3 18h18',download:'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5',upload:'M12 16V3 M7 8l5-5 5 5 M4 16v5h16v-5',edit:'m16 3 5 5-13 13H3v-5z M13 6l5 5',trash:'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',check:'M5 12l4 4L20 5',chevron:'M9 5l7 7-7 7',left:'M15 5l-7 7 7 7',chart:'M4 3v18h18 M8 16v-5 M13 16V6 M18 16V9',building:'M4 21V3h12v18 M16 10h5v11 M8 7h4 M8 11h4 M8 15h4 M8 21v-3h4v3',info:'M12 11v6 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',euro:'M17.5 6.5A7 7 0 1 0 17.5 17.5 M4 10.5h9 M4 13.5h9',message:'M3 4h18v14H7l-4 3z M7 9h10 M7 13h7',availability:'M3 5h18v16H3z M8 3v4 M16 3v4 M3 10h18 M8 15l3 3 5-5'};
 const icon=(n)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[n]||paths.file}"/></svg>`;
 const euro=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n||0),day=()=>new Date().toISOString().slice(0,10),fmt=d=>d?new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(d.slice(0,10)+'T12:00:00')):'—',stamp=d=>d?new Date(d).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 const statuses={planned:'Planificado',confirmed:'Confirmado',in_progress:'En curso',completed:'Finalizado',cancelled:'Cancelado',pending:'Pendiente',draft:'Borrador',issued:'Emitido',partial:'Cobro parcial',paid:'Pagado',rejected:'Rechazado',accepted:'Aceptado',available:'Disponible',unavailable:'No disponible',overdue:'Vencida'};
 const fmtTime=t=>{if(!t)return '—';const d=new Date(t);return Number.isNaN(d.getTime())?t:d.toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
 const badge=s=>`<span class="badge ${esc(s)}">${esc(statuses[s]||s)}</span>`;
-const navs=[['dashboard','Inicio','grid','OPERACIONES'],['quotes','Presupuestos','file'],['services','Servicios','briefcase'],['calendar','Calendario','calendar'],['closed','Servicios finalizados','check'],['workers','Trabajadores','users','PERSONAL'],['clients','Clientes','building'],['documents','Documentación','folder'],['tariffs','Tarifas por categoría','wallet','CONFIGURACIÓN'],['messages','Mensajes','file'],['incidents','Incidencias','info'],['users','Accesos','shield'],['audit','Actividad','clock']];
-const descriptions={incidents:'Incidencias comunicadas por los coordinadores y revisión de Gestoría.',messages:'Mensajes privados entre Gestoría y los trabajadores.',orders:'Peticiones, bloques horarios y plazas por cubrir.',closed:'Servicios finalizados y liquidaciones.',tariffs:'Tarifario 2026, precios e incrementos personalizables.',dashboard:'Servicios, personal y asignaciones pendientes.',services:'Crea servicios desde presupuestos y asigna a cada trabajador su categoría.',calendar:'Tu planificación, día a día.',assignments:'Personal, turnos, confirmaciones y fichajes.',workers:'Las personas que hacen que todo funcione.',clients:'Contactos y datos de facturación en un único lugar.',documents:'Contratos y documentación vinculados a cada persona o servicio.',availability:'Consulta y registra la disponibilidad del equipo.',quotes:'Prepara propuestas y conviértelas en servicios.',invoices:'Borradores, emisión, vencimientos y seguimiento de cobros.',expenses:'Costes y gastos asociados a tus operaciones.',users:'Crea accesos y controla qué puede consultar cada persona.',audit:'Historial de las operaciones guardadas en el servidor.',settings:'Datos fiscales, serie de facturación y preferencias.'};
+const navs=[['dashboard','Inicio','grid','OPERACIONES'],['quotes','Presupuestos','file'],['services','Servicios','briefcase'],['calendar','Calendario','calendar'],['closed','Cierre y liquidación','check'],['invoices','Facturación','euro'],['workers','Trabajadores','users','PERSONAL'],['availability','Disponibilidad','availability'],['clients','Clientes','building'],['documents','Documentación','folder'],['messages','Mensajes','message','COMUNICACIÓN'],['incidents','Incidencias','info'],['tariffs','Tarifas por categoría','wallet','CONFIGURACIÓN'],['users','Accesos','shield'],['settings','Ajustes de empresa','settings'],['audit','Actividad','clock']];
+const descriptions={incidents:'Incidencias comunicadas por los coordinadores y revisión de Gestoría.',messages:'Mensajes privados entre Gestoría y los trabajadores.',orders:'Peticiones, bloques horarios y plazas por cubrir.',closed:'Servicios finalizados: liquidación del personal y facturación.',tariffs:'Tarifario 2026, precios e incrementos personalizables.',dashboard:'Servicios, personal y asignaciones pendientes.',services:'Crea servicios desde presupuestos y asigna a cada trabajador su categoría.',calendar:'Tu planificación, día a día.',assignments:'Personal, turnos, confirmaciones y fichajes.',workers:'Las personas que hacen que todo funcione.',clients:'Contactos y datos de facturación en un único lugar.',documents:'Contratos y documentación vinculados a cada persona o servicio.',availability:'Quién está libre, ocupado o no disponible cada día de la semana.',quotes:'Prepara propuestas y conviértelas en servicios.',invoices:'Borradores, emisión, vencimientos y seguimiento de cobros.',expenses:'Costes y gastos asociados a tus operaciones.',users:'Crea accesos y controla qué puede consultar cada persona.',audit:'Historial de las operaciones guardadas en el servidor.',settings:'Datos fiscales, serie de facturación y preferencias.'};
 let data={},page='dashboard',query='',filter='',month=day().slice(0,7),polling=false,busy=false;let toastTimer;
 const manager=()=>data.user?.role==='manager',isWorker=()=>data.user?.role==='worker';
 const list=k=>(data[k]||[]).filter(r=>!r.archived),find=(k,id)=>(data[k]||[]).find(x=>x.id===id),name=(k,id)=>find(k,id)?.name||'—';
@@ -33,51 +33,24 @@ async function authScreen(){let status;try{status=await api('status');}catch(e){
 }
 async function load(){const state=await api('state');if(state.user?.role==='worker'){window.location.replace('/empleado.html');return;}data=state;$('#auth').hidden=true;$('#app').hidden=false;$('#account-name').textContent=data.user.name;$('#account-role').textContent=({manager:'Gestor',coordinator:'Coordinador',worker:'Trabajador'})[data.user.role];$('#avatar').textContent=data.user.name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();$('#workspace-name').textContent='NOVA Crew';$('#sync').innerHTML='<span class="live-dot"></span>Actualizado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(location.hash.startsWith('#/servicio/')){const id=decodeURIComponent(location.hash.slice(11));if(list('services').some(x=>x.id===id)){serviceFocus=id;page='service-workspace'}}renderNav();render();}
 function allowed(){return manager()?navs.map(x=>x[0]):isWorker()?['dashboard','services','calendar','assignments','documents','availability']:['dashboard','services','calendar','assignments','workers','documents','availability'];}
-function renderNav(){if(!['service-workspace','service-create','quote-create'].includes(page)&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(['service-workspace','service-create'].includes(page)?'services':page==='quote-create'?'quotes':page)===n[0]?'active':''}">${icon(n[2])}${n[1]}</button>`).join('');}
+function renderNav(){if(!['service-workspace','service-create','quote-create'].includes(page)&&!allowed().includes(page))page='dashboard';$('#nav').innerHTML=navs.filter(n=>allowed().includes(n[0])).map(n=>`${n[3]?`<div class="nav-label">${n[3]}</div>`:''}<button data-page="${n[0]}" class="${(['service-workspace','service-create'].includes(page)?'services':page==='quote-create'?'quotes':page)===n[0]?'active':''}">${icon(n[2])}<span class="nav-text">${n[1]}</span>${navBadge(n[0])}</button>`).join('');}
+function navBadge(k){const n=!data.user||!manager()?0:k==='messages'?unreadMessages().length:k==='incidents'?openIncidents().length:k==='invoices'?list('invoices').filter(invoiceOverdue).length:0;return n?`<b class="nav-badge">${n}</b>`:'';}
 function render(){if(page==='service-workspace')return serviceWorkspacePage();if(page==='service-create')return serviceWizard(serviceCreateQuoteId,true);if(page==='quote-create')return quotePlanEditor(planQuoteId,true);const n=navs.find(n=>n[0]===page);$('#page-title').textContent=isWorker()&&page==='dashboard'?'Mi espacio':n[1];$('#breadcrumb').textContent=n[1];$('#page-description').textContent=descriptions[page];$('#section-label').textContent=manager()?'PANEL DE GESTIÓN':isWorker()?'ÁREA DE TRABAJADOR':'COORDINACIÓN';$('#page-actions').innerHTML='';
- if(page==='tariffs')return tariffGroupsPage();if(page==='incidents')return managerIncidentsPage();if(page==='messages')return managerMessagesPage();if(page==='closed')return closedPage();if(page==='dashboard')return dashboard();if(page==='calendar')return calendar();if(page==='settings')return settingsPage();if(page==='availability')return availabilityPage();if(page==='audit')return auditPage();
+ if(page==='tariffs')return tariffGroupsPage();if(page==='incidents')return managerIncidentsPage();if(page==='messages')return managerMessagesPage();if(page==='closed')return closedPage();if(page==='dashboard')return dashboard();if(page==='calendar')return calendar();if(page==='settings')return settingsPage();if(page==='availability')return manager()?teamAvailabilityPage():availabilityPage();if(page==='audit')return auditPage();
  if(manager()&&['tariffs','services','clients','workers','invoices','quotes','users','assignments','documents'].includes(page)){
  const labels={tariffs:'Nueva categoría',services:'Crear servicio',clients:'Nuevo cliente',workers:'Nuevo trabajador',invoices:'Nueva factura',quotes:'Nuevo presupuesto',expenses:'Nuevo gasto',users:'Crear usuario',assignments:'Asignar personal',documents:'Subir documento'};
  $('#page-actions').innerHTML+=(["workers",'clients'].includes(page)?button('import','Importar CSV','upload','', ''):'')+(page==='services'?button('service-wizard','Crear servicio','plus'):page==='quotes'?button('quote-plan-new','Nuevo presupuesto de personal','plus'):button('new',labels[page],'plus',`data-kind="${page}"`));
  }
  collection();}
 function stat(label,value,detail,ico='chart',orange=false){return `<div class="stat ${orange?'orange':''}"><div class="stat-icon">${icon(ico)}</div><span>${label}</span><strong>${value}</strong><small>${detail}</small></div>`;}
-function dashboard(){
- const services=list('services').filter(s=>!['completed','cancelled'].includes(s.status)),next=services.filter(s=>s.endDate>=day()).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));const a=list('assignments'),open=a.filter(a=>a.checkIn&&!a.checkOut),pending=a.filter(a=>a.status==='pending');let stats;
- if(manager()){
- const unfilled=list('orderLines').filter(l=>!list('assignments').some(a=>a.orderLineId===l.id));
- stats=stat('Servicios activos',services.length,`${next.length} próximos o en curso`,'briefcase',true)+stat('Trabajadores activos',list('workers').filter(w=>w.active).length,'Fichas de personal','users')+stat('Puestos sin cubrir',unfilled.length,'Personal pendiente de asignar','users')+stat('Confirmaciones pendientes',pending.length,'Turnos por confirmar','clock');
- }else stats=stat('Mis servicios',services.length,'Servicios asignados','briefcase',true)+stat('Por confirmar',pending.length,'Asignaciones pendientes','clock')+stat('Entradas abiertas',open.length,'Fichajes sin salida','check')+stat('Mis documentos',list('documents').length,'Documentación disponible','folder');
- const missing=false;const upcoming=next.slice(0,6);
- $('#content').innerHTML=`${missing?`<div class="notice">${icon('info')}Completa los datos de empresa antes de emitir facturas. <button class="text-btn" data-page="settings">Ir a Ajustes</button></div>`:''}<div class="stats">${stats}</div><div class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h3>Próximos servicios</h3><p>Todo listo para la siguiente producción</p></div><button class="text-btn" data-page="services">Ver todos ${icon('arrow')}</button></div>${upcoming.length?upcoming.map(s=>`<div class="list-item"><div class="date-tile">${Number(s.date.slice(8))}<small>${new Date(s.date+'T12:00:00').toLocaleDateString('es-ES',{month:'short'})}</small></div><div class="grow"><p>${esc(s.name)}</p><small>${esc(s.venue)} · ${s.start}–${s.end}</small></div>${badge(s.status)}${action('view','Ver servicio',s.id,'services','chevron')}</div>`).join(''):empty('Sin servicios próximos','Los servicios que organices aparecerán aquí.',manager()?button('service-wizard','Crear servicio','plus'):'')}</div><div><div class="panel"><div class="panel-head"><h3>Control de personal</h3>${icon('users')}</div><div class="list-item"><div class="grow"><p>${pending.length} confirmaciones pendientes</p><small>Revisa las respuestas a las asignaciones</small></div><button class="text-btn" data-page="services">Ver</button></div><div class="list-item"><div class="grow"><p>${open.length} fichajes abiertos</p><small>Entradas registradas sin hora de salida</small></div><button class="text-btn" data-page="services">Ver</button></div><div class="list-item"><div class="grow"><p>${list('documents').filter(d=>d.expires&&d.expires<=new Date(Date.now()+30*86400000).toISOString().slice(0,10)).length} documentos por revisar</p><small>Caducados o con vencimiento en 30 días</small></div><button class="text-btn" data-page="documents">Ver</button></div></div><div class="panel"><div class="panel-head"><h3>Accesos rápidos</h3></div><div class="list-item">${button('navigate','Planificación','calendar','data-page="calendar"','')}${manager()?button('service-home','Gestionar servicios','briefcase','',''):button('availability','Disponibilidad','calendar','','')}</div></div></div></div>`;
-}
 function toolbar(rows){return `<div class="toolbar"><div class="searchbox">${icon('search')}<input id="search" aria-label="Buscar registros" placeholder="Buscar…" value="${esc(query)}"></div><select id="filter" aria-label="Filtrar estado"><option value="">Todos los estados</option>${Object.entries(statuses).map(([v,l])=>`<option value="${v}" ${filter===v?'selected':''}>${l}</option>`).join('')}</select><span class="record-count">${rows.length} registros</span>${manager()?button('export','Exportar','download','',' small'):''}</div>`;}
-function filtered(kind){return list(kind).filter(r=>!filter||r.status===filter||r.type===filter||(['workers','clients','users'].includes(kind)&&(r.active===false?'unavailable':'available')===filter)||(filter==='overdue'&&((kind==='invoices'&&r.status!=='draft'&&r.paid<r.total&&r.dueDate<day())||(kind==='documents'&&r.expires&&r.expires<day())))).filter(r=>!query||[...Object.values(r).filter(v=>typeof v==='string'),name('clients',r.clientId),name('workers',r.workerId),name('services',r.serviceId)].join(' ').toLowerCase().includes(query.toLowerCase()));}
+function serviceInScope(r){if(serviceScope==='all')return true;const done=['completed','cancelled'].includes(r.status);return serviceScope==='active'?!done&&r.endDate>=day():done||r.endDate<day();}
+function filtered(kind){return list(kind).filter(r=>kind!=='services'||!manager()||serviceInScope(r)).filter(r=>!filter||r.status===filter||r.type===filter||(['workers','clients','users'].includes(kind)&&(r.active===false?'unavailable':'available')===filter)||(filter==='overdue'&&((kind==='invoices'&&r.status!=='draft'&&r.paid<r.total&&r.dueDate<day())||(kind==='documents'&&r.expires&&r.expires<day())))).filter(r=>!query||[...Object.values(r).filter(v=>typeof v==='string'),name('clients',r.clientId),name('workers',r.workerId),name('services',r.serviceId)].join(' ').toLowerCase().includes(query.toLowerCase()));}
 function rowActions(r,kind){return `<div class="row-actions">${action('view','Ver detalle',r.id,kind)}${manager()&&(!['invoices','quotes'].includes(kind)||r.status==='draft')?action('edit','Editar',r.id,kind,'edit'):''}</div>`;}
 function table(headers,rows){return `<div class="panel"><div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`;}
 
 
-function managerIncidentsPage(){
- const records=list('incidents').sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
- $('#page-actions').innerHTML='';
- $('#content').innerHTML=table(['Servicio','Trabajador','Incidencia','Estado',''],records.map(i=>'<tr><td>'+esc(name('services',i.serviceId))+'</td><td>'+esc(name('workers',i.workerId))+'</td><td>'+esc(i.description)+'<small>'+esc(i.createdAt.slice(0,16).replace('T',' '))+'</small></td><td>'+esc(i.status==='resolved'?'Resuelta':'Pendiente')+'</td><td>'+(i.status==='resolved'?'':button('incident-resolve','Resolver','check','data-id="'+esc(i.id)+'"',''))+'</td></tr>').join(''));
-}
-function managerMessagesPage(){
- const msgs=list('messages').sort((a,b)=>a.createdAt.localeCompare(b.createdAt)),userName=id=>name('users',id);
- const candidates=list('users').filter(u=>u.active&&u.role!=='manager');
- $('#page-actions').innerHTML='';
- const html=boxMessages(msgs,userName)+
- '<form id="manager-message-form" class="panel" style="display:grid;gap:12px"><h3>Enviar mensaje</h3>'+
- '<label>Trabajador<select name="recipientId" required>'+selectOptions(candidates.map(u=>({id:u.id,name:u.name})))+'</select></label>'+
- '<label>Mensaje<textarea name="content" maxlength="2000" required></textarea></label>'+
- '<button type="submit" class="btn primary">Enviar mensaje</button></form>';
- $('#content').innerHTML=html;
- $('#manager-message-form').onsubmit=async ev=>{ev.preventDefault();try{await api('message-send',Object.fromEntries(new FormData(ev.target)));await load();toast('Mensaje enviado')}catch(e){toast(e.message,true)}};
-}
-function boxMessages(msgs,userName){
- return '<section class="panel"><div class="panel-head"><h3>Conversaciones recientes</h3></div>'+
- (msgs.length?msgs.slice(-100).map(m=>'<div class="list-item"><div class="grow"><strong>'+esc(userName(m.senderId))+' → '+esc(userName(m.recipientId))+'</strong><small>'+esc(m.createdAt.slice(0,16).replace('T',' '))+'</small><p>'+esc(m.content)+'</p></div></div>').join(''):'<p class="footnote">No hay mensajes todavía.</p>')+'</section>';
-}
+
 
 
 
@@ -116,7 +89,7 @@ function drawQuotePlanRows(){const root=$('#quote-plan-rows');if(root)root.inner
 function quotePlanEstimate(){
  const root=$('#quote-plan-estimate');if(!root)return;
  const config=data.settings||{vat:21},rates=quotePlanRates();let base=0,invalid=0,crew=0;
- for(const p of [...$('#quote-plan-rows .quote-plan-row')].map(row=>
+ for(const p of $$('#quote-plan-rows .quote-plan-row').map(row=>
    Object.fromEntries([...row.querySelectorAll('[data-plan]')].map(el=>[el.dataset.plan,el.value])))){
   if(!p.categoryId)continue;
   const t=rates.find(x=>x.id===p.categoryId),n=Number(p.quantity),pause=Number(p.pause||0);
@@ -136,7 +109,7 @@ function quotePlanEditor(id='',refresh=false){
  page='quote-create';renderNav();$('#page-title').textContent=id?'Editar presupuesto':'Nuevo presupuesto';
  $('#breadcrumb').textContent='Presupuestos / '+(id?'Editar':'Nuevo');$('#section-label').textContent='PLANIFICACIÓN DE PERSONAL';
  $('#page-description').textContent='Jornadas, tipos de servicio, horarios, ubicaciones y categorías.';
- $('#page-actions').innerHTML=button('quote-create-cancel','Volver a presupuestos','left');
+ $('#page-actions').innerHTML=button('quote-create-cancel','Volver a presupuestos','left','','');
  const q=id?find('quotes',id):null;if(q&&q.status!=='draft')return toast('Solo puedes editar un presupuesto en borrador.',true);
  planQuoteId=id;
  const schedules=quoteScheduleNames(),chosen=q?.schedule||schedules[0]||'Tarifa estándar 2026';
@@ -214,7 +187,7 @@ function wizardRows(){
  const root=$('#wizard-positions');if(root)root.innerHTML=wizardPositions.map(wizardPositionRow).join('');
 }
 function captureWizardPositions(){
- const nodes=$('#wizard-positions .position-row');
+ const nodes=$$('#wizard-positions .position-row');
  wizardPositions=nodes.map(el=>Object.fromEntries([...el.querySelectorAll('[data-position]')].map(input=>[input.dataset.position,input.value])));
 }
 
@@ -223,7 +196,7 @@ function serviceWizard(quoteId='',refresh=false){
  page='service-create';renderNav();
  $('#page-title').textContent='Crear servicio';$('#breadcrumb').textContent='Servicios / Nuevo servicio';$('#section-label').textContent='PLANIFICACIÓN OPERATIVA';
  $('#page-description').textContent='Organiza jornadas, tipos de servicio, horarios, personal y ubicaciones en una página.';
- $('#page-actions').innerHTML=button('service-create-cancel','Volver a servicios','left');
+ $('#page-actions').innerHTML=button('service-create-cancel','Volver a servicios','left','','');
  const quote=quoteId?find('quotes',quoteId):null,clients=list('clients').filter(c=>c.active),coordinators=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  wizardPositions=quote?.staffPlan?.length?[]:[{}];
  const eligible=list('quotes').filter(q=>['issued','accepted'].includes(q.status)&&(!q.serviceId||q.id===quoteId));
@@ -306,16 +279,16 @@ function serviceWorkspacePage(){
  const {sv,days,blocks,places,coordinators,positions,assigned}=serviceRows();
  if(!sv){page='services';return render()}
  $('#page-title').textContent=sv.name;$('#breadcrumb').textContent='Servicios / '+sv.name;
- $('#section-label').textContent='SERVICIO · '+esc(sv.status||'');
+ $('#section-label').textContent='SERVICIO · '+(statuses[sv.status]||sv.status||'').toUpperCase();
  $('#page-description').textContent=fmt(sv.date)+' – '+fmt(sv.endDate)+' · '+sv.venue;
  $('#page-actions').innerHTML=button('service-back','Volver a servicios','left','','')+
  button('edit','Editar servicio','edit','data-kind="services" data-id="'+esc(sv.id)+'"','');
- const totalUnfilled=positions.filter(p=>!assigned.some(a=>a.orderLineId===p.id&&!a.archived)).length;
- const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Responsables y permisos']];
+ const svStaff=staffing(sv),totalUnfilled=svStaff.missing;
+ const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Responsables y permisos'],['closing','Cierre y facturación']];
  const nav='<div class="service-workspace-nav">'+menu.map(([k,label])=>'<button class="'+(serviceTab===k?'selected':'')+'" type="button" data-action="service-tab" data-tab="'+k+'">'+label+'</button>').join('')+'</div>';
  const top='<div class="service-overview"><div><span class="eyebrow">SERVICIO</span><h2>'+esc(sv.name)+'</h2><p>'+esc(name('clients',sv.clientId))+' · '+esc(sv.venue)+'</p>'+
  '<div class="service-meta">'+badge(sv.status)+'<span>'+fmt(sv.date)+' — '+fmt(sv.endDate)+'</span><span>Tarifa: '+esc(sv.tariffSchedule||'Estándar')+'</span></div></div>'+
- '<div class="service-metrics"><div><strong>'+positions.length+'</strong><small>Puestos</small></div><div><strong>'+assigned.length+'</strong><small>Asignados</small></div><div><strong>'+totalUnfilled+'</strong><small>Sin cubrir</small></div><div><strong>'+places.length+'</strong><small>Ubicaciones</small></div></div></div>';
+ '<div class="service-metrics"><div><strong>'+svStaff.need+'</strong><small>Puestos</small></div><div><strong>'+assigned.length+'</strong><small>Asignados</small></div><div class="'+(totalUnfilled?'warn':'')+'"><strong>'+totalUnfilled+'</strong><small>Sin cubrir</small></div><div><strong>'+assigned.filter(a=>a.checkIn&&!a.checkOut).length+'</strong><small>Presentes ahora</small></div></div></div>';
  let body='';
  if(serviceTab==='planning'){
   const allDates=[...new Set([sv.date,...days.map(d=>d.date),...blocks.map(b=>b.date),...positions.map(l=>l.date)].filter(Boolean))].sort();
@@ -359,6 +332,8 @@ function serviceWorkspacePage(){
    button('service-place-remove','Eliminar','trash','data-id="'+esc(p.id)+'"','')+'</div>'+
    '<details><summary>Ver mapa</summary><iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa de '+esc(p.name)+'" src="'+esc(src)+'"></iframe></details></section>';
   }).join('')+'</div>':'<div class="panel empty">Añade tu primera ubicación. Puedes buscarla en Google Maps y guardar sus datos.</div>');
+ }else if(serviceTab==='closing'){
+  body=serviceClosingTab(sv);
  }else{
   const allUsers=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
   body='<div class="service-section-header"><div><h3>Coordinación por día y turno</h3><p>Asigna Crew Heads y coordinadores normales desde cada tipo de servicio. Los permisos se limitan al bloque elegido.</p></div>'+
@@ -486,22 +461,183 @@ function ordersPage(){
  return '<tr><td><strong>'+esc(name('services',l.serviceId))+'</strong></td><td>'+esc(l.date)+' '+esc(l.start)+'–'+esc(l.end)+'</td><td>'+esc(l.role)+'<small>'+esc(l.serviceType)+' · '+esc(l.team)+'</small></td><td>'+(a?esc(name('workers',a.workerId)):'<strong>Por cubrir</strong>')+'</td><td><div class="row-actions">'+(a?action('view','Ver trabajador',a.id,'assignments'):button('assign-slot','Asignar trabajador','plus','data-id="'+esc(l.id)+'"',''))+action('edit','Editar plaza',l.id,'orderLines','edit')+'</div></td></tr>';
  }));
 }
+
+/* ---------- NOVA Crew · mejoras de gestión (v18) ---------- */
+let serviceScope='active',incidentTab='open',msgPeer='',availWeek='';
+const svcPositions=id=>list('orderLines').filter(l=>l.serviceId===id&&l.status!=='cancelled');
+const svcAssigned=id=>list('assignments').filter(a=>a.serviceId===id&&a.status!=='rejected');
+function staffing(s){
+ const pos=svcPositions(s.id),as=svcAssigned(s.id);
+ const missing=pos.length?pos.filter(l=>!as.some(a=>a.orderLineId===l.id)).length:Math.max(0,(Number(s.required)||0)-as.length);
+ const need=as.length+missing;
+ return {assigned:as.length,need,missing,pct:need?Math.round(as.length/need*100):100,present:as.filter(a=>a.checkIn&&!a.checkOut).length,finished:as.filter(a=>a.checkOut).length,pending:as.filter(a=>a.status==='pending').length};
+}
+function progress(st,compact=false){return `<div class="staff-progress ${st.missing?'warn':'ok'}" title="${st.assigned} de ${st.need} puestos cubiertos"><i style="width:${st.pct}%"></i></div>${compact?'':`<small>${st.assigned}/${st.need} cubiertos${st.missing?' · faltan '+st.missing:''}</small>`}`;}
+const settingsIncomplete=()=>{const s=data.settings||{};return !s.name||!s.taxId||!s.address;};
+const invoiceOpen=i=>i.status!=='draft'&&(i.paid||0)<i.total;
+const invoiceOverdue=i=>invoiceOpen(i)&&i.dueDate<day();
+const seenKey=()=>'nova-msg-seen-'+(data.user?.id||'');
+function messagesSeen(){try{return localStorage.getItem(seenKey())||''}catch{return ''}}
+function markMessagesSeen(){try{localStorage.setItem(seenKey(),new Date().toISOString())}catch{}}
+function unreadMessages(){const seen=messagesSeen(),me=data.user?.id;return list('messages').filter(m=>m.senderId!==me&&find('users',m.senderId)?.role!=='manager'&&m.createdAt>seen);}
+const openIncidents=()=>list('incidents').filter(i=>i.status!=='resolved');
+const isoAdd=(d,n)=>{const x=new Date(d+'T12:00:00Z');x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10);};
+const relDay=d=>d===day()?'Hoy':d===isoAdd(day(),1)?'Mañana':fmt(d);
+
+function dashboard(){
+ const active=list('services').filter(s=>!['completed','cancelled'].includes(s.status));
+ const upcoming=active.filter(s=>s.endDate>=day()).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+ const today=upcoming.filter(s=>s.date<=day()&&s.endDate>=day());
+ const soon=upcoming.filter(s=>s.date<=isoAdd(day(),14));
+ const as=list('assignments'),pending=as.filter(a=>a.status==='pending');
+ const missing=soon.reduce((n,s)=>n+staffing(s).missing,0);
+ const invoices=list('invoices'),receivable=invoices.filter(invoiceOpen),overdue=invoices.filter(invoiceOverdue);
+ const receivableTotal=receivable.reduce((n,i)=>n+i.total-(i.paid||0),0);
+ const stats=stat('Servicios activos',upcoming.length,`${today.length} hoy · ${upcoming.length-today.length} próximos`,'briefcase',true)+
+  stat('Puestos sin cubrir',missing,'En los próximos 14 días','users')+
+  stat('Confirmaciones pendientes',pending.length,'Turnos sin respuesta del trabajador','clock')+
+  stat('Pendiente de cobro',euro(receivableTotal),overdue.length?`${overdue.length} factura(s) vencida(s)`:`${receivable.length} factura(s) emitidas`,'euro');
+ const staleOpen=as.filter(a=>a.checkIn&&!a.checkOut&&(a.endDate||a.date)<day());
+ const unsettled=list('services').filter(s=>s.status==='completed'&&s.settlementStatus!=='confirmed');
+ const acceptedQuotes=list('quotes').filter(q=>q.status==='accepted'&&!q.serviceId);
+ const expiring=list('documents').filter(d=>d.expires&&d.expires<=isoAdd(day(),30));
+ const unread=unreadMessages(),incidents=openIncidents(),toClose=active.filter(s=>s.endDate<day());
+ const attention=[
+  [incidents.length,'Incidencias abiertas','Comunicadas por coordinadores','info','data-page="incidents"'],
+  [missing,'Puestos sin cubrir','Servicios de los próximos 14 días','users','data-page="services"'],
+  [toClose.length,'Servicios por cerrar','Ya terminaron y siguen sin marcar como finalizados','briefcase','data-action="svc-scope-go" data-scope="past"'],
+  [staleOpen.length,'Fichajes sin cerrar','Entradas de días anteriores sin salida','clock','data-page="services"'],
+  [unsettled.length,'Servicios por liquidar','Finalizados sin liquidación confirmada','check','data-page="closed"'],
+  [overdue.length,'Facturas vencidas',euro(overdue.reduce((n,i)=>n+i.total-(i.paid||0),0))+' pendientes','euro','data-action="go-filter" data-target="invoices" data-filter="overdue"'],
+  [acceptedQuotes.length,'Presupuestos aceptados','Sin servicio creado','file','data-page="quotes"'],
+  [expiring.length,'Documentos por revisar','Caducados o vencen en 30 días','folder','data-page="documents"'],
+  [unread.length,'Mensajes nuevos','De trabajadores','message','data-page="messages"']
+ ].filter(x=>x[0]>0);
+ const todayPanel=today.length?today.map(s=>{const st=staffing(s);return `<button class="list-item list-link" data-action="open-service" data-id="${esc(s.id)}"><div class="live-badge"><span class="live-dot"></span>${s.start}</div><div class="grow"><p>${esc(s.name)}</p><small>${esc(s.venue)} · ${s.start}–${s.end}</small></div><div class="today-count"><strong>${st.present}</strong><small>presentes</small></div><div class="today-count"><strong>${st.finished}</strong><small>salidas</small></div><div class="today-count"><strong>${st.assigned}</strong><small>asignados</small></div>${icon('chevron')}</button>`}).join(''):`<p class="panel-empty">Hoy no hay servicios en curso.</p>`;
+ const upcomingPanel=upcoming.filter(s=>!today.includes(s)).slice(0,7).map(s=>{const st=staffing(s);return `<button class="list-item list-link" data-action="open-service" data-id="${esc(s.id)}"><div class="date-tile">${Number(s.date.slice(8))}<small>${new Date(s.date+'T12:00:00').toLocaleDateString('es-ES',{month:'short'})}</small></div><div class="grow"><p>${esc(s.name)}</p><small>${relDay(s.date)} · ${esc(s.venue)} · ${s.start}–${s.end}</small></div><div class="progress-cell">${progress(st)}</div>${badge(s.status)}</button>`}).join('');
+ $('#page-actions').innerHTML=button('quote-plan-new','Nuevo presupuesto','file','','')+button('service-wizard','Crear servicio','plus');
+ $('#content').innerHTML=`${settingsIncomplete()?`<div class="notice notice-row">${icon('info')}<span>Completa los <b>datos fiscales de la empresa</b> antes de emitir presupuestos o facturas.</span><button class="btn small" data-page="settings">Ir a Ajustes</button></div>`:''}<div class="stats">${stats}</div>
+ <div class="dashboard-grid"><div>
+  <div class="panel"><div class="panel-head"><div><h3>Hoy · ${new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</h3><p>Asistencia en tiempo real de los servicios en curso</p></div></div>${todayPanel}</div>
+  <div class="panel"><div class="panel-head"><div><h3>Próximos servicios</h3><p>Cobertura de personal por servicio</p></div><button class="text-btn" data-page="services">Ver todos ${icon('arrow')}</button></div>${upcomingPanel||empty('Sin servicios próximos','Los servicios que organices aparecerán aquí.',button('service-wizard','Crear servicio','plus'))}</div>
+ </div><div>
+  <div class="panel"><div class="panel-head"><div><h3>Requiere atención</h3><p>${attention.length?'Tareas pendientes de revisar':'Todo al día'}</p></div>${icon('info')}</div>${attention.length?attention.map(([n,t,d,ic,attr])=>`<button class="list-item list-link attention" ${attr}><span class="attention-icon">${icon(ic)}</span><div class="grow"><p>${t}</p><small>${esc(d)}</small></div><strong class="attention-count">${n}</strong></button>`).join(''):`<p class="panel-empty">${icon('check')} No hay tareas pendientes.</p>`}</div>
+  <div class="panel"><div class="panel-head"><h3>Accesos rápidos</h3></div><div class="quick-grid">${button('service-wizard','Crear servicio','briefcase','','')}${button('quote-plan-new','Presupuesto','file','','')}${button('new','Trabajador','users','data-kind="workers"','')}${button('new','Factura','euro','data-kind="invoices"','')}${button('navigate','Disponibilidad','availability','data-page="availability"','')}${button('navigate','Calendario','calendar','data-page="calendar"','')}</div></div>
+ </div></div>`;
+}
+
+function managerIncidentsPage(){
+ const all=list('incidents').sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+ const rows=all.filter(i=>incidentTab==='all'||(incidentTab==='open'?i.status!=='resolved':i.status==='resolved'));
+ const tabs=[['open','Abiertas',all.filter(i=>i.status!=='resolved').length],['resolved','Resueltas',all.filter(i=>i.status==='resolved').length],['all','Todas',all.length]];
+ $('#content').innerHTML=`<div class="segmented">${tabs.map(([k,l,n])=>`<button class="${incidentTab===k?'selected':''}" data-action="incident-tab" data-tab="${k}">${l}<b>${n}</b></button>`).join('')}</div>`+
+ (rows.length?table(['Fecha','Servicio','Trabajador','Incidencia','Comunicada por','Estado',''],rows.map(i=>`<tr><td>${stamp(i.createdAt)}</td><td><button class="service-title-link" data-action="open-service" data-id="${esc(i.serviceId)}">${esc(name('services',i.serviceId))}</button></td><td>${esc(i.workerId?name('workers',i.workerId):'General')}</td><td class="wrap-cell">${esc(i.description)}</td><td>${esc(name('users',i.createdBy))}</td><td>${i.status==='resolved'?`<span class="badge completed">Resuelta</span><small>${stamp(i.resolvedAt)}</small>`:'<span class="badge overdue">Abierta</span>'}</td><td>${i.status==='resolved'?'':button('incident-resolve','Resolver','check',`data-id="${esc(i.id)}"`,' small')}</td></tr>`)):`<div class="panel">${empty(incidentTab==='open'?'Sin incidencias abiertas':'Sin incidencias','Las incidencias que registren los coordinadores desde Crew Control aparecerán aquí.')}</div>`);
+}
+
+function managerMessagesPage(){
+ const me=data.user.id,msgs=list('messages').sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
+ const peerOf=m=>find('users',m.senderId)?.role==='manager'?m.recipientId:m.senderId;
+ const seen=messagesSeen();
+ const workers=list('users').filter(u=>u.active&&u.role!=='manager');
+ const threads=new Map();for(const m of msgs){const p=peerOf(m);if(!threads.has(p))threads.set(p,[]);threads.get(p).push(m);}
+ const order=[...threads.keys()].sort((a,b)=>threads.get(b).at(-1).createdAt.localeCompare(threads.get(a).at(-1).createdAt));
+ if(!msgPeer||(!threads.has(msgPeer)&&!workers.some(u=>u.id===msgPeer)))msgPeer=order[0]||'';
+ const peerList=order.map(id=>{const t=threads.get(id),last=t.at(-1),unread=t.filter(m=>m.senderId===id&&m.createdAt>seen).length;return `<button class="thread ${id===msgPeer?'selected':''}" data-action="msg-peer" data-id="${esc(id)}"><span class="avatar-sm">${esc(initials(name('users',id)))}</span><span class="grow"><strong>${esc(name('users',id))}</strong><small>${esc(last.content.slice(0,60))}</small></span><span class="thread-meta"><small>${stamp(last.createdAt)}</small>${unread?`<b>${unread}</b>`:''}</span></button>`}).join('');
+ const thread=(threads.get(msgPeer)||[]).map(m=>{const mine=find('users',m.senderId)?.role==='manager';return `<div class="bubble ${mine?'mine':''}"><p>${esc(m.content)}</p><small>${mine?esc(name('users',m.senderId))+' · ':''}${stamp(m.createdAt)}</small></div>`}).join('');
+ const start=`<select id="msg-new-peer" aria-label="Nueva conversación"><option value="">Nueva conversación…</option>${workers.filter(u=>!threads.has(u.id)).map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}</select>`;
+ $('#content').innerHTML=`<div class="chat-layout panel"><aside class="chat-threads"><div class="chat-threads-head">${start}</div>${peerList||'<p class="panel-empty">Todavía no hay conversaciones.</p>'}</aside><section class="chat-main">${msgPeer?`<header class="chat-head"><span class="avatar-sm">${esc(initials(name('users',msgPeer)))}</span><div><strong>${esc(name('users',msgPeer))}</strong><small>Conversación privada con Gestoría</small></div></header><div class="chat-scroll" id="chat-scroll">${thread||'<p class="panel-empty">Escribe el primer mensaje.</p>'}</div><form id="manager-message-form" class="chat-compose"><input type="hidden" name="recipientId" value="${esc(msgPeer)}"><textarea name="content" maxlength="2000" required placeholder="Escribe un mensaje…" rows="2"></textarea><button type="submit" class="btn primary">${icon('arrow')}Enviar</button></form>`:`<div class="panel-empty">Selecciona o inicia una conversación.</div>`}</section></div>`;
+ markMessagesSeen();renderNav();
+ const sc=$('#chat-scroll');if(sc)sc.scrollTop=sc.scrollHeight;
+ const sel=$('#msg-new-peer');if(sel)sel.onchange=()=>{if(sel.value){msgPeer=sel.value;managerMessagesPage();$('#manager-message-form textarea')?.focus();}};
+ const f=$('#manager-message-form');if(f){const ta=f.querySelector('textarea');ta.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))f.requestSubmit();};f.onsubmit=async ev=>{ev.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;try{await api('message-send',Object.fromEntries(new FormData(f)));await load();toast('Mensaje enviado')}catch(e){toast(e.message,true)}finally{b.disabled=false}};}
+}
+const initials=n=>String(n||'?').split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+
 function closedPage(){
  const services=list('services').filter(s=>['completed','cancelled'].includes(s.status)).sort((a,b)=>b.date.localeCompare(a.date));
- $('#page-actions').innerHTML='';
- $('#content').innerHTML=table(['Servicio','Cliente','Fecha','Liquidación',''],services.map(s=>'<tr><td><strong>'+esc(s.name)+'</strong></td><td>'+esc(name('clients',s.clientId))+'</td><td>'+esc(s.date)+'</td><td>'+(s.settlementStatus==='confirmed'?'Confirmada · '+euro(s.settlementCost):'Pendiente')+'</td><td>'+action('view','Ver servicio',s.id,'services')+'</td></tr>'));
+ const invoiceFor=id=>list('invoices').find(i=>i.serviceId===id);
+ const pend=services.filter(s=>s.status==='completed'&&s.settlementStatus!=='confirmed').length;
+ const revenue=services.reduce((n,s)=>n+(s.settlementRevenue||0),0),cost=services.reduce((n,s)=>n+(s.settlementCost||0),0);
+ $('#content').innerHTML=`<div class="stats">${stat('Servicios cerrados',services.length,'Finalizados y cancelados','check',true)+stat('Por liquidar',pend,'Finalizados sin confirmar','clock')+stat('Venta liquidada',euro(revenue),'Según horas facturables','euro')+stat('Margen bruto',euro(revenue-cost),revenue?Math.round((revenue-cost)/revenue*100)+' % sobre venta':'Sin liquidaciones','chart')}</div>`+
+ (services.length?table(['Servicio','Cliente','Fecha','Liquidación','Factura',''],services.map(s=>{const inv=invoiceFor(s.id);return `<tr><td><button class="service-title-link" data-action="open-service" data-id="${esc(s.id)}">${esc(s.name)}</button><small>${esc(s.venue)}</small></td><td>${esc(name('clients',s.clientId))}</td><td>${fmt(s.date)}</td><td>${s.status==='cancelled'?badge('cancelled'):s.settlementStatus==='confirmed'?`<span class="badge completed">Confirmada</span><small>Coste ${euro(s.settlementCost)} · Venta ${euro(s.settlementRevenue)}</small>`:'<span class="badge pending">Pendiente</span>'}</td><td>${inv?`<button class="text-btn" data-action="view" data-kind="invoices" data-id="${esc(inv.id)}">${esc(inv.number||'Borrador')}</button>`:'—'}</td><td><div class="row-actions">${s.status==='completed'&&s.settlementStatus!=='confirmed'?button('settlement-confirm','Liquidar','check',`data-id="${esc(s.id)}"`,' small'):''}${s.status==='completed'&&!inv?button('invoice-service','Facturar','euro',`data-id="${esc(s.id)}"`,' small'):''}${action('open-service','Abrir servicio',s.id,'','chevron')}</div></td></tr>`})):`<div class="panel">${empty('Sin servicios cerrados','Cuando marques un servicio como finalizado aparecerá aquí para liquidarlo y facturarlo.')}</div>`);
 }
+
+function serviceClosingTab(sv){
+ const as=list('assignments').filter(a=>a.serviceId===sv.id);
+ const st=staffing(sv),openClock=as.filter(a=>a.checkIn&&!a.checkOut&&!a.noShow).length,pending=as.filter(a=>a.status==='pending').length;
+ const rows=as.filter(a=>a.status!=='rejected'||a.noShowChargeApproved).map(a=>{const wh=Number(a.workerUnits??a.workerHours??a.hours??0),ch=Number(a.clientUnits??a.billableHours??a.hours??0);return {a,wh,ch,cost:wh*(a.costRate||0),sale:ch*(a.chargeRate||0)};});
+ const cost=rows.reduce((n,r)=>n+r.cost,0),sale=rows.reduce((n,r)=>n+r.sale,0),margin=sale-cost;
+ const inv=list('invoices').filter(i=>i.serviceId===sv.id);
+ const locked=sv.settlementStatus==='confirmed';
+ const statuses2=[['planned','Planificado'],['confirmed','Confirmado'],['in_progress','En curso'],['completed','Finalizado'],['cancelled','Cancelado']];
+ const checks=[[st.missing===0,st.missing?`${st.missing===1?'Falta 1 puesto':'Faltan '+st.missing+' puestos'} por cubrir`:'Todos los puestos cubiertos'],[pending===0,pending?`${pending} confirmaciones pendientes`:'Todas las asignaciones respondidas'],[openClock===0,openClock?`${openClock} fichajes abiertos sin salida`:'Sin fichajes abiertos'],[!settingsIncomplete(),settingsIncomplete()?'Faltan datos fiscales de la empresa':'Datos fiscales completos']];
+ return `<div class="service-section-header"><div><h3>Estado, cierre y facturación</h3><p>Revisa la cobertura, cierra los fichajes, confirma la liquidación y prepara la factura.</p></div></div>
+ <div class="closing-grid"><section class="panel pad"><h4>Estado del servicio</h4><div class="status-steps">${statuses2.map(([k,l])=>`<button class="${sv.status===k?'selected':''} ${k}" data-action="service-status" data-id="${esc(sv.id)}" data-status="${k}" ${locked?'disabled':''}>${l}</button>`).join('')}</div>${locked?'<p class="footnote">Servicio liquidado: el estado queda bloqueado.</p>':''}
+ <h4 style="margin-top:20px">Comprobaciones</h4><ul class="checklist">${checks.map(([ok,t])=>`<li class="${ok?'ok':'ko'}">${icon(ok?'check':'info')}${t}</li>`).join('')}</ul></section>
+ <section class="panel pad"><h4>Resumen económico previsto</h4><div class="money-grid"><div><small>Coste bruto personal</small><strong>${euro(cost)}</strong></div><div><small>Venta a cliente</small><strong>${euro(sale)}</strong></div><div><small>Margen bruto</small><strong class="${margin<0?'neg':''}">${euro(margin)}</strong><small>${sale?Math.round(margin/sale*100)+' %':'—'}</small></div></div>
+ <div class="detail-actions">${locked?`<span class="badge completed">Liquidación confirmada · ${stamp(sv.settledAt)}</span>`:button('settlement-confirm','Confirmar liquidación','check',`data-id="${esc(sv.id)}" ${sv.status!=='completed'?'disabled title="Marca el servicio como finalizado"':''}`,'')}${inv.length?inv.map(i=>button('view',(i.number||'Borrador de factura')+' · '+euro(i.total),'euro',`data-kind="invoices" data-id="${esc(i.id)}"`,'')).join(''):button('invoice-service','Crear borrador de factura','euro',`data-id="${esc(sv.id)}"`)}</div>
+ <p class="footnote">Importes brutos según horas registradas y tarifas de cada asignación; no incluyen cotizaciones de empresa. La factura se crea como borrador y debe revisarse antes de emitirla.</p></section></div>
+ ${rows.length?table(['Trabajador','Categoría','Horas trabajador','Coste','Horas cliente','Venta','Fichaje'],rows.map(({a,wh,ch,cost,sale})=>`<tr><td><strong>${esc(name('workers',a.workerId))}</strong>${a.noShow?'<small>No presentado</small>':''}</td><td>${esc(a.role||'—')}</td><td>${wh.toLocaleString('es-ES')} h<small>${euro(a.costRate)}/u</small></td><td>${euro(cost)}</td><td>${ch.toLocaleString('es-ES')} h<small>${euro(a.chargeRate)}/u</small></td><td>${euro(sale)}</td><td>${a.checkIn?stamp(a.checkIn)+' → '+stamp(a.checkOut):'—'}<div class="row-actions">${action('edit','Editar asignación',a.id,'assignments','edit')}${button('attendance-service-edit','Fichaje','clock',`data-id="${esc(a.id)}"`,' small')}</div></td></tr>`).concat([`<tr class="total-row"><td colspan="3"><strong>Total</strong></td><td><strong>${euro(cost)}</strong></td><td></td><td><strong>${euro(sale)}</strong></td><td></td></tr>`])):'<div class="panel empty">Todavía no hay personal asignado.</div>'}`;
+}
+
+const weekdayKeys=['mon','tue','wed','thu','fri','sat','sun'];
+function mondayOf(d){const x=new Date(d+'T12:00:00Z'),w=(x.getUTCDay()+6)%7;x.setUTCDate(x.getUTCDate()-w);return x.toISOString().slice(0,10);}
+function teamAvailabilityPage(){
+ if(!availWeek)availWeek=mondayOf(day());
+ const days=Array.from({length:7},(_,i)=>isoAdd(availWeek,i));
+ const q=query.toLowerCase();
+ const workers=list('workers').filter(w=>w.active!==false&&(!q||[w.name,w.specialty].join(' ').toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name));
+ const avail=list('availability'),weekly=data.weeklyAvailabilityRows||[],as=list('assignments').filter(a=>a.status!=='rejected');
+ const free=Object.fromEntries(days.map(d=>[d,0]));
+ const cell=(w,d,i)=>{
+  const shifts=as.filter(a=>a.workerId===w.id&&a.date<=d&&(a.endDate||a.date)>=d);
+  if(shifts.length)return `<td class="av busy">${shifts.map(a=>`<button data-action="open-service" data-id="${esc(a.serviceId)}" title="${esc(name('services',a.serviceId))}"><b>${esc(name('services',a.serviceId))}</b><small>${a.start}–${a.end}${a.status==='pending'?' · sin confirmar':''}</small></button>`).join('')}</td>`;
+  const r=avail.find(x=>x.workerId===w.id&&x.date===d);
+  if(r){if(r.status==='unavailable')return `<td class="av no"><span>No disponible</span>${r.notes?`<small>${esc(r.notes)}</small>`:''}</td>`;free[d]++;return `<td class="av yes"><span>Disponible</span><small>${r.slots?.length?hourRanges(r.slots):'Todo el día'}</small></td>`;}
+  const wk=weekly.find(x=>x.workerId===w.id)?.days?.[weekdayKeys[i]];
+  const slots=Array.isArray(wk?.slots)?wk.slots:wk?.available?[1]:[];
+  if(slots.length){free[d]++;return `<td class="av habit"><span>Habitual</span><small>${Array.isArray(wk.slots)?hourRanges(wk.slots):esc((wk.start||'')+'–'+(wk.end||''))}</small></td>`;}
+  return '<td class="av none"><span>—</span></td>';
+ };
+ const body=workers.map(w=>`<tr><th scope="row"><button class="service-title-link" data-action="view" data-kind="workers" data-id="${esc(w.id)}">${esc(w.name)}</button><small>${esc(w.specialty||'')}</small></th>${days.map((d,i)=>cell(w,d,i)).join('')}</tr>`).join('');
+ const label=new Date(availWeek+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})+' – '+new Date(days[6]+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+ $('#page-actions').innerHTML=`<div class="calendar-controls"><button class="icon-btn" data-action="avail-week" data-dir="-1" aria-label="Semana anterior">${icon('left')}</button><strong>${label}</strong><button class="icon-btn" data-action="avail-week" data-dir="1" aria-label="Semana siguiente">${icon('chevron')}</button><button class="btn small" data-action="avail-week" data-dir="0">Hoy</button></div>`+button('availability','Registrar disponibilidad','plus','','');
+ $('#content').innerHTML=`<div class="toolbar"><div class="searchbox">${icon('search')}<input id="search" aria-label="Buscar trabajador" placeholder="Buscar trabajador o especialidad…" value="${esc(query)}"></div><div class="legend"><span class="lg busy">Asignado</span><span class="lg yes">Disponible</span><span class="lg habit">Habitual</span><span class="lg no">No disponible</span></div></div>
+ <div class="panel"><div class="table-wrap"><table class="avail-table"><thead><tr><th>Trabajador</th>${days.map(d=>`<th class="${d===day()?'today':''}">${new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric'})}<small>${free[d]} libres</small></th>`).join('')}</tr></thead><tbody>${body||`<tr><td colspan="8">${empty('Sin trabajadores','Añade fichas de personal para planificar su disponibilidad.')}</td></tr>`}</tbody></table></div></div><p class="footnote">La disponibilidad puntual prevalece sobre la semana habitual. Los trabajadores la indican desde su área de empleado.</p>`;
+ const input=$('#search');input.oninput=()=>{query=input.value;const p=input.selectionStart;teamAvailabilityPage();$('#search').focus();$('#search').setSelectionRange(p,p);};
+}
+function hourRanges(slots){const s=[...new Set(slots.map(Number))].sort((a,b)=>a-b),out=[];let st=null,prev=null;for(const h of s){if(st===null){st=h;prev=h;continue}if(h===prev+1){prev=h;continue}out.push([st,prev]);st=h;prev=h;}if(st!==null)out.push([st,prev]);if(out.length===1&&out[0][0]===0&&out[0][1]===23)return 'Todo el día';return out.map(([a,b])=>String(a).padStart(2,'0')+'–'+String(b+1).padStart(2,'0')).join(', ');}
+
+function globalSearch(){
+ modal('Buscar en NOVA Crew',`<input id="gs-input" placeholder="Servicio, trabajador, cliente, factura…" autocomplete="off" aria-label="Buscar"><div id="gs-results" class="gs-results"><p class="footnote">Escribe al menos 2 caracteres. Atajo: Ctrl + K.</p></div>`);
+ const input=$('#gs-input'),out=$('#gs-results');
+ const run=()=>{const q=input.value.trim().toLowerCase();if(q.length<2){out.innerHTML='<p class="footnote">Escribe al menos 2 caracteres. Atajo: Ctrl + K.</p>';return}
+  const has=(...v)=>v.filter(Boolean).join(' ').toLowerCase().includes(q);
+  const groups=[
+   ['Servicios',list('services').filter(s=>has(s.name,s.venue,name('clients',s.clientId))).slice(0,8).map(s=>[`data-action="open-service" data-id="${esc(s.id)}"`,s.name,`${fmt(s.date)} · ${s.venue}`,'briefcase'])],
+   ['Trabajadores',list('workers').filter(w=>has(w.name,w.specialty,w.email,w.phone,w.taxId)).slice(0,8).map(w=>[`data-action="view" data-kind="workers" data-id="${esc(w.id)}"`,w.name,[w.specialty,w.phone].filter(Boolean).join(' · '),'users'])],
+   ['Clientes',list('clients').filter(c=>has(c.name,c.taxId,c.email,c.contact)).slice(0,6).map(c=>[`data-action="view" data-kind="clients" data-id="${esc(c.id)}"`,c.name,c.taxId||'','building'])],
+   ['Presupuestos',list('quotes').filter(r=>has(r.number,r.serviceName,name('clients',r.clientId))).slice(0,6).map(r=>[`data-action="view" data-kind="quotes" data-id="${esc(r.id)}"`,r.number||'Presupuesto en borrador',`${name('clients',r.clientId)} · ${euro(r.total)}`,'file'])],
+   ['Facturas',list('invoices').filter(r=>has(r.number,name('clients',r.clientId),name('services',r.serviceId))).slice(0,6).map(r=>[`data-action="view" data-kind="invoices" data-id="${esc(r.id)}"`,r.number||'Factura en borrador',`${name('clients',r.clientId)} · ${euro(r.total)}`,'euro'])]
+  ].filter(g=>g[1].length);
+  out.innerHTML=groups.length?groups.map(([t,items])=>`<div class="gs-group"><small>${t}</small>${items.map(([attr,title,sub,ic])=>`<button class="gs-item" ${attr}>${icon(ic)}<span><strong>${esc(title)}</strong><small>${esc(sub)}</small></span></button>`).join('')}</div>`).join(''):'<p class="footnote">Sin resultados.</p>';
+ };
+ input.oninput=run;
+ input.onkeydown=e=>{if(e.key==='Enter'){const first=out.querySelector('.gs-item');if(first){e.preventDefault();first.click();}}};
+}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&data.user&&manager()){e.preventDefault();globalSearch();}});
 
 function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c.map(s=>`<td>${s}</td>`).join('')}</tr>`;
  if(page==='tariffs')html=table(['Categoría','Grupo / Unidad','Pago bruto','Cliente','Mínimo',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.id)}</small>`,esc(r.group)+'<small>'+esc(r.unit==='day'?'Por show/día':'Por hora')+'</small>',r.workerRate==null?'Pendiente':euro(r.workerRate),r.clientRate==null?'Pendiente':euro(r.clientRate),r.minHours+' h',action('edit','Modificar tarifa',r.id,'tariffs','edit')])));
   if(['clients','workers'].includes(page))html=table([page==='workers'?'Trabajador':'Cliente','Contacto',page==='workers'?'Especialidad':'NIF','Estado',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.email)}</small>`,esc(r.phone||'—'),esc(page==='workers'?r.specialty:r.taxId),badge(r.active===false?'unavailable':'available'),rowActions(r,page)])));
- if(page==='services')html=table(['Servicio','Cliente / Recinto','Fecha','Personal','Estado',''],rows.map(r=>tr([`<button class="service-title-link" data-action="open-service" data-id="${esc(r.id)}">${esc(r.name)}</button><small>${r.start}–${r.end}</small>`,`${manager()?esc(name('clients',r.clientId))+'<small>':''}${esc(r.venue)}${manager()?'</small>':''}`,fmt(r.date),`${list('assignments').filter(a=>a.serviceId===r.id&&a.status!=='rejected').length}${manager()?' / '+r.required:''}`,badge(r.status),rowActions(r,page)])));
+ if(page==='services')html=table(['Servicio','Cliente / Recinto','Fechas','Cobertura de personal','Estado',''],rows.sort((a,b)=>serviceScope==='past'?(b.date+b.start).localeCompare(a.date+a.start):(a.date+a.start).localeCompare(b.date+b.start)).map(r=>tr([`<button class="service-title-link" data-action="open-service" data-id="${esc(r.id)}">${esc(r.name)}</button><small>${r.start}–${r.end}</small>`,`${esc(name('clients',r.clientId))}<small>${esc(r.venue)}</small>`,`${relDay(r.date)}${r.endDate!==r.date?`<small>hasta ${fmt(r.endDate)}</small>`:''}`,`<div class="progress-cell">${progress(staffing(r))}</div>`,badge(r.status),rowActions(r,page)])));
  if(page==='assignments')html=table(['Trabajador / Servicio','Horario','Equipo','Confirmación','Entrada / Salida',''],rows.map(r=>tr([`<strong>${esc(name('workers',r.workerId))}</strong><small>${esc(name('services',r.serviceId))}</small>`,`${fmt(r.date)}<small>${r.start}–${r.end} · ${r.hours} h</small>`,`${esc(r.team||'—')}<small>${esc(r.role)}</small>`,badge(r.status),`${stamp(r.checkIn)}<small>${stamp(r.checkOut)}</small>`,rowActions(r,page)])));
  if(['quotes','invoices'].includes(page))html=table(['Documento','Cliente','Fecha / Vencimiento','Total','Pendiente','Estado',''],rows.map(r=>tr([`<strong>${esc(r.number||'Borrador')}</strong><small>${esc(name('services',r.serviceId))}</small>`,esc(name('clients',r.clientId)),`${fmt(r.date)}<small>${fmt(r.dueDate)}</small>`,euro(r.total),page==='invoices'?euro(r.total-r.paid):'—',badge(page==='invoices'&&r.status!=='draft'&&r.paid<r.total&&r.dueDate<day()?'overdue':r.status),rowActions(r,page)])));
  if(page==='expenses')html=table(['Concepto','Proveedor','Fecha','Servicio','Importe','Estado',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong>`,esc(r.supplier),fmt(r.date),esc(name('services',r.serviceId)),euro(r.amount),badge(r.status),rowActions(r,page)])));
  if(page==='users')html=table(['Usuario','Nombre','Acceso','Trabajador','Estado',''],rows.map(r=>tr([`<strong>${esc(r.username)}</strong>`,esc(r.name),esc(({manager:'Gestor',coordinator:'Coordinador',worker:'Trabajador'})[r.role]),esc(name('workers',r.workerId)),badge(r.active?'available':'unavailable'),rowActions(r,page)])));
  if(page==='documents')html=table(['Documento','Trabajador / Cliente','Tipo','Subido','Caducidad',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${(r.size/1024).toFixed(0)} KB</small>`,`${esc(name('workers',r.workerId))}<small>${esc(name('clients',r.clientId))}</small>`,esc(r.type),fmt(r.createdAt),r.expires?`${fmt(r.expires)} ${r.expires<day()?badge('overdue'):''}`:'—',`<a class="icon-btn" href="/api/office/document?id=${encodeURIComponent(r.id)}" title="Descargar" aria-label="Descargar ${esc(r.name)}">${icon('download')}</a>`])));
- $('#content').innerHTML=toolbar(rows)+(rows.length?html:`<div class="panel">${empty(query||filter?'Sin resultados':'Todavía no hay registros',query||filter?'Prueba con otra búsqueda o cambia el filtro.':'Empieza añadiendo tu primer registro. Se guardará en tu espacio de trabajo.')}</div>`);
+ const scopeTabs=page==='services'&&manager()?`<div class="segmented">${[['active','Próximos y en curso'],['past','Finalizados y pasados'],['all','Todos']].map(([k,l])=>`<button class="${serviceScope===k?'selected':''}" data-action="svc-scope" data-scope="${k}">${l}<b>${list('services').filter(r=>k==='all'||(k==='active'?!['completed','cancelled'].includes(r.status)&&r.endDate>=day():['completed','cancelled'].includes(r.status)||r.endDate<day())).length}</b></button>`).join('')}</div>`:'';
+ $('#content').innerHTML=scopeTabs+toolbar(rows)+(rows.length?html:`<div class="panel">${empty(query||filter?'Sin resultados':'Todavía no hay registros',query||filter?'Prueba con otra búsqueda o cambia el filtro.':'Empieza añadiendo tu primer registro. Se guardará en tu espacio de trabajo.')}</div>`);
  const input=$('#search');input.oninput=()=>{query=input.value;const p=input.selectionStart;collection();$('#search').focus();$('#search').setSelectionRange(p,p);};$('#filter').onchange=e=>{filter=e.target.value;collection();};
 }
 function editor(kind,id='',preset={}){
@@ -595,11 +731,19 @@ function exportCSV(){const rows=filtered(page);if(!rows.length)return toast('No 
 function parseCSV(source){source=source.replace(/^\ufeff/,'');const delimiter=source.split('\n')[0].includes(';')?';':',';let rows=[],row=[],v='',quoted=false;for(let i=0;i<source.length;i++){const c=source[i];if(c==='"'){if(quoted&&source[i+1]==='"'){v+='"';i++;}else quoted=!quoted;}else if(c===delimiter&&!quoted){row.push(v);v='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&source[i+1]==='\n')i++;row.push(v);if(row.some(x=>x.trim()))rows.push(row);row=[];v='';}else v+=c;}if(quoted)throw new Error('El CSV contiene comillas sin cerrar.');row.push(v);if(row.some(x=>x.trim()))rows.push(row);return rows;}
 function importCSV(){const kind=page;modal('Importar '+(kind==='workers'?'trabajadores':'clientes'),`<div class="notice">Columnas: <b>name</b> (obligatoria), email, phone, taxId, address, ${kind==='workers'?'specialty, costRate':'contact, paymentDays'}. Máximo 200 filas por importación. Se crean fichas nuevas; revisa posibles duplicados.</div><input type="file" id="csv-file" accept=".csv,text/csv"><div id="import-preview"></div><div class="form-footer"><button class="btn" data-action="csv-template" data-kind="${kind}">Descargar plantilla</button><button class="btn primary" id="import-run" disabled>Importar</button></div>`);let prepared=[];$('#csv-file').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>1024*1024)throw new Error('CSV demasiado grande.');const csv=parseCSV(await file.text());const headers=csv.shift().map(x=>x.trim());if(!headers.includes('name'))throw new Error('Falta la columna name.');if(csv.length>200)throw new Error('Divide el archivo en bloques de hasta 200 filas.');prepared=csv.map(row=>Object.fromEntries(headers.map((h,i)=>[h,row[i]||''])));if(prepared.some(r=>!r.name.trim()))throw new Error('Hay filas sin nombre.');const duplicate=prepared.filter(r=>list(kind).some(x=>x.name.toLowerCase()===r.name.toLowerCase()||(r.taxId&&x.taxId===r.taxId)));if(duplicate.length)throw new Error('Ya existen '+duplicate.length+' fichas del archivo. Retíralas del CSV para evitar duplicados.');$('#import-preview').innerHTML=`<div class="notice">${prepared.length} fichas listas para importar.</div><div class="import-preview">${table(['Nombre','Correo','Móvil'],prepared.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.phone)}</td></tr>`))}</div>`;$('#import-run').disabled=!prepared.length;}catch(err){prepared=[];$('#import-run').disabled=true;$('#import-preview').innerHTML=`<div class="error">${esc(err.message)}</div>`;}};
  $('#import-run').onclick=async e=>{e.target.disabled=true;let saved=0;try{for(const row of prepared){await api('save',{kind,record:{...row,active:true}});saved++;}$('#modal').close();await load();toast(saved+' fichas importadas');}catch(err){prepared=prepared.slice(saved);$('#import-preview').innerHTML=`<div class="error">${saved} fichas guardadas. ${esc(err.message)}. Quedan ${prepared.length} sin importar.</div>`;await load();}finally{e.target.disabled=false;}};}
-async function runMutation(op,b,msg){if(busy)return;busy=true;try{await api(op,b);$('#modal').close();await load();toast(msg);}finally{busy=false;}}
+async function runMutation(op,b,msg){if(busy)return;busy=true;try{await api(op,b);$('#modal').close();await load();toast(msg);}catch(err){toast(err.message,true);}finally{busy=false;}}
 document.addEventListener('click',async e=>{const el=e.target.closest('[data-action],[data-page]');if(!el)return;const a=el.dataset.action,id=el.dataset.id,kind=el.dataset.kind;try{
  if(el.dataset.page){if(page==='service-workspace')history.replaceState(null,'',location.pathname+location.search);page=el.dataset.page;query='';filter='';document.body.classList.remove('nav-open');renderNav();render();if(!a||a==='navigate')return;}
  if(a==='service-home'){page='services';renderNav();return render()}
- if(a==='open-service')return openServicePage(id);
+ if(a==='svc-scope-go'){page='services';serviceScope=el.dataset.scope;query='';filter='';renderNav();return render()}
+ if(a==='svc-scope'){serviceScope=el.dataset.scope;return render()}
+ if(a==='incident-tab'){incidentTab=el.dataset.tab;return managerIncidentsPage()}
+ if(a==='msg-peer'){msgPeer=id;return managerMessagesPage()}
+ if(a==='go-filter'){page=el.dataset.target;query='';filter=el.dataset.filter||'';renderNav();return render()}
+ if(a==='avail-week'){const dir=Number(el.dataset.dir);availWeek=dir?isoAdd(availWeek||mondayOf(day()),7*dir):mondayOf(day());return teamAvailabilityPage()}
+ if(a==='service-status'){const sv=find('services',id);if(!sv||sv.status===el.dataset.status)return;return runMutation('save',{kind:'services',record:{...sv,status:el.dataset.status}},'Estado del servicio actualizado')}
+ if(a==='global-search')return globalSearch();
+ if(a==='open-service'){if($('#modal').open)$('#modal').close();return openServicePage(id);}
  if(a==='service-back'){history.replaceState(null,'',location.pathname+location.search);page='services';renderNav();return render()}
 
  if(a==='service-day-new')return serviceDayEditor();
@@ -642,7 +786,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
   if(a==='new'&&kind==='services')return serviceWizard();
  if(a==='edit'&&kind==='quotes'&&find('quotes',id)?.staffPlan?.length)return quotePlanEditor(id);
   if(a==='new'||a==='edit')return editor(kind,id);
- if(a==='view'&&kind==='services')return openServicePage(id);
+ if(a==='view'&&kind==='services'){if($('#modal').open)$('#modal').close();return openServicePage(id);}
  if(a==='view')return detail(kind,id);
  if(a==='close')return $('#modal').close();
  if(a==='refresh'){await load();return toast('Datos actualizados');}
@@ -706,7 +850,7 @@ function adjustAttendance(id){const r=find('assignments',id);const local=d=>d?ne
 $('#modal').addEventListener('close',stopCamera);
 
 document.addEventListener('input',e=>{if(e.target.closest('#invoice-lines'))lineTotal();});
-$('#close-modal').innerHTML=icon('close');$('#close-modal').onclick=()=>$('#modal').close();$('#refresh').innerHTML=icon('refresh');$('#menu').innerHTML=icon('menu');$('#logout').innerHTML=icon('logout');$('#menu').onclick=()=>document.body.classList.toggle('nav-open');$('#shade').onclick=()=>document.body.classList.remove('nav-open');
+$('#close-modal').innerHTML=icon('close');$('#close-modal').onclick=()=>$('#modal').close();$('#refresh').innerHTML=icon('refresh');$('#refresh').insertAdjacentHTML('beforebegin',`<button class="search-trigger" data-action="global-search" aria-label="Buscar (Ctrl+K)">${icon('search')}<span>Buscar…</span><kbd>Ctrl K</kbd></button>`);$('#menu').innerHTML=icon('menu');$('#logout').innerHTML=icon('logout');$('#menu').onclick=()=>document.body.classList.toggle('nav-open');$('#shade').onclick=()=>document.body.classList.remove('nav-open');
 $('#account').onclick=()=>{modal('Cambiar mi contraseña',formWrap(field('current','Contraseña actual','','password','required autocomplete="current-password"',true)+field('password','Nueva contraseña (mínimo 12 caracteres)','','password','required minlength="12" maxlength="128" autocomplete="new-password"',true)));formHandler(async b=>{await api('password',b);data={};$('#app').hidden=true;$('#auth').hidden=false;await authScreen();});};
 setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||$('#search')===document.activeElement)return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
 window.addEventListener('online',()=>{if(data.user)load().catch(e=>toast(e.message,true));});
