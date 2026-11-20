@@ -262,11 +262,30 @@ export class DemoState {
   async fetch(request){return this.api(request);}
 }
 
+async function crewControlApi(request,env,url){
+  const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+  if(!env.OFFICE_STATE)return reply({ok:false,error:'Almacenamiento de gestión no configurado.'},503);
+  const match=url.pathname.match(/^\/api\/services\/([^/]+)(\/pdf)?$/);
+  const format=url.searchParams.get('format')||'';
+  if(!match||match[2])return reply({ok:false,error:'En NOVA Crew el personal y los documentos los gestiona Gestoría.'},403);
+  const code=decodeURIComponent(match[1]);
+  if(request.headers.get('x-service-code')!==code)return reply({ok:false,error:'Código de servicio incorrecto'},403);
+  if(format==='presence')return reply({ok:true,serverTime:Math.floor(Date.now()/1000),devices:[]});
+  if(format==='activity')return reply({ok:true,events:[]});
+  if(format!=='snapshot'||!['GET','PUT'].includes(request.method))return reply({ok:false,error:'Operación no disponible en NOVA Crew.'},404);
+  const payload=request.method==='PUT'?await request.json().catch(()=>null):null;
+  const forward=new Request(url.origin+'/api/office/crew-snapshot',{method:'POST',headers:{cookie:request.headers.get('cookie')||'','content-type':'application/json',...(request.headers.get('origin')?{origin:request.headers.get('origin')}:{})},body:JSON.stringify({code,mode:request.method==='PUT'?'put':'get',payload})});
+  return env.OFFICE_STATE.get(env.OFFICE_STATE.idFromName('nova-office-production-v1')).fetch(forward);
+}
+
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
     let response;
-    if(url.pathname.startsWith('/api/office/')){
+    if(url.pathname.startsWith('/api/services')||url.pathname.startsWith('/api/manager/')){
+      // Original Crew Control v11.2.46 API, served by the NOVA bridge for the assigned Crew Head.
+      response=await crewControlApi(request,env,url);
+    }else if(url.pathname.startsWith('/api/office/')){
       if(!env.OFFICE_STATE)return bad('Almacenamiento de gestión no configurado.',503);
       response=await env.OFFICE_STATE.get(env.OFFICE_STATE.idFromName('nova-office-production-v1')).fetch(request);
     }else if(url.pathname==='/api'){
@@ -284,7 +303,12 @@ export default {
     safe.headers.set('Permissions-Policy','camera=(self), geolocation=(self), microphone=()');
     safe.headers.set('Strict-Transport-Security','max-age=31536000');
     safe.headers.set('Cache-Control','no-store');
-    safe.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
+    if(url.pathname==='/crew-control'||url.pathname.startsWith('/crew-control/')){
+      // The original Crew Control interface relies on inline handlers and CDN libraries (Excel export).
+      safe.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://servicios.penny-wise.es https://www.grupopennywise.com; connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; worker-src 'self' blob: https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
+    }else{
+      safe.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
+    }
     return safe;
   }
 };

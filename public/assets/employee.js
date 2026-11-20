@@ -111,7 +111,8 @@ function dashboard(){
  if(unreadCount())alerts.push(['messages','Tienes '+unreadCount()+' mensaje(s) nuevo(s) de la oficina','Leer']);
  const hasWeekly=Object.values(state.weeklyAvailability?.days||{}).some(d=>d?.slots?.length||d?.available);
  if(!hasWeekly&&!list('availability').some(a=>a.date>=today()))alerts.push(['availability','Aún no has indicado tu disponibilidad. Ayuda a la oficina a planificar.','Indicar']);
- $('#employee-content').innerHTML='<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
+ const crewToday=crewDayList().filter(d=>d.date>=today()).sort((a,b)=>a.date.localeCompare(b.date))[0];
+ $('#employee-content').innerHTML=(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
  (alerts.length?'<div class="alert-list">'+alerts.map(([p,t,c])=>'<button class="alert-item" data-page="'+p+'"><span>'+esc(t)+'</span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'')+
  (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
  box('Próximos 7 días',week.filter(a=>a.status!=='pending').length?'<div class="service-list">'+week.filter(a=>a.status!=='pending').slice(0,6).map(a=>serviceCard(a)).join('')+'</div>':'<div class="empty">No tienes turnos confirmados para los próximos 7 días.</div>');
@@ -179,7 +180,7 @@ function tutorialsPage(){
 }
 function messagesPage(){
  const messages=state.messages||[],users=(state.users||[]).filter(u=>u.role==='manager'),seen=empSeen();
- const chat=messages.map(m=>{const mine=m.senderId===state.user.id;return '<div class="bubble '+(mine?'mine':'')+(!mine&&m.createdAt>seen?' new':'')+'"><p>'+esc(m.content)+'</p><small>'+(mine?'Tú':esc((state.users||[]).find(u=>u.id===m.senderId)?.name||'Oficina'))+' · '+stamp(m.createdAt)+'</small></div>'}).join('');
+ const chat=messages.map(m=>{const mine=m.senderId===state.user.id;return '<div class="bubble '+(mine?'mine':'')+(!mine&&m.createdAt>seen?' new':'')+'">'+(m.broadcastId?'<span class="bubble-tag">Aviso · '+esc(m.audience||'Gestoría')+'</span>':'')+'<p>'+esc(m.content)+'</p><small>'+(mine?'Tú':esc((state.users||[]).find(u=>u.id===m.senderId)?.name||'Oficina'))+' · '+stamp(m.createdAt)+'</small></div>'}).join('');
  $('#employee-content').innerHTML='<div class="section-title"><h2>Mensajes</h2><p class="muted">Conversación privada con la oficina.</p></div><section class="panel chat"><div class="chat-scroll" id="emp-chat">'+(chat||'<p class="empty">Todavía no hay mensajes. Escribe a la oficina si necesitas algo.</p>')+'</div>'+
  '<form id="employee-message-form" class="chat-compose">'+(users.length>1?'<select class="field" name="recipientId" required aria-label="Destinatario">'+users.map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select>':'<input type="hidden" name="recipientId" value="'+esc(users[0]?.id||'')+'">')+'<textarea name="content" class="field" maxlength="2000" required rows="2" placeholder="Escribe tu mensaje…"></textarea><button class="primary" type="submit">Enviar</button></form></section>';
  empMarkSeen();renderNav();
@@ -762,6 +763,7 @@ function passwordModal(){
 document.addEventListener('click',async ev=>{
  const el=ev.target.closest('[data-page],[data-action]');if(!el)return;
  const p=el.dataset.page,action=el.dataset.action,id=el.dataset.id;
+ if(p==='crewControl'){location.href='/crew-control/';return}
  if(p){stopQrCamera();$('.sidebar').classList.remove('open');if(location.hash)history.replaceState(null,'',location.pathname);if(p==='clock')return openClockModal();page=p;render();window.scrollTo({top:0});return}
  if(action==='refresh')return load();
  if(action==='check-location')return verifyClockPosition(id);
@@ -776,7 +778,7 @@ document.addEventListener('click',async ev=>{
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
  if(action==='edit-coord-shift')return coordShift(id);
- if(action==='crew-open'){const days=crewDayList().filter(d=>d.serviceId===id);const pick=days.find(d=>d.date===today())||days.find(d=>d.date>today())||days[days.length-1];if(pick)crewKey=pick.serviceId+'|'+pick.date;selectedCrewBlock='all';crewWorkTypes.clear();crewSelectedIds.clear();page='crewControl';return render()}
+ if(action==='crew-open'){const days=crewDayList().filter(d=>d.serviceId===id);const pick=days.find(d=>d.date===today())||days.find(d=>d.date>today())||days[days.length-1];location.href='/crew-control/'+(pick?'?service='+encodeURIComponent(pick.serviceId)+'&date='+encodeURIComponent(pick.date):'');return}
  if(action==='crew-category'){const a=crewAllRoster().find(x=>x.id===id);if(a)return incidentModal(a.serviceId,{type:'category_change',assignmentId:a.id,workerId:a.workerId,severity:'low'});return}
  if(action==='crew-worker-incident'){const a=crewAllRoster().find(x=>x.id===id);if(a)return incidentModal(a.serviceId,{workerId:a.workerId});return}
  if(action==='crew-export')return crewExport();
