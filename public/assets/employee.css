@@ -68,3 +68,19 @@ html,body{min-height:100%;max-width:100%;overflow-x:hidden}
 .profile-tabs button{border:1px solid #e5e6e9;background:rgba(255,255,255,.8);border-radius:13px;padding:10px 15px;color:#555d67;font-weight:750}
 .profile-tabs button.active{border-color:rgba(255,127,31,.45);background:rgba(255,127,31,.14);color:#bd5715}
 .profile-tabs button:hover{border-color:#f5b183}
+
+
+/* Original Monday-first availability + draggable independent hourly blocks. */
+.availability-day-heading{padding:10px 5px;text-align:center;color:#6b717c;font-weight:800;font-size:11px}
+.availability-cell-spacer{min-height:66px;pointer-events:none}
+.availability-grid .availability-cell{min-width:0}
+.weekly-hours-scroll{width:100%;overflow:auto;border:1px solid #e5e8ec;border-radius:15px;background:#fff;max-height:min(67dvh,660px);overscroll-behavior:contain}
+.weekly-hour-grid{display:grid;grid-template-columns:112px repeat(24,minmax(39px,1fr));gap:3px;align-items:center;min-width:1110px;padding:12px;user-select:none;touch-action:pan-y}
+.weekly-hour-grid .availability-hour{font-size:10px;border-radius:8px;min-height:42px;padding:7px 3px;touch-action:none}
+.weekly-hour-grid .availability-hour.selected{background:#ffd5ae;border-color:#ef821c;color:#893900}
+.weekly-hour-grid .hour-row-label{position:sticky;left:0;z-index:2;background:#fff;font-weight:800;color:#3e4249;font-size:12px;padding:12px 5px}
+.weekly-hour-grid .availability-hour-heading{font-size:10px;text-align:center;color:#8b929c}
+.crew-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.crew-filters label{min-width:0}
+.crew-filters select{max-width:100%;min-width:0}
+@media(max-width:780px){.crew-filters{grid-template-columns:1fr}.availability-day-heading{font-size:9px}.availability-cell-spacer{min-height:57px}.availability-grid .availability-cell{padding:4px;min-height:57px}.availability-grid .availability-cell small{font-size:9px}}
