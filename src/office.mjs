@@ -361,6 +361,21 @@ export function createOfficeApi(storage,env={}){
     
     
     
+    if(op==='service-block-lead-update'){
+      if(actor.role!=='worker'||!actor.workerId)fail('Solo Crew Head trabajador.',403);
+      const block=await record(db,'serviceBlocks',b.id);revision(block,b);
+      const permitted=(await rows(db,'serviceBlockOperators')).some(o=>o.blockId===block.id&&o.userId===actor.id&&o.kind==='crew_head'&&!o.archived);
+      if(!permitted)fail('No eres Crew Head de este bloque.',403);
+      const service=await record(db,'services',block.serviceId);
+      if(block.archived||service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Turno cerrado.',409);
+      const serviceType=required(b.serviceType,'el tipo de servicio'),team=text(b.team,100);
+      const value={...block,serviceType,team,revision:block.revision+1,updatedAt:now()};
+      await db.put(key('serviceBlocks',block.id),value);
+      const slots=(await rows(db,'orderLines')).filter(l=>l.blockId===block.id&&!l.archived);
+      for(const slot of slots)await db.put(key('orderLines',slot.id),{...slot,serviceType,team,revision:slot.revision+1});
+      await audit(db,actor,'crew-head-block-update','serviceBlocks',block.id);
+      return {record:value};
+    }
     if(op==='service-block-operator-save'){
       const input=b.record||{},block=await record(db,'serviceBlocks',required(input.blockId,'el bloque'));
       if(block.archived)fail('Bloque archivado.',409);
@@ -723,7 +738,7 @@ export function createOfficeApi(storage,env={}){
      const a=await record(db,'assignments',b.id);revision(a,b);
      if(actor.role!=='manager')await canCoordinateAssignment(db,actor,a);
      const service=await record(db,'services',a.serviceId);
-     if(service.archived||['completed','cancelled'].includes(service.status))fail('Servicio cerrado.',409);
+     if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio cerrado.',409);
      const update={};
      if(b.field==='contacted')update.contacted=b.value===true;
      else if(b.field==='team')update.team=text(b.value,100);
@@ -743,6 +758,8 @@ export function createOfficeApi(storage,env={}){
      if(service.settlementStatus==='confirmed'||service.status==='completed'||service.status==='cancelled')fail('Servicio cerrado.',409);
      if(a.checkOut)fail('No se modifica un turno ya fichado y finalizado.',409);
      const dateStart=date(b.date||a.date),dateEnd=date(b.endDate||a.endDate),start=time(b.start||a.start),end=time(b.end||a.end);
+     const slot=a.orderLineId?await db.get(key('orderLines',a.orderLineId)):null,block=slot?.blockId?await db.get(key('serviceBlocks',slot.blockId)):null;
+     if(block&&!block.archived&&(dateStart+'T'+start<block.date+'T'+block.start||dateEnd+'T'+end>block.endDate+'T'+block.end))fail('Solo puedes ajustar horarios dentro de tu bloque autorizado.',403);
      const difference=(Date.parse(dateEnd+'T'+end+':00Z')-Date.parse(dateStart+'T'+start+':00Z'))/3600000;
      if(difference<=0||difference>48)fail('Horario inválido.');
      const others=(await rows(db,'assignments')).filter(x=>x.workerId===a.workerId&&x.id!==a.id&&!x.archived);
