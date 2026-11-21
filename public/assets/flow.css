@@ -568,3 +568,10 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .inv-sub-mark{color:#ff7f1f;font-weight:800;margin-right:6px}
 .invoice-line.sub{margin-left:28px;border-left:3px solid #ffc79c;padding-left:12px}
 .invoice-paper td:nth-child(2),.invoice-paper th:nth-child(2){white-space:nowrap}
+.offer-aud.disabled{opacity:.45;pointer-events:none}
+/* v40 · opciones de oferta compactas */
+.offer-aud{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:8px 0 12px}
+#editor .offer-opt,#editor .offer-urgent{display:flex !important;flex-direction:row !important;align-items:center;gap:12px;padding:12px 14px;text-align:left}
+#editor .offer-opt input[type=radio],#editor .offer-urgent input[type=checkbox]{width:20px !important;height:20px !important;min-height:0 !important;flex:0 0 20px;margin:0;padding:0;accent-color:#ff7f1f;box-shadow:none !important;border:0 !important}
+#editor .offer-opt span,#editor .offer-urgent span{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+#editor .offer-opt b{font-size:13.5px}#editor .offer-opt small{font-size:12px}
