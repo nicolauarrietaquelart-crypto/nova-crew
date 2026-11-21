@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v38 · Dietas dentro del trabajador en la factura
+
+- Cada línea de trabajador de la factura indica su **horario** (inicio–fin) y si tiene **pausa** («Sin pausa» o su duración).
+- Las **dietas** van justo debajo de la línea de su trabajador, sangradas (↳ Dietas · trabajador · día y horario), con su cantidad y precio.
+
 ## Novedades v37 · Dietas, tarifas, información del servicio y avisos urgentes
 
 - Tarifas: sin textos de ayuda; «Montaje» y «Operativo» se muestran juntas como **OPERATIVO**; el incremento al crear una tarifa admite valores negativos (descuento).

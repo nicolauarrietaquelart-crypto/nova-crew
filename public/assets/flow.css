@@ -560,3 +560,10 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .clock-result.wait{background:#f3f4f6;color:#374151}.clock-result.wait b{background:#9ca3af}
 .offer-urgent{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;background:#fff5f5;border:1.5px solid #f3b4b6;cursor:pointer}
 .offer-urgent span{display:flex;flex-direction:column;gap:2px}.offer-urgent b{color:#c4282d}.offer-urgent small{color:#6b7280}
+
+/* v38 · dietas dentro de la línea del trabajador en facturas */
+.invoice-paper tr.inv-main:has(+ tr.inv-sub) td{border-bottom:0 !important;padding-bottom:4px !important}
+.invoice-paper tr.inv-sub td{padding-top:2px !important;font-size:.92em;color:#4b5563}
+.invoice-paper tr.inv-sub td:first-child{padding-left:26px !important}
+.inv-sub-mark{color:#ff7f1f;font-weight:800;margin-right:6px}
+.invoice-line.sub{margin-left:28px;border-left:3px solid #ffc79c;padding-left:12px}
