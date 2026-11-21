@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v41 · HAND y ofertas por horario
+
+- **HAND** agrupa HAND A, HAND B, HAND C1 y HAND M: todas abiertas por defecto para todos los trabajadores, junto con STEELHAND. Se elimina la categoría «HAND / MONTADOR/A».
+- Las ofertas ya no excluyen a quien está en el mismo servicio otro día: solo se excluye a quien tiene un turno (de cualquier servicio) **en el mismo horario**. Al asignar se mantiene la regla: no se puede meter a un trabajador en dos turnos que se solapan.
+
 ## Novedades v40 · Ofertas sin repetir y categorías por defecto
 
 - Las ofertas (masivas o urgentes) **nunca** se envían a quien ya está asignado en ese servicio esos días.

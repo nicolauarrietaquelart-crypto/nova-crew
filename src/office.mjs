@@ -23,8 +23,10 @@ function validateGeofence(service,input){
  const distance=6371000*2*Math.asin(Math.min(1,Math.sqrt(hav)));
  if(distance>(service.radiusMeters||500))fail('Fuera del radio autorizado de fichaje ('+Math.round(distance)+' m).',403);
 }
-/* v40 · todos los trabajadores tienen HAND y STEELHAND abiertas por defecto (se pueden cerrar). */
-const DEFAULT_CATEGORIES=['Hand / Montador/a','Steelhand'];
+/* Todos los trabajadores tienen HAND (A, B, C1, M) y STEELHAND abiertas por defecto (se pueden cerrar). */
+const DEFAULT_CATEGORIES=['HAND A','HAND B','HAND C1','HAND M','Steelhand'];
+/* v41 · «HAND / MONTADOR/A» se elimina: HAND incluye A, B, C1 y M. */
+const REMOVED_CATEGORIES=new Set(['HAND / MONTADOR/A']);
 const effectiveCategories=w=>{const own=Array.isArray(w?.categories)?w.categories:[];if(w?.defaultCatsApplied)return own;const keys=new Set(own.map(c=>categoryKey(c)));return [...own,...DEFAULT_CATEGORIES.filter(c=>!keys.has(categoryKey(c)))];};
 const categoryKey = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
 const categoryMinimum = role => ({'HAND B':5,'HAND A':3,'HAND M':4,'HAND C1':0,'CREW HEAD':6,'FORKLIFTER':5})[text(role).toUpperCase().replace(/\s+/g,' ')]||0;
@@ -33,7 +35,7 @@ const PAYMENT_TERMS=[30,60,90];
 function termDays(v){const n=Number(v??30);if(!PAYMENT_TERMS.includes(n))fail('El plazo de cobro debe ser 30, 60 o 90 días.');return n;}
 async function clientTerm(db,clientId,config){const c=clientId?await db.get(key('clients',clientId)):null;return Number(c?.paymentDays)||Number(config.paymentDays)||30;}
 // Los nombres de categoría se muestran siempre en mayúsculas; las categorías eliminadas (archived) no se ofrecen.
-const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))].filter(t=>!t.archived).map(t=>({...t,group:/^(montaje|operativo)$/i.test(String(t.group||'').trim())?'OPERATIVO':t.group,name:String(t.name||'').toLocaleUpperCase('es-ES')}));};
+const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))].filter(t=>!t.archived&&!REMOVED_CATEGORIES.has(categoryKey(t.name))).map(t=>({...t,group:/^(montaje|operativo)$/i.test(String(t.group||'').trim())?'OPERATIVO':t.group,name:String(t.name||'').toLocaleUpperCase('es-ES')}));};
 /* v37 · dietas por tarifa: pago al trabajador y precio al cliente (por defecto 10 € / 16,5 €). */
 const UNIFORMS=['Uniformidad PW','Ropa negra','Ropa del cliente','Sin requisito'],EPIS=['Sin EPI','Chaleco','Guantes+Botas','Guantes+Botas+Chaleco','Guantes+Botas+Chaleco+Casco'];
 const yesNo=(v,d)=>v==null||v===''?d:(v===true||v==='true'||v==='1'||v==='yes');
@@ -536,8 +538,9 @@ export function createOfficeApi(storage,env={}){
      let targets=(await rows(db,'workers')).filter(w=>w.active!==false&&!w.archived&&withAccess.has(w.id)&&!(w.sanction?.active&&(!w.sanction.until||w.sanction.until>=l.date))&&!(Array.isArray(w.vetoedClients)&&w.vetoedClients.includes(service.clientId)));
      const urgent=b.urgent===true||b.urgent==='true',fixed=w=>['indefinite','fixed_discontinuous'].includes(w.contractType);
      const hasCat=w=>effectiveCategories(w).some(c=>norm(c)===norm(category)||norm(c)===norm(tariff?.id))||(!(w.categories||[]).length&&norm(w.specialty)===norm(category));
-     /* Nunca se ofrece a quien ya está en ese servicio esos días. */
-     const lEnd=l.endDate||l.date,already=new Set((await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&a.status!=='rejected'&&a.date<=lEnd&&(a.endDate||a.date)>=l.date).map(a=>a.workerId));
+     /* Nunca se ofrece a quien ya tiene un turno (de este u otro servicio) que se solape con este horario. */
+     const from=Date.parse(l.date+'T'+l.start+':00Z'),to=Date.parse((l.endDate||l.date)+'T'+l.end+':00Z');
+     const already=new Set((await rows(db,'assignments')).filter(a=>!a.archived&&a.status!=='rejected'&&from<Date.parse((a.endDate||a.date)+'T'+a.end+':00Z')&&to>Date.parse(a.date+'T'+a.start+':00Z')).map(a=>a.workerId));
      targets=targets.filter(w=>!already.has(w.id));
      if(urgent){/* Urgente: a todo el personal, tenga o no la categoría. */}
      else{
@@ -546,7 +549,7 @@ export function createOfficeApi(storage,env={}){
       if(audience==='workers'){const ids=new Set(Array.isArray(b.workerIds)?b.workerIds.map(String):[]);targets=targets.filter(w=>ids.has(w.id));}
       else targets=targets.filter(hasCat);
      }
-     if(!targets.length)fail(urgent?'No queda personal con acceso que no esté ya en este servicio.':'No hay trabajadores con esta categoría en ese grupo (sin contar a quien ya está en el servicio).',409);
+     if(!targets.length)fail(urgent?'Todo el personal con acceso ya tiene otro turno en ese horario.':'No hay trabajadores con esta categoría en ese grupo (sin contar a quien ya trabaja en ese horario).',409);
      const id=uid(),v={id,orderLineId:l.id,serviceId:service.id,audience:urgent?'all':audience,targets:targets.map(w=>w.id),message:text(b.message,500),urgent,
       info:{serviceName:service.name,venue:l.locationName||service.venue,date:l.date,endDate:l.endDate||l.date,start:l.start,end:l.end,category,serviceType:l.serviceType||'',callTime:service.callTime||''},
       responses:{},status:'open',createdBy:actor.id,createdByName:actor.name,createdAt:now(),revision:1};
