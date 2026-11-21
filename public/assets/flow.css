@@ -440,3 +440,62 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .tm-table{table-layout:fixed;width:100%}
 .tm-table th:nth-child(1){width:38%}.tm-table th:nth-child(2){width:10%}.tm-table th:nth-child(3){width:9%}.tm-table th:nth-child(4),.tm-table th:nth-child(5){width:16%}.tm-table th:nth-child(6){width:11%}
 .tm-table .tm-input{width:100%;max-width:130px}
+
+/* ===== v33 · Coordinación como Crew Control (filas / tarjetas, selección por fila, iconos) ===== */
+.cc-lite,.cc-lite *{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif !important}
+.cc-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cc-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:0 16px;border-radius:12px;font-size:13.5px;font-weight:800;letter-spacing:0;line-height:1;box-shadow:none;border:1.5px solid #e2e5ea;background:#fff;color:#15171b;cursor:pointer;opacity:1}
+.cc-actions .btn.primary,.cc-actions .cc-scan{background:#15171b !important;border-color:#15171b !important;color:#fff !important}
+.cc-actions .btn.cc-close{background:#fff4ec;border-color:#ffc79c;color:#c2560b}
+.cc-actions .btn svg{width:19px;height:19px;flex:0 0 auto}
+.cc-colhead{display:none}
+@media (min-width:761px){
+ .cc-colhead{display:grid;grid-template-columns:46px minmax(170px,1.6fr) minmax(130px,1.1fr) 92px 112px 82px 62px 86px;gap:10px;padding:7px 14px;background:#f6f7f9;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#6b7280}
+ .cc-row2.cc-r3{display:grid !important;grid-template-columns:46px minmax(170px,1.6fr) minmax(130px,1.1fr) 92px 112px 82px 62px 86px;gap:10px;align-items:center;padding:8px 14px;cursor:pointer;user-select:none}
+ .cc-r3 .cc-cell small{display:none}
+}
+.cc-row2.cc-r3{cursor:pointer;transition:background .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent}
+.cc-row2.cc-r3:hover{background:#fafbfc}
+.cc-row2.cc-r3.selected{background:#fff4ec !important;box-shadow:inset 4px 0 0 #ff7f1f}
+.cc-r3 .cc-name{min-width:0;text-align:left;background:none;border:0;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:2px;font:inherit;color:#15171b}
+.cc-r3 .cc-name strong{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-r3 .cc-name small{font-size:11.5px;color:#6b7280;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-r3 .cc-name:hover strong{text-decoration:underline;text-decoration-color:#ff7f1f}
+.cc-cell{display:flex;flex-direction:column;gap:1px;min-width:0;font-size:13px}
+.cc-cell b{font-weight:700;color:#15171b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-cell small{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#8a909a}
+.cc-phone a{display:inline-flex;align-items:center;gap:6px;color:#15171b;text-decoration:none;font-weight:700;white-space:nowrap}
+.cc-phone a svg{width:15px;height:15px;color:#1f9d63;flex:0 0 auto}
+.cc-phone em{color:#9aa0a8;font-style:normal;font-size:12px}
+.cc-rate b{color:#b7791f}
+.cc-r3.st-present .cc-clock b{color:#1f9d63}.cc-r3.st-done .cc-clock b{color:#2358c7}.cc-r3.st-absent .cc-clock b{color:#d93b3b}
+.cc-groupsel{width:26px;height:26px;border-radius:8px;border:1.5px solid rgba(255,255,255,.45);background:transparent;color:transparent;display:grid;place-items:center;cursor:pointer;padding:0}
+.cc-groupsel svg{width:16px;height:16px}
+.cc-groupsel.on{background:#ff7f1f;border-color:#ff7f1f;color:#fff}
+@media (max-width:760px){
+ .cc-group{background:transparent;border:0;overflow:visible}
+ .cc-group header{border-radius:14px;margin-bottom:8px}
+ .cc-row2.cc-r3{display:grid !important;gap:10px 12px;padding:12px !important;margin-bottom:8px;border:1.5px solid #e6e8ec !important;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(20,22,28,.04)}
+ .cc-row2.cc-r3.selected{border-color:#ff7f1f !important;box-shadow:0 0 0 2px rgba(255,127,31,.25) !important}
+ .cc-r3 .cc-phone{grid-column:1/-1}
+ .cc-r3 .cc-phone a{font-size:15px;padding:8px 12px;border-radius:10px;background:#effaf4;width:100%;justify-content:center}
+ .cc-r3 .cc-cell:not(.cc-phone){display:inline-flex}
+ .cc-r3 .cc-sched,.cc-r3 .cc-clock,.cc-r3 .cc-cell:nth-of-type(n+4){background:#f6f7f9;border-radius:10px;padding:7px 9px}
+ .cc-row2.cc-r3{grid-template-columns:repeat(6,1fr)}
+ .cc-r3 .cc-name{align-self:center}
+ .cc-r3 .cc-status{grid-column:1/2;grid-row:1}
+ .cc-r3 .cc-name{grid-column:2/-1;grid-row:1}
+ .cc-r3 .cc-sched{grid-column:1/4}.cc-r3 .cc-clock{grid-column:4/-1}
+ .cc-r3 .cc-cell:nth-of-type(4),.cc-r3 .cc-cell:nth-of-type(5),.cc-r3 .cc-cell:nth-of-type(6){grid-column:span 2}
+}
+.cc-bulkbar{gap:10px !important}
+.cc-bulk-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.cc-ib{width:46px;height:46px;border-radius:14px;border:0;display:grid;place-items:center;cursor:pointer;padding:0;background:rgba(255,255,255,.12);color:#fff;transition:transform .12s}
+.cc-ib:active{transform:scale(.94)}
+.cc-ib svg{width:22px;height:22px}
+.cc-ib.present{background:#1f9d63}.cc-ib.contacted{background:#ff7f1f}.cc-ib.absent{background:#d93b3b}.cc-ib.dark{background:#fff;color:#15171b}.cc-ib.ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.3)}
+.cc-colhead span:first-child{font-size:0}
+@media (max-width:760px){.cc-bulkbar{bottom:92px !important;flex-wrap:nowrap !important;padding:8px 10px !important}.cc-bulkbar>b{font-size:12px;line-height:1.2}.cc-bulk-actions{flex-wrap:nowrap;gap:6px}.cc-ib{width:40px;height:40px;border-radius:12px}.cc-ib svg{width:20px;height:20px}}
+@media (max-width:760px){.cc-bulkbar{position:fixed !important;left:12px !important;right:12px !important;bottom:calc(88px + env(safe-area-inset-bottom)) !important;margin:0 !important}.cc-lite{padding-bottom:84px}}
+.cc-actions .cc-scan{width:44px;height:44px;min-height:44px;padding:0 !important;border-radius:14px;background:#f58220 !important;border-color:#f58220 !important;color:#111 !important}
+.cc-actions .cc-scan svg{width:24px;height:24px}

@@ -324,6 +324,7 @@ async function saveEntity(db,actor,kind,b){
  await db.put(key(kind,id),value);await audit(db,actor,old?'update':'create',kind,id,changedFields(old,value));return value;
 }
 const crewBridge=createCrewBridge({rows,key,record,fail,uid,now,text,money,crewHeadDays,audit,tariffCatalog,datesBetween});
+const READ_ONLY_POST=new Set(['assignment-history','history','activity-by-service','geocode','crew-open']);
 export function createOfficeApi(storage,env={}){
  async function rate(name,limit){const k='office/rate/'+await digest(name);await storage.transaction(async db=>{const r=await db.get(k);const t=Date.now();if(r&&r.until>t&&r.count>=limit)fail('Demasiados intentos. Espera 15 minutos.',429);await db.put(k,{until:r&&r.until>t?r.until:t+900000,count:r&&r.until>t?r.count+1:1});});}
  async function auth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-nova_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)fail('Inicia sesión para continuar.',401);const k='office/session/'+await digest(token),s=await storage.get(k);if(!s||s.expires<Date.now()) {if(s)await storage.delete(k);fail('La sesión ha caducado.',401);}const u=await storage.get(key('users',s.userId));if(!u?.active||u.version!==s.version)fail('La cuenta o sesión ya no está activa.',401);if(u.role==='worker'){const w=await storage.get(key('workers',u.workerId));if(!w?.active||w.archived)fail('La ficha de trabajador está inactiva.',401);}return {actor:u,sessionKey:k};}
@@ -358,6 +359,7 @@ export function createOfficeApi(storage,env={}){
   }
   const {actor,sessionKey}=await auth(req);
   if(req.method==='GET'){
+   if(op==='rev')return reply({ok:true,rev:Number(await storage.get('office/meta/rev')||0)});
    if(op==='state')return reply(await view(storage,actor));
    if(op==='employee-photo'){
      const workerId=text(url.searchParams.get('workerId')||actor.workerId);
@@ -1340,7 +1342,7 @@ export function createOfficeApi(storage,env={}){
     const id=uid(),chunks=Math.ceil(content.length/60000);for(let i=0;i<chunks;i++)await db.put(`office/file/${id}/${i}`,content.slice(i*60000,(i+1)*60000));const d={id,name,size,chunks,workerId,clientId,serviceId,shareWithStaff:!personal&&!!serviceId&&!workerId&&(b.shareWithStaff===true||b.shareWithStaff==='on'),type:personal?text(b.type):(text(b.type)||'contract'),expires:b.expires?date(b.expires):'',...(!personal&&(text(b.type)||'contract')==='contract'?{contractKind:text(b.contractKind,80),periodStart:b.periodStart?date(b.periodStart):'',periodEnd:b.periodEnd?date(b.periodEnd):''}:{}),notes:text(b.notes,2000),source:personal?'employee':'manager',createdAt:now(),createdBy:actor.id,revision:1};await db.put(key('documents',id),d);await audit(db,actor,'upload','documents',id);return {record:d};
    }
    fail('Operación desconocida.',404);
-  });return reply({ok:true,...result});
+  });if(!READ_ONLY_POST.has(op)){try{await storage.put('office/meta/rev',Number(await storage.get('office/meta/rev')||0)+1);}catch{}}return reply({ok:true,...result});
  }catch(e){if(!e.status)console.error('NOVA Office request failed',e.name);return reply({ok:false,error:e.status?e.message:'No se ha podido guardar. Inténtalo de nuevo.'},e.status||500);}}
 }
 export class OfficeState {

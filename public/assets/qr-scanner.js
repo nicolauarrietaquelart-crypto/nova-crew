@@ -3,7 +3,7 @@
 (()=>{'use strict';
 let jsqrPromise=null;
 const loadJsQR=()=>jsqrPromise||(jsqrPromise=new Promise((resolve,reject)=>{if(window.jsQR)return resolve(window.jsQR);const s=document.createElement('script');s.src='/assets/vendor/jsQR.js';s.onload=()=>resolve(window.jsQR);s.onerror=()=>reject(new Error('No se pudo cargar el lector QR.'));document.head.append(s);}));
-const css=`.nqr{position:fixed;inset:0;z-index:2147483000;background:#0d0f12;color:#fff;display:flex;flex-direction:column;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+const css=`.nqr{position:fixed;inset:0;z-index:2147483000;background:#0d0f12;color:#fff;display:flex;flex-direction:column;font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
 .nqr-top{display:flex;align-items:center;gap:12px;padding:max(14px,env(safe-area-inset-top)) 16px 12px}
 .nqr-top b{flex:1;font-size:16px}.nqr-top small{display:block;color:#9aa0a8;font-weight:500;font-size:12px;margin-top:2px}
 .nqr-close{border:0;background:#2a2d33;color:#fff;border-radius:12px;padding:10px 14px;font-weight:800;font-size:14px}

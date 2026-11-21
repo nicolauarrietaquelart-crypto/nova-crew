@@ -1,5 +1,13 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v33 · Coordinación como Crew Control y tiempo real
+
+- **Coordinación normal** con el mismo formato que Crew Control (sin chaleco ni equipos): filas con columnas en ordenador y tarjetas en móvil. Cada trabajador muestra estado, nombre y categoría, **teléfono completo**, horario, fichaje, **pausa**, **dietas** y **valoración**.
+- **Selección pulsando la fila o la tarjeta** (sin casillas); la cabecera del turno selecciona todo el turno. Pulsar el nombre abre la ficha.
+- Barra inferior solo con iconos: presente, contactado, no presentado, **edición masiva (engranaje)** y quitar selección. Se eliminan «Fin ahora» y «No contactado».
+- Botón **Escanear QR** vectorial en Coordinación y en Crew Control; la cabecera de Crew Control (QR, selector de día y volver) usa Plus Jakarta Sans y ya no se ve apagada ni se solapa.
+- **Tiempo real** en gestor y empleado: cada cambio incrementa una revisión (`GET /api/office/rev`) que ambas apps consultan cada 3 s y recargan al momento (respetando formularios y ventanas abiertas).
+
 ## Novedades v32 · Control interno del trabajador y tarifas
 
 - **Crew Control solo para CREW HEAD**: ya no da acceso ningún permiso antiguo de bloque; solo estar asignado con la categoría CREW HEAD ese día. Un coordinador de otra categoría siempre ve la coordinación normal.
