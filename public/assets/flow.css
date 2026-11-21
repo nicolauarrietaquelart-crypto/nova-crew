@@ -297,3 +297,67 @@
 .emp-oncall{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;background:#eef6ff;margin-bottom:14px;font-size:14px}
 .emp-oncall a{margin-left:auto;font-weight:800;color:#2358c7;text-decoration:none}
 .contract-item .grow{flex:1;min-width:0}
+
+/* v29 · Notificaciones, ofertas, disponibilidad compacta, coordinación Crew Head, actividad */
+.emp-bell{position:relative;display:grid;place-items:center;width:42px;height:42px;margin-left:auto;margin-right:8px;border-radius:14px;border:1px solid var(--line,rgba(20,22,28,.12));background:#fff;cursor:pointer;color:#15171b}
+.emp-bell svg{width:20px;height:20px}
+.emp-bell.has{color:#ff7f1f;border-color:rgba(255,127,31,.45)}
+.emp-bell.has svg{animation:bellShake 2.4s ease-in-out infinite;transform-origin:50% 10%}
+.emp-bell-n{position:absolute;top:-5px;right:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:#d93b3b;color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #fff}
+@keyframes bellShake{0%,86%,100%{transform:rotate(0)}89%{transform:rotate(14deg)}93%{transform:rotate(-12deg)}97%{transform:rotate(6deg)}}
+.emp-bell-panel{position:fixed;z-index:80;top:76px;right:16px;width:min(380px,calc(100vw - 24px));max-height:min(70vh,560px);overflow:auto;padding:10px;border-radius:20px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.2);border:1px solid var(--line,rgba(20,22,28,.08));opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;transition:opacity .18s,transform .18s}
+.emp-bell-panel.open{opacity:1;transform:none;pointer-events:auto}
+.ebp-head{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px}
+.ebp-head .icon-close{border:0;background:none;font-size:22px;cursor:pointer;line-height:1}
+.ebp-item{display:flex;gap:10px;align-items:flex-start;width:100%;padding:10px;border:0;border-radius:14px;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.ebp-item:hover{background:#f4f5f7}
+.ebp-item b{display:block;font-size:14px}.ebp-item small{display:block;color:var(--muted,#6d727c);font-size:12.5px}.ebp-item em{font-style:normal;font-size:11.5px;font-weight:800;color:#c25a07}
+.ebp-ic{display:grid;place-items:center;flex:0 0 32px;height:32px;border-radius:10px;font-weight:800}
+.ebp-ic.shift{background:#fff1e3;color:#ff7f1f}.ebp-ic.msg{background:#e8effd;color:#2358c7}
+.ebp-empty{text-align:center;color:var(--muted,#6d727c);padding:22px 0}
+.offer-list{display:grid;gap:10px;margin-bottom:18px}
+.offer-card{display:grid;gap:4px;padding:14px;border-radius:16px;border:1.5px solid #ffcf9f;background:linear-gradient(180deg,#fff8f0,#fff)}
+.emp-bell-panel .offer-card{margin-bottom:8px}
+.offer-card.answered{border-color:var(--line,rgba(20,22,28,.1));background:#fff}
+.offer-card strong{font-size:16px}.offer-card small{color:var(--muted,#6d727c)}.offer-card p{margin:4px 0;font-size:13.5px}
+.offer-actions{display:flex;gap:8px;margin-top:6px}.offer-actions button{flex:1}
+.offer-ans{font-size:13px;font-weight:600;margin-top:4px}.offer-ans.yes{color:#1f7a4c}.offer-ans.no{color:var(--muted,#6d727c)}
+.offer-ans .text-link{background:none;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;color:inherit}
+.wk-mini{display:grid;grid-template-columns:64px repeat(7,minmax(0,1fr));gap:5px;align-items:center;margin:6px 0 4px;max-width:420px}
+.wk-mini>b{text-align:center;font-size:11.5px;color:var(--muted,#6d727c)}
+.wk-mini>span{font-size:12.5px;font-weight:700}
+.wk-dot{height:30px;border-radius:9px;border:1.5px solid var(--line,rgba(20,22,28,.14));background:#fff;font:inherit;font-size:13px;font-weight:800;color:#fff;cursor:pointer;padding:0}
+.wk-dot.on{background:#1f9d63;border-color:#1f9d63}
+.coord-card.crew{text-decoration:none;color:inherit;border-color:rgba(255,127,31,.45)}
+.coord-role.crew{background:#15171b;color:#ff9a4a}
+.offer-box{padding:14px;margin-bottom:14px;border-radius:16px;background:#fff8f0;border:1px solid #ffd9b5}
+.offer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.offer-head strong{display:block;margin:2px 0}.offer-head small{color:var(--muted,#6d727c)}
+.offer-yes{display:grid;gap:6px;margin-top:10px}
+.offer-person{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:#fff}
+.offer-person b{display:block}.offer-person small{color:var(--muted,#6d727c)}
+.offer-aud{display:grid;gap:6px;margin:10px 0}
+.offer-opt{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line,rgba(20,22,28,.12));cursor:pointer}
+.offer-opt:has(input:checked){border-color:#ff7f1f;background:rgba(255,127,31,.06)}
+.offer-opt b{display:block}.offer-opt small{color:var(--muted,#6d727c)}
+.offer-pick{display:grid;gap:4px;max-height:220px;overflow:auto;margin-top:8px;padding:6px;border:1px solid var(--line,rgba(20,22,28,.1));border-radius:12px}
+.offer-pick label{display:flex;gap:8px;align-items:center;font-size:14px}.offer-pick small{color:var(--muted,#6d727c)}
+.act-group{padding:0;overflow:hidden}.act-group+.act-group{margin-top:10px}
+.act-group summary{display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;list-style:none;flex-wrap:wrap}
+.act-group summary::-webkit-details-marker{display:none}
+.act-group summary strong{display:block}.act-group summary small{color:var(--muted,#6d727c)}
+.act-group .grow{flex:1;min-width:200px}
+.act-who{display:flex;gap:8px;flex-wrap:wrap}.act-who span{padding:4px 10px;border-radius:999px;background:#f3f4f6;font-size:12.5px}
+.act-group[open] summary{border-bottom:1px solid var(--line,rgba(20,22,28,.08))}
+.act-group .history-list{padding:8px 18px;max-height:none}
+.act-foot{padding:0 18px 14px}
+
+/* Barras de desplazamiento finas y discretas en las dos apps */
+*{scrollbar-width:thin !important;scrollbar-color:rgba(20,22,28,.24) transparent !important}
+*::-webkit-scrollbar{width:10px !important;height:10px !important}
+*::-webkit-scrollbar-track{background:transparent !important}
+*::-webkit-scrollbar-thumb{background:rgba(20,22,28,.18) !important;border-radius:999px !important;border:3px solid transparent !important;background-clip:padding-box !important}
+*::-webkit-scrollbar-thumb:hover{background:rgba(255,127,31,.6);background-clip:padding-box}
+*::-webkit-scrollbar-corner{background:transparent}
+.offer-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:#fff1e3;color:#c25a07;font-size:11px;font-weight:800}
+.act-group .history-item{grid-template-columns:92px 12px 1fr}

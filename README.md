@@ -1,5 +1,16 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v29 · Ofertas de huecos, notificaciones y actividad por servicio
+
+- **Ofrecer un puesto a un grupo**: desde «Asignar» en un puesto sin cubrir, «Ofrecer a un grupo» (con la categoría, fijos, eventuales, todo el personal o personas concretas). El personal responde «Me interesa» / «No puedo»; nadie queda asignado hasta que Gestoría elige. Las respuestas salen en el propio puesto, en la tabla del servicio y en el Inicio («Huecos ofrecidos»).
+- **Campana de notificaciones** en el área de empleado: servicios disponibles, turnos asignados pendientes de confirmar y mensajes nuevos.
+- **Coordinación** muestra todos los servicios que coordinas: los de Crew Head abren Crew Control; los de coordinador, la coordinación normal (aunque aún no tengan personal).
+- **Fichaje por geolocalización** siempre visible para coordinadores, con aviso de cuándo se activa.
+- **Actividad** agrupada por servicio, solo con acciones de usuarios de Gestoría, mostrando quién hizo el presupuesto, el servicio y el cierre.
+- **Cobros a 30, 60 o 90 días** por cliente (y por defecto en Ajustes); la factura toma el plazo del cliente.
+- **Google Maps**: el buscador de ubicación usa Places API (New) si se configura `GOOGLE_MAPS_API_KEY`.
+- Disponibilidad habitual más compacta y barras de desplazamiento finas en ambas apps.
+
 ## Novedades v28 · Gestión más completa
 
 - **Área de empleado sin historiales**: Mis servicios muestra solo Próximos y Por confirmar, y el Fichaje ya no tiene historial.

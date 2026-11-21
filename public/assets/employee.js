@@ -75,8 +75,8 @@ function navCount(k){if(k==='services')return myAssignments().filter(a=>!shiftCl
 function renderNav(){
  const isCoord=isNormalCoordinator()||isCrewHead();
  const item=key=>{const n=navCount(key);return '<button type="button" data-page="'+key+'" class="'+(page===key?'active':'')+'"><span class="nova-nav-icon">'+navIcon(key)+'</span><span class="nav-text">'+esc(names[key])+'</span>'+(n?'<b class="nav-count">'+n+'</b>':'')+'</button>'};
- $('#employee-nav').innerHTML=NAV_GROUPS.filter(([g])=>g!=='COORDINACIÓN'||isCoord).map(([g,keys])=>'<div class="nav-group">'+esc(g)+'</div>'+keys.filter(k=>k==='crewControl'?isCrewHead():k==='coordination'?isNormalCoordinator():true).map(item).join('')).join('');
- const mob=['dashboard','services','clock',isNormalCoordinator()?'coordination':isCrewHead()?'crewControl':'messages','more'];
+ $('#employee-nav').innerHTML=NAV_GROUPS.filter(([g])=>g!=='COORDINACIÓN'||isCoord).map(([g,keys])=>'<div class="nav-group">'+esc(g)+'</div>'+keys.filter(k=>k==='crewControl'?isCrewHead():k==='coordination'?(isNormalCoordinator()||isCrewHead()):true).map(item).join('')).join('');
+ const mob=['dashboard','services','clock',(isNormalCoordinator()||isCrewHead())?'coordination':'messages','more'];
  $('#mobile-nav').innerHTML=mob.map(k=>k==='more'?'<button data-action="mobile-more">'+navIcon('more')+'<small>Más</small></button>':k==='clock'?'<button data-page="clock" class="mobile-clock"><span class="fab">'+navIcon('clock')+'</span><small>Fichar</small></button>':'<button data-page="'+k+'" class="'+(page===k?'active':'')+'">'+navIcon(k)+(navCount(k)?'<b class="nav-count">'+navCount(k)+'</b>':'')+'<small>'+esc(k==='services'?'Servicios':k==='dashboard'?'Inicio':names[k])+'</small></button>').join('');
 }
 /* Hilo del turno: Asignado → Confirmado → Entrada → Salida → Certificado */
@@ -130,6 +130,7 @@ function dashboard(){
   '<div class="actions-row">'+(focus&&focus.status==='pending'?btn('confirm','Confirmar turno',focus.id,'primary'):'')+(focus&&canClock(focus)?btn('open-clock',focus.checkIn?'Fichar salida':'Fichar entrada',focus.id,'primary'):'')+(focus?btn('detail','Ver detalles',focus.id):btn('go-availability','Indicar disponibilidad','','primary'))+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div></div>'+
   '<div class="employee-next-aside"><div><span>Esta semana</span><b>'+week.length+' turno'+(week.length===1?'':'s')+'</b></div><div><span>Horas previstas en '+esc(monthLabel(m).split(' ')[0].toLowerCase())+'</span><b>'+monthHours.toLocaleString('es-ES')+' h</b></div><div><span>Bruto certificado del mes</span><b>'+(monthRows.some(a=>a.payStatus==='confirmed')?euro(monthGross):'Pendiente')+'</b></div><div><span>Mensajes nuevos</span><b>'+unreadCount()+'</b></div></div></section>';
  const alerts=[],todo=[];
+ const offersOpen=openOffers();
  pending.forEach(a=>todo.push(['detail',a.id,'Confirma tu turno en '+(service(a.serviceId).name||'un servicio'),(a.date===today()?'Hoy':human(a.date))+' · '+a.start+'–'+a.end,'Confirmar']));
  as.filter(a=>a.status==='confirmed'&&canClock(a)&&!a.checkOut&&a!==focus).forEach(a=>todo.push(['open-clock',a.id,(a.checkIn?'Ficha la salida de ':'Ficha la entrada en ')+(service(a.serviceId).name||'tu turno'),a.start+'–'+a.end,a.checkIn?'Fichar salida':'Fichar entrada']));
  if(pendingTraining().length)alerts.push(['training','Tienes '+pendingTraining().length+' formación(es) pendiente(s) de leer','Ver formación']);
@@ -141,7 +142,7 @@ function dashboard(){
  const crewToday=crewDayList().filter(d=>d.date>=today()&&!(state.crewDayClosures||[]).some(c=>c.serviceId===d.serviceId&&c.date===d.date)&&!['completed','cancelled'].includes(service(d.serviceId).status)).sort((a,b)=>a.date.localeCompare(b.date))[0];
  const oc=(state.onCall||[]).find(o=>o.date===today());
  $('#employee-content').innerHTML=(oc?'<div class="emp-oncall"><span>🛡️ Oficina de guardia hoy: <b>'+esc(oc.name)+'</b></span>'+(oc.phone?'<a href="tel:'+esc(oc.phone.replace(/[^+\d]/g,''))+'">Llamar '+esc(oc.phone)+'</a>':'')+'</div>':'')+(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
- ((todo.length||alerts.length)?'<div class="emp-todo-head"><h3>Lo que tienes pendiente</h3><small class="muted">'+(todo.length+alerts.length)+' paso'+(todo.length+alerts.length===1?'':'s')+'</small></div><div class="emp-todo">'+todo.map(([act,id,t,d,c],i)=>'<button class="emp-todo-item" data-action="'+act+'" data-id="'+esc(id)+'"><span class="step-num">'+(i+1)+'</span><span class="grow"><p>'+esc(t)+'</p><small>'+esc(d)+'</small></span><b>'+esc(c)+' →</b></button>').join('')+alerts.map(([p,t,c],i)=>'<button class="emp-todo-item" data-page="'+p+'"><span class="step-num">'+(todo.length+i+1)+'</span><span class="grow"><p>'+esc(t)+'</p></span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'<div class="emp-todo-head"><h3>Todo al día</h3><small class="muted">No tienes nada pendiente</small></div>')+
+ (offersOpen.length?'<div class="emp-todo-head"><h3>Servicios disponibles</h3><small class="muted">La oficina busca gente</small></div><div class="offer-list">'+offersOpen.map(o=>offerCard(o)).join('')+'</div>':'')+((todo.length||alerts.length)?'<div class="emp-todo-head"><h3>Lo que tienes pendiente</h3><small class="muted">'+(todo.length+alerts.length)+' paso'+(todo.length+alerts.length===1?'':'s')+'</small></div><div class="emp-todo">'+todo.map(([act,id,t,d,c],i)=>'<button class="emp-todo-item" data-action="'+act+'" data-id="'+esc(id)+'"><span class="step-num">'+(i+1)+'</span><span class="grow"><p>'+esc(t)+'</p><small>'+esc(d)+'</small></span><b>'+esc(c)+' →</b></button>').join('')+alerts.map(([p,t,c],i)=>'<button class="emp-todo-item" data-page="'+p+'"><span class="step-num">'+(todo.length+i+1)+'</span><span class="grow"><p>'+esc(t)+'</p></span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'<div class="emp-todo-head"><h3>Todo al día</h3><small class="muted">No tienes nada pendiente</small></div>')+
  (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
  box('Próximos 7 días',week.filter(a=>a.status!=='pending').length?'<div class="service-list">'+week.filter(a=>a.status!=='pending').slice(0,6).map(a=>serviceCard(a)).join('')+'</div>':'<div class="empty">No tienes turnos confirmados para los próximos 7 días.</div>');
  if(focus&&!isLive){nextServiceCountdown();if(nextCountTimer)clearInterval(nextCountTimer);nextCountTimer=setInterval(()=>{if($('#next-countdown'))nextServiceCountdown();else{clearInterval(nextCountTimer);nextCountTimer=null}},1000)}
@@ -187,7 +188,7 @@ function availabilityPage(){
  }
  const hasWeekly=Object.values(weekly).some(d=>d?.slots?.length||d?.available);
  $('#employee-content').innerHTML='<div class="section-title"><h2>Disponibilidad</h2><p class="muted">Indica cuándo puedes trabajar. La oficina lo verá al planificar.</p></div>'+
- '<div class="panel avail-habit"><div class="emp-todo-head"><h3>Disponibilidad habitual</h3><small class="muted">'+(hasWeekly?'Se aplica sola cada semana':'Sin configurar')+'</small></div><p class="muted compact">Marca los días y franjas en los que sueles poder trabajar. Mañana: 06:00–15:00 · Tarde: 15:00–24:00. Para un día concreto, cámbialo en el calendario de abajo.</p>'+weekGridHTML(weekly)+'</div>'+
+ '<div class="panel avail-habit"><div class="emp-todo-head"><h3>Disponibilidad habitual</h3><small class="muted">'+(hasWeekly?'Se aplica sola cada semana':'Sin configurar')+'</small></div>'+weekGridHTML(weekly)+'<p class="muted compact">Mañana 06–15 h · Tarde 15–24 h. Para un día concreto, tócalo en el calendario.</p></div>'+
  '<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month" aria-label="Mes anterior">‹</button><h2>'+esc(monthLabel(month))+'</h2><button class="secondary" data-action="next-month" aria-label="Mes siguiente">›</button></div>'+
  '<div class="availability-grid">'+html+'</div><div class="cal-legend"><span class="lg available">Disponible</span><span class="lg habit">Semana habitual</span><span class="lg unavail">No disponible</span><span class="lg shift">Con turno</span></div><p class="muted compact">Pulsa un día para elegir horas concretas o marcarlo como no disponible. Los días pasados no se pueden modificar.</p></div>';
 }
@@ -262,6 +263,7 @@ const isCrewHeadDay=(serviceId,date)=>crewDayList().some(d=>d.serviceId===servic
 const crewControlUrl=(serviceId,date)=>'/crew-control/?service='+encodeURIComponent(serviceId)+'&date='+encodeURIComponent(date);
 function coordEntries(){
  const map=new Map();
+ for(const sid of normalCoordIds()){const sv=service(sid);if(!sv.id||['completed','cancelled'].includes(sv.status))continue;let d=sv.date;for(let n=0;d&&d<=(sv.endDate||sv.date)&&n<14;n++){if(d>=today()&&!isCrewHeadDay(sid,d)){const k=sid+'|'+d;if(!map.has(k))map.set(k,{key:k,serviceId:sid,date:d,rows:[]});}d=new Date(Date.parse(d+'T12:00:00Z')+864e5).toISOString().slice(0,10);}}
  for(const a of coordRoster()){if(a.crew||isCrewHeadDay(a.serviceId,a.date)||a.closed||['completed','cancelled'].includes(service(a.serviceId).status))continue;const k=a.serviceId+'|'+a.date;if(!map.has(k))map.set(k,{key:k,serviceId:a.serviceId,date:a.date,rows:[]});map.get(k).rows.push(a);}
  const t=today();
  return [...map.values()].sort((a,b)=>{const ga=a.date===t?0:a.date>t?1:2,gb=b.date===t?0:b.date>t?1:2;return ga-gb||(ga===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date));});
@@ -285,8 +287,11 @@ function coordinationPage(){
  const t=today();
  if(!coordKey){
   coordSel.clear();
-  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación</h2><p class="muted">Elige el servicio. Dentro controlas asistencia, horarios e incidencias de tu personal.</p></div>'+
-  (entries.length?'<div class="coord-list">'+entries.map(e=>{const s=service(e.serviceId),present=e.rows.filter(a=>a.checkIn).length,d=new Date(e.date+'T12:00:00');
+  const closedCrew=d=>(state.crewDayClosures||[]).some(c=>c.serviceId===d.serviceId&&c.date===d.date);
+  const crew=crewDayList().filter(d=>d.date>=today()&&!closedCrew(d)&&!['completed','cancelled'].includes(service(d.serviceId).status)).map(d=>({key:d.serviceId+'|'+d.date,serviceId:d.serviceId,date:d.date,crew:true,rows:(state.coordinatorRoster||[]).filter(a=>a.serviceId===d.serviceId&&a.date===d.date)}));
+  const listE=[...entries,...crew].sort((a,b)=>a.date.localeCompare(b.date));
+  $('#employee-content').innerHTML='<div class="section-title"><h2>Coordinación</h2><p class="muted">Todos los servicios que coordinas. Si eres Crew Head, se abre Crew Control.</p></div>'+
+  (listE.length?'<div class="coord-list">'+listE.map(e=>{if(e.crew){const s=service(e.serviceId),d=new Date(e.date+'T12:00:00');return '<a class="coord-card crew '+(e.date===t?'today':'')+'" href="'+esc(crewControlUrl(e.serviceId,e.date))+'"><div class="date-tile '+(e.date===t?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div><div class="coord-card-main"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||''))+'</small><span class="coord-role crew">Crew Head · abre Crew Control</span></div><div class="coord-card-count"><b>'+e.rows.filter(a=>a.checkIn).length+'/'+e.rows.length+'</b><small>presentes</small></div><span class="coord-go">›</span></a>'}const s=service(e.serviceId),present=e.rows.filter(a=>a.checkIn).length,d=new Date(e.date+'T12:00:00');
    return '<button class="coord-card '+(e.date===t?'today':e.date<t?'past':'')+'" data-action="coord-enter" data-id="'+esc(e.key)+'"><div class="date-tile '+(e.date===t?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div><div class="coord-card-main"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||''))+'</small><span class="coord-role">'+esc(coordRole(e))+'</span></div><div class="coord-card-count"><b>'+present+'/'+e.rows.length+'</b><small>presentes</small></div><span class="coord-go">›</span></button>';}).join('')+'</div>':'<div class="panel empty">No coordinas ningún turno ahora mismo.</div>');
   return;
  }
@@ -547,7 +552,7 @@ function openClockModal(preferredId=''){
  stopQrCamera();stopQrRefresh();
  const coord=isCoordinatorAnywhere(),geo=geoShifts();
  if(preferredId){clockSelection=preferredId;const a=clockAssignments().find(x=>x.id===preferredId);if(a)clockMode=geo.some(x=>x.id===a.id)?'geo':'qr';}
- if(!clockMode||(clockMode==='scan'&&!coord)||(clockMode==='geo'&&!geo.length))clockMode=coord&&scanServices().length?'scan':'qr';
+ if(!clockMode||(clockMode==='scan'&&!coord)||(clockMode==='geo'&&!geo.length&&!coord))clockMode=coord&&scanServices().length?'scan':'qr';
  const opt=(k,title,sub,ic,show=true)=>show?'<button type="button" class="clock-opt '+(clockMode===k?'active':'')+'" data-action="clock-mode" data-id="'+k+'"><span class="clock-opt-icon">'+ic+'</span><span><b>'+title+'</b><small>'+sub+'</small></span></button>':'';
  const qrIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>';
  const scanIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10"/></svg>';
@@ -555,7 +560,7 @@ function openClockModal(preferredId=''){
  modal('Fichaje','<div class="clock-popup clock-v2"><div class="clock-opts">'+
   opt('scan','Escanear QRs','Ficha a tu personal escaneando su QR',scanIc,coord)+
   opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc)+
-  opt('geo','Fichar por geolocalización',coord?'Tu propio fichaje como coordinador':'Este turno no tiene coordinador',geoIc,geo.length>0)+
+  opt('geo','Fichar por geolocalización',coord?'Tu propio fichaje como coordinador':'Este turno no tiene coordinador',geoIc,coord||geo.length>0)+
   '</div><div id="clock-mode-body"></div></div>');
  $('#employee-modal').classList.add('clock-dialog');
  renderClockMode();
@@ -581,7 +586,7 @@ function renderClockMode(){
   return;
  }
  const shifts=geoShifts();
- if(!shifts.length){root.innerHTML='<div class="empty">No tienes turnos para fichar por geolocalización.</div>';return}
+ if(!shifts.length){const next=myAssignments().filter(a=>a.status!=='rejected'&&!shiftClosed(a)&&!a.checkOut&&coordinatesMyService(a)&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b))[0];root.innerHTML='<div class="empty">'+(next?'Tu próximo turno como coordinador es <b>'+esc(service(next.serviceId).name||'')+'</b> el '+esc(human(next.date))+' a las '+esc(next.start)+'. El fichaje por geolocalización se activa 4 horas antes del inicio.':'No tienes turnos propios en servicios que coordinas. Para fichar por geolocalización tienes que estar asignado al servicio además de coordinarlo.')+'</div>';return}
  root.innerHTML=shiftPicker(shifts)+'<div id="clock-service-summary"></div>';
  bindShiftPicker();renderClockModal();
 }
@@ -960,7 +965,7 @@ function bindHourDrag(container,selected,paint){
 const WEEK_DAYS=[['mon','Lunes'],['tue','Martes'],['wed','Miércoles'],['thu','Jueves'],['fri','Viernes'],['sat','Sábado'],['sun','Domingo']];
 function weekShiftOf(d){if(!d)return {morning:false,afternoon:false};if(d.morning!=null||d.afternoon!=null)return {morning:!!d.morning,afternoon:!!d.afternoon};const s=Array.isArray(d.slots)?d.slots.map(Number):d.available?[8,16]:[];return {morning:s.some(h=>h<15),afternoon:s.some(h=>h>=15)};}
 function weekShiftLabel(d){const x=weekShiftOf(d);return x.morning&&x.afternoon?'Mañana y tarde':x.morning?'Mañana':x.afternoon?'Tarde':'';}
-function weekGridHTML(days){return '<div class="wk-grid"><span></span><b>Mañana</b><b>Tarde</b>'+WEEK_DAYS.map(([k,l])=>{const x=weekShiftOf(days[k]);return '<span>'+l+'</span>'+['morning','afternoon'].map(sl=>'<button type="button" class="wk-cell '+(x[sl]?'on':'')+'" data-action="emp-week" data-id="'+k+'|'+sl+'" aria-pressed="'+x[sl]+'">'+(x[sl]?'✓':'—')+'</button>').join('')}).join('')+'</div>'}
+function weekGridHTML(days){const D=[['mon','L'],['tue','M'],['wed','X'],['thu','J'],['fri','V'],['sat','S'],['sun','D']];return '<div class="wk-mini"><span></span>'+D.map(([,l])=>'<b>'+l+'</b>').join('')+[['morning','Mañana'],['afternoon','Tarde']].map(([sl,lab])=>'<span>'+lab+'</span>'+D.map(([k])=>{const on=weekShiftOf(days[k])[sl];return '<button type="button" class="wk-dot '+(on?'on':'')+'" data-action="emp-week" data-id="'+k+'|'+sl+'" aria-pressed="'+on+'" aria-label="'+lab+' '+k+'">'+(on?'✓':'')+'</button>'}).join('')).join('')+'</div>'}
 async function toggleEmpWeek(cell){const [k,sl]=cell.split('|'),days={};for(const [d] of WEEK_DAYS)days[d]=weekShiftOf(state.weeklyAvailability?.days?.[d]);days[k][sl]=!days[k][sl];try{await api('availability-weekly',{days});await load();notice('Disponibilidad habitual guardada')}catch(e){error(e)}}
 function weeklyAvailabilityModal(){
  const current=state.weeklyAvailability?.days||{};
@@ -986,10 +991,47 @@ function coordShift(id){
  $('#coord-shift-form').onsubmit=async ev=>{ev.preventDefault();try{await api('coordinator-shift',{id,revision:a.revision,...Object.fromEntries(new FormData(ev.target))});$('#employee-modal').close();await load();notice('Horario actualizado')}catch(e){error(e)}};
 }
 
+/* v29 · Campana de notificaciones: ofertas de servicio, turnos asignados y mensajes. */
+function openOffers(){return (state.offers||[]).filter(o=>o.status==='open')}
+function notifItems(){
+ const items=[];
+ for(const o of openOffers())items.push({kind:'offer',o,new:!o.myAnswer});
+ for(const a of myAssignments().filter(a=>a.status==='pending'&&!shiftClosed(a)&&endMs(a)>Date.now()).sort((x,y)=>startMs(x)-startMs(y)))items.push({kind:'shift',a,new:true});
+ const seen=empSeen();for(const m of (state.messages||[]).filter(m=>m.senderId!==state.user?.id&&m.createdAt>seen).slice(-5).reverse())items.push({kind:'msg',m,new:true});
+ return items;
+}
+function offerWhen(i){return (i.date===today()?'Hoy':human(i.date))+' · '+i.start+'–'+i.end}
+function offerCard(o,compact=false){
+ const i=o.info;return '<div class="offer-card '+(o.myAnswer?'answered':'')+'"><span class="eyebrow">SERVICIO DISPONIBLE · '+esc(i.category)+'</span><strong>'+esc(i.serviceName)+'</strong><small>'+esc(offerWhen(i)+(i.venue?' · '+i.venue:'')+(i.serviceType?' · '+i.serviceType:''))+'</small>'+(o.message?'<p>'+esc(o.message)+'</p>':'')+
+ (o.myAnswer==='yes'?'<div class="offer-ans yes">Has dicho que te interesa. La oficina decidirá y te avisará si te lo asigna. <button class="text-link" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="no">Ya no puedo</button></div>':o.myAnswer==='no'?'<div class="offer-ans no">Has indicado que no puedes. <button class="text-link" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="yes">Al final sí puedo</button></div>':
+ '<div class="offer-actions"><button class="primary" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="yes">Me interesa</button><button class="secondary" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="no">No puedo</button></div>')+'</div>';
+}
+function renderBell(){
+ const head=document.querySelector('header.top');if(!head)return;
+ let b=$('#emp-bell');if(!b){b=document.createElement('button');b.id='emp-bell';b.type='button';b.className='emp-bell';b.setAttribute('aria-label','Notificaciones');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="emp-bell-n" hidden></span>';const pill=head.querySelector('.session-pill');head.insertBefore(b,pill);b.onclick=e=>{e.stopPropagation();toggleBellPanel();};}
+ const n=notifItems().filter(x=>x.new).length,badge=b.querySelector('.emp-bell-n');badge.hidden=!n;badge.textContent=n>9?'9+':n;b.classList.toggle('has',n>0);
+ if($('#emp-bell-panel')?.classList.contains('open'))fillBellPanel();
+}
+function toggleBellPanel(force){
+ let p=$('#emp-bell-panel');if(!p){p=document.createElement('div');p.id='emp-bell-panel';p.className='emp-bell-panel';document.body.appendChild(p);document.addEventListener('click',e=>{if(p.classList.contains('open')&&!p.contains(e.target)&&e.target.id!=='emp-bell')p.classList.remove('open')});}
+ const open=force??!p.classList.contains('open');p.classList.toggle('open',open);if(open)fillBellPanel();
+}
+function fillBellPanel(){
+ const p=$('#emp-bell-panel');if(!p)return;const items=notifItems();
+ p.innerHTML='<div class="ebp-head"><b>Notificaciones</b><button class="icon-close" data-action="bell-close" aria-label="Cerrar">×</button></div>'+(items.length?items.map(x=>{
+  if(x.kind==='offer')return offerCard(x.o,true);
+  if(x.kind==='shift'){const s=service(x.a.serviceId);return '<button class="ebp-item" data-action="detail" data-id="'+esc(x.a.id)+'"><span class="ebp-ic shift">＋</span><span class="grow"><b>Te han asignado un turno</b><small>'+esc((s.name||'Servicio')+' · '+(x.a.date===today()?'Hoy':human(x.a.date))+' · '+x.a.start+'–'+x.a.end)+'</small><em>Pendiente de confirmar</em></span></button>';}
+  return '<button class="ebp-item" data-page="messages"><span class="ebp-ic msg">✉</span><span class="grow"><b>Mensaje de la oficina</b><small>'+esc(String(x.m.content||'').slice(0,110))+'</small></span></button>';
+ }).join(''):'<p class="ebp-empty">No tienes notificaciones.</p>');
+}
+async function answerOffer(id,answer){
+ try{await api('offer-respond',{id,answer});await load();notice(answer==='yes'?'¡Gracias! La oficina verá que te interesa y te avisará si te lo asigna.':'Anotado: no puedes ese servicio.');}catch(e){error(e);await load().catch(()=>{});}
+}
+
 function render(){
  if(!state.user)return;
- if(page==='crewControl'&&!isCrewHead())page='dashboard';if(page==='coordination'&&!isNormalCoordinator())page='dashboard';
- renderNav();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
+ if(page==='crewControl'&&!isCrewHead())page='dashboard';if(page==='coordination'&&!isNormalCoordinator()&&!isCrewHead())page='dashboard';
+ renderNav();renderBell();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
  $('#employee-avatar').innerHTML=state.hasProfilePhoto?'<img alt="Foto de perfil" src="/api/office/employee-photo?workerId='+encodeURIComponent(state.user.workerId)+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase());
  ({service:serviceDetailPage,dashboard,clock:dashboard,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,crewControl:crewControlPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
 }
@@ -1040,6 +1082,7 @@ function passwordModal(){
 }
 document.addEventListener('click',async ev=>{
  const el=ev.target.closest('[data-page],[data-action]');if(!el)return;
+ if(el.closest('#emp-bell-panel')&&el.dataset.action!=='offer-answer')$('#emp-bell-panel').classList.remove('open');
  const p=el.dataset.page,action=el.dataset.action,id=el.dataset.id;
  if(p==='crewControl'){location.href='/crew-control/';return}
  if(p){stopQrCamera();const fromMobileFab=el.classList.contains('mobile-clock');$('.sidebar').classList.remove('open');if(location.hash)history.replaceState(null,'',location.pathname);if(p==='clock'){$('.sidebar').classList.remove('open');return openClockModal('');}page=p;render();window.scrollTo({top:0});return}
@@ -1100,6 +1143,8 @@ document.addEventListener('click',async ev=>{
  if(action==='tutorial')return modal(guides[Number(id)]?.[0]||'Guía','<p>'+esc(guides[Number(id)]?.[1]||'')+'</p>');
  if(action==='weekly')return weeklyAvailabilityModal();
  if(action==='emp-week')return toggleEmpWeek(id);
+ if(action==='offer-answer')return answerOffer(id,el.dataset.answer);
+ if(action==='bell-close')return toggleBellPanel(false);
  if(action==='edit-profile')return extendedProfile();
  if(action==='profile-tab'){profileTab=el.dataset.tab;return profilePage()}
  if(action==='upload-photo')return employeePhotoModal();

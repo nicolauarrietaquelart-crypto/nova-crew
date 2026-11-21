@@ -158,3 +158,30 @@ test('v28: address search returns places (OpenStreetMap by default) and only for
   assert.equal((await f.call('geocode',{q:'Palau Sant Jordi'},f.g)).status,503);
  }finally{globalThis.fetch=real;}
 });
+
+test('v29: open a slot to a group, workers answer, Gestoría decides; payment terms; manager-only activity by service',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
+ await f.save('workers',{...hand,contractType:'fixed_discontinuous',createAccess:false});
+ const blk=await f.call('service-block-save',{record:{serviceId:f.svc.id,serviceType:'LOAD IN',date:f.svc.date,endDate:f.svc.date,start:'18:00',end:'22:00',team:'Principal'},categories:[{categoryId:'HAND B',quantity:1}]},f.g);
+ assert.equal(blk.status,200,JSON.stringify(blk.body));const line=blk.body.positions[0];
+ let r=await f.call('offer-create',{orderLineId:line.id,audience:'fixed',message:'¿Quién puede?'},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.targets,[hand.id]);const offerId=r.body.record.id;
+ const hs=(await f.call('state',null,f.h)).body;assert.equal(hs.offers.length,1);assert.equal(hs.offers[0].info.category,'HAND B');
+ assert.equal((await f.call('state',null,f.c)).body.offers.length,0,'eventual coordinator is not in the fixed group');
+ assert.equal((await f.call('offer-respond',{id:offerId,answer:'yes'},f.c)).status,403);
+ r=await f.call('offer-respond',{id:offerId,answer:'yes'},f.h);assert.equal(r.status,200);
+ const go=(await f.call('state',null,f.g)).body.offers.find(o=>o.id===offerId);assert.equal(go.responses[hand.id].answer,'yes');
+ assert.equal((await f.call('state',null,f.h)).body.assignments.filter(a=>a.orderLineId===line.id).length,0,'answering does not assign');
+ const a=await f.save('assignments',{serviceId:f.svc.id,orderLineId:line.id,workerId:hand.id,categoryId:line.categoryId,date:line.date,endDate:line.endDate,start:line.start,end:line.end});
+ assert.ok(a.id);assert.equal((await f.call('state',null,f.g)).body.offers.find(o=>o.id===offerId).status,'filled');
+ assert.equal((await f.call('offer-respond',{id:offerId,answer:'yes'},f.h)).status,409);
+ // payment terms
+ const bad=await f.call('save',{kind:'clients',record:{name:'Cliente 45',paymentDays:45}},f.g);assert.equal(bad.status,400);
+ assert.equal((await f.call('save',{kind:'clients',record:{name:'Cliente 60',paymentDays:60}},f.g)).status,200);
+ // activity
+ const act=await f.call('activity-by-service',{},f.g);assert.equal(act.status,200);
+ const g=act.body.groups.find(x=>x.service.id===f.svc.id);assert.ok(g.count>0);assert.ok(g.entries.every(e=>e.name==='Nicolau'));
+ assert.ok(!g.entries.some(e=>e.action.startsWith('offer-yes')),'worker actions are excluded');
+ assert.equal((await f.call('activity-by-service',{},f.c)).status,403);
+});
