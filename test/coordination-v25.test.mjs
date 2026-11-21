@@ -306,3 +306,13 @@ test('v40: offers skip people already in the service; mass offers need the categ
  await f.save('workers',{...other,categories:['HAND B'],createAccess:false});
  r=await f.call('offer-create',{orderLineId:steel.id,audience:'all'},f.g);assert.ok(r.status===409||!r.body.record.targets.includes(other.id),JSON.stringify(r.body));
 });
+
+test('v42: blocks have no schedule; each category row sets its own start/end (overnight included)',async()=>{
+ const f=await setup();
+ const r=await f.call('service-block-save',{record:{serviceId:f.svc.id,serviceType:'LOAD IN',date:'2027-03-01',team:'Principal'},categories:[{categoryId:'steelhand',quantity:2,start:'07:00',end:'15:00'},{categoryId:'HAND B',quantity:1,start:'22:00',end:'04:00',pause:0.5}]},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));const ps=r.body.positions;assert.equal(ps.length,3);
+ assert.deepEqual(ps.filter(p=>p.categoryId==='steelhand').map(p=>p.start+'-'+p.end+'-'+p.endDate),['07:00-15:00-2027-03-01','07:00-15:00-2027-03-01']);
+ const night=ps.find(p=>p.categoryId==='HAND B');assert.equal(night.start,'22:00');assert.equal(night.endDate,'2027-03-02');assert.equal(night.pause,0.5);
+ const add=await f.call('service-block-add-positions',{blockId:r.body.record.id,categories:[{categoryId:'steelhand',quantity:1,start:'10:00',end:'12:00'}]},f.g);
+ assert.equal(add.status,200,JSON.stringify(add.body));assert.equal(add.body.positions[0].start,'10:00');assert.equal(add.body.positions[0].end,'12:00');
+});

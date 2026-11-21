@@ -799,16 +799,20 @@ export function createOfficeApi(storage,env={}){
       if(service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Servicio no editable.',409);
       const old=input.id?await record(db,'serviceBlocks',input.id):null;revision(old,input);
       if(old&&old.serviceId!==service.id)fail('No puedes mover un bloque a otro servicio.');
-      const d=date(input.date),last=date(input.endDate||input.date),start=time(input.start),end=time(input.end);
-      if(last+'T'+end<=d+'T'+start)fail('El final del bloque debe ser posterior al inicio.');
-      if(Date.parse(last+'T'+end+'Z')-Date.parse(d+'T'+start+'Z')>48*3600000)fail('Bloque de más de 48 h. Divide en jornadas.');
+      /* v42 · el bloque (LOAD IN, SHOW CALL…) no tiene horario propio: cada puesto lleva el suyo. */
+      const d=date(input.date);
+      const nextDay=x=>new Date(Date.parse(x+'T12:00:00Z')+86400000).toISOString().slice(0,10);
+      const shift=(st,en)=>{const s0=time(st||'08:00'),e0=time(en||'18:00');return {start:s0,end:e0,endDate:e0<=s0?nextDay(d):d};};
+      const cats=!old&&Array.isArray(b.categories)?b.categories:[];
+      const spans=cats.map(c=>shift(c.start||input.start,c.end||input.end));
+      const start=old?old.start:(spans.length?spans.map(x=>x.start).sort()[0]:time(input.start||'08:00')),end=old?old.end:(spans.length?spans.map(x=>x.end).sort().slice(-1)[0]:time(input.end||'18:00'));
+      const last=old?(old.date===d?(old.endDate||d):d):(spans.some(x=>x.endDate!==d)?nextDay(d):d);
       const placeId=text(input.placeId),coordinatorId=text(input.coordinatorId);
       if(placeId){const place=await record(db,'servicePlaces',placeId);if(place.serviceId!==service.id||place.archived)fail('Ubicación ajena al servicio.');}
       if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador debe tener una ficha de trabajador.',409);}
       const serviceType=required(input.serviceType,'el tipo de servicio'),team=text(input.team);
       const slots=old?(await rows(db,'orderLines')).filter(l=>l.blockId===old.id&&!l.archived&&l.status!=='cancelled'):[];
-      const changed=old&&['date','endDate','start','end','placeId','serviceType','team'].some(k=>
-        String(({date:d,endDate:last,start,end,placeId,serviceType,team,coordinatorId})[k])!==String(old[k]));
+      const changed=old&&['date','placeId'].some(k=>String(({date:d,placeId})[k])!==String(old[k]));
       if(changed){
         const assigned=await rows(db,'assignments');
         if(slots.some(l=>assigned.some(a=>a.orderLineId===l.id&&!a.archived)))
@@ -817,10 +821,10 @@ export function createOfficeApi(storage,env={}){
       const value={...old,id:old?.id||uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(input.notes,1000),revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now()};
       await db.put(key('serviceBlocks',value.id),value);
       for(const slot of slots){
-        const updated={...slot,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,revision:slot.revision+1};
+        const moved=slot.date!==d,updated={...slot,...(moved?{date:d,endDate:(slot.endDate&&slot.endDate!==slot.date)?nextDay(d):d}:{}),serviceType,team,placeId,coordinatorId,revision:slot.revision+1};
         await db.put(key('orderLines',slot.id),updated);
       }
-      const dates=[d,last],existingDays=await rows(db,'serviceDays');
+      const dates=[d],existingDays=await rows(db,'serviceDays');
       for(const x of dates)if(!existingDays.some(v=>v.serviceId===service.id&&v.date===x&&!v.archived)){
         const dayValue={id:uid(),serviceId:service.id,date:x,name:'Jornada',revision:1};
         await db.put(key('serviceDays',dayValue.id),dayValue);
@@ -832,11 +836,11 @@ export function createOfficeApi(storage,env={}){
         const count=categories.reduce((n,c)=>n+Number(c.quantity||0),0);
         if(count>200||count<1)fail('Máximo 200 puestos por bloque.');
         const created=[];
-        for(const item of categories){
-          const amount=number(item.quantity,1,200);if(!Number.isInteger(amount))fail('Número de puestos incorrecto.');
+        for(const [ci,item] of categories.entries()){
+          const amount=number(item.quantity,1,200);if(!Number.isInteger(amount))fail('Número de puestos incorrecto.');const sp=spans[ci];
           for(let i=0;i<amount;i++){
             const slot=await saveEntity(db,actor,'orderLines',{serviceId:service.id,categoryId:item.categoryId,
-              serviceType,team,placeId,coordinatorId,date:d,endDate:last,start,end,pause:input.pause??0,diets:item.diets===true||item.diets==='true',notes:input.notes||''});
+              serviceType,team,placeId,coordinatorId,date:d,endDate:sp.endDate,start:sp.start,end:sp.end,pause:item.pause??input.pause??0,diets:item.diets===true||item.diets==='true',notes:input.notes||''});
             const linked={...slot,blockId:value.id};await db.put(key('orderLines',slot.id),linked);created.push(linked);
           }
         }
@@ -864,13 +868,15 @@ export function createOfficeApi(storage,env={}){
       for(const cat of categories){
         const quantity=number(cat.quantity,1,200);if(!Number.isInteger(quantity))fail('Cantidad incorrecta.');
         total+=quantity;if(total>200)fail('Máximo 200 puestos de una vez.');
+        const cs=time(cat.start||block.start||'08:00'),ce=time(cat.end||block.end||'18:00'),ced=ce<=cs?new Date(Date.parse(block.date+'T12:00:00Z')+86400000).toISOString().slice(0,10):block.date;
         for(let i=0;i<quantity;i++){
           const raw=await saveEntity(db,actor,'orderLines',{serviceId:service.id,categoryId:cat.categoryId,
             serviceType:block.serviceType,team:block.team,placeId:block.placeId,coordinatorId:block.coordinatorId,
-            date:block.date,endDate:block.endDate,start:block.start,end:block.end,pause:cat.pause??0,diets:cat.diets===true||cat.diets==='true'});
+            date:block.date,endDate:ced,start:cs,end:ce,pause:cat.pause??0,diets:cat.diets===true||cat.diets==='true'});
           const value={...raw,blockId:block.id};await db.put(key('orderLines',value.id),value);positions.push(value);
         }
       }
+      {const all=(await rows(db,'orderLines')).filter(l=>l.blockId===block.id&&!l.archived&&l.status!=='cancelled');if(all.length){const nb={...block,start:all.map(l=>l.start).sort()[0],end:all.map(l=>l.end).sort().slice(-1)[0],endDate:all.map(l=>l.endDate||l.date).sort().slice(-1)[0],revision:block.revision+1,updatedAt:now()};await db.put(key('serviceBlocks',block.id),nb);}}
       await audit(db,actor,'block-add-positions','serviceBlocks',block.id);return {positions};
     }
     if(op==='service-block-delete'){
