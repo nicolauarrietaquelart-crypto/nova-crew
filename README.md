@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v30 · Líneas de puesto más claras
+
+- La barra de fases del servicio ya no se solapa: progreso arriba y siguiente paso debajo.
+- En cada línea de puesto: **Gestionar** (cambiar o quitar trabajador, horario y pausa del puesto, eliminar), **+** para añadir otro puesto igual al bloque y **papelera** para eliminar el puesto. Se quitan «Editar puesto» y «Corregir fichaje».
+- Columna **Horario y fichaje** con la hora de inicio y fin en colores: rojo si ya ha pasado la hora y no ha fichado, naranja si entró más de 15 min tarde, verde si fichó a tiempo y salida fichada.
+
 ## Novedades v29 · Ofertas de huecos, notificaciones y actividad por servicio
 
 - **Ofrecer un puesto a un grupo**: desde «Asignar» en un puesto sin cubrir, «Ofrecer a un grupo» (con la categoría, fijos, eventuales, todo el personal o personas concretas). El personal responde «Me interesa» / «No puedo»; nadie queda asignado hasta que Gestoría elige. Las respuestas salen en el propio puesto, en la tabla del servicio y en el Inicio («Huecos ofrecidos»).
