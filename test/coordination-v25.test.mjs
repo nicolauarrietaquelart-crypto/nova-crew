@@ -185,3 +185,18 @@ test('v29: open a slot to a group, workers answer, Gestoría decides; payment te
  assert.ok(!g.entries.some(e=>e.action.startsWith('offer-yes')),'worker actions are excluded');
  assert.equal((await f.call('activity-by-service',{},f.c)).status,403);
 });
+
+test('v30: delete individual position lines; blocked when there are clock-ins',async()=>{
+ const f=await setup();
+ const blk=await f.call('service-block-save',{record:{serviceId:f.svc.id,serviceType:'LOAD OUT',date:f.svc.date,endDate:f.svc.date,start:'20:00',end:'23:00',team:'Principal'},categories:[{categoryId:'HAND B',quantity:3}]},f.g);
+ const [l1,l2,l3]=blk.body.positions;const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
+ assert.equal((await f.call('line-delete',{id:l1.id},f.g)).status,200);
+ const a=await f.save('assignments',{serviceId:f.svc.id,orderLineId:l2.id,workerId:hand.id,categoryId:l2.categoryId,date:l2.date,endDate:l2.endDate,start:l2.start,end:l2.end});
+ assert.equal((await f.call('line-delete',{id:l2.id},f.c)).status,403);
+ assert.equal((await f.call('line-delete',{id:l2.id},f.g)).status,200);
+ const s2=(await f.call('state',null,f.g)).body;
+ assert.ok(s2.orderLines.filter(l=>l.id===l1.id||l.id===l2.id).every(l=>l.archived||l.status==='cancelled'));assert.ok(s2.assignments.filter(x=>x.id===a.id).every(x=>x.archived));
+ const b2=await f.save('assignments',{serviceId:f.svc.id,orderLineId:l3.id,workerId:f.aCoord.workerId,categoryId:l3.categoryId,date:l3.date,endDate:l3.endDate,start:l3.start,end:l3.end});
+ assert.equal((await f.call('coord-update',{id:b2.id,revision:b2.revision,changes:{realIn:'20:00'}},f.c)).status,200);
+ assert.equal((await f.call('line-delete',{id:l3.id},f.g)).status,409);
+});

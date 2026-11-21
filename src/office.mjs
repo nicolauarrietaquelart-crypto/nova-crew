@@ -761,6 +761,17 @@ export function createOfficeApi(storage,env={}){
       }
       await audit(db,actor,'block-update','serviceBlocks',value.id);return {record:value};
     }
+    if(op==='line-delete'){
+      managerOnly(actor);const l=await record(db,'orderLines',required(b.id,'el puesto')),service=await record(db,'services',l.serviceId);
+      if(['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('El servicio está cerrado.',409);
+      const as=(await rows(db,'assignments')).filter(a=>a.orderLineId===l.id&&!a.archived);
+      if(as.some(a=>a.checkIn))fail('Este puesto tiene fichajes. No se puede eliminar.',409);
+      const stamp=now();
+      for(const a of as){await db.put(key('assignments',a.id),{...a,archived:true,revision:a.revision+1,updatedAt:stamp});await audit(db,actor,'archive','assignments',a.id,'puesto eliminado');}
+      await db.put(key('orderLines',l.id),{...l,archived:true,status:'cancelled',revision:l.revision+1,updatedAt:stamp});
+      for(const o of (await rows(db,'offers')).filter(o=>o.orderLineId===l.id&&o.status==='open'))await db.put(key('offers',o.id),{...o,status:'cancelled',closedAt:stamp,revision:o.revision+1});
+      await audit(db,actor,'line-delete','orderLines',l.id,(l.role||'')+' '+l.date+' '+l.start+'–'+l.end);return {};
+    }
     if(op==='service-block-add-positions'){
       managerOnly(actor);const block=await record(db,'serviceBlocks',b.blockId),service=await record(db,'services',block.serviceId);
       if(block.archived||service.archived||['completed','cancelled'].includes(service.status)||service.settlementStatus==='confirmed')fail('Bloque cerrado.',409);

@@ -361,3 +361,24 @@
 *::-webkit-scrollbar-corner{background:transparent}
 .offer-tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:#fff1e3;color:#c25a07;font-size:11px;font-weight:800}
 .act-group .history-item{grid-template-columns:92px 12px 1fr}
+
+/* v30 · Barra de fase sin solapes: progreso arriba, siguiente paso debajo */
+.service-flow-bar{display:grid !important;grid-template-columns:1fr;gap:14px !important}
+.service-flow-bar .flow{overflow-x:auto;padding:4px 2px 6px;flex:none}
+.service-flow-bar .flow-step{flex-shrink:0}
+.service-flow-bar .flow-line{min-width:18px}
+.service-next{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line,rgba(20,22,28,.08))}
+.service-next>div{min-width:0}
+/* Horario con colores de fichaje */
+.clock-chips{display:flex;gap:6px;align-items:center}
+.cchip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;background:#eef0f3;color:#4a4f57;border:1.5px solid transparent}
+.cchip.ok{background:#e6f6ee;color:#167a4c;border-color:#9fdcbd}
+.cchip.late{background:#fff1e3;color:#b85b0c;border-color:#ffc58c}
+.cchip.bad{background:#fde9e9;color:#c0392b;border-color:#f4b1aa}
+.cchip-txt{display:block;font-weight:600;color:#4a4f57 !important;margin-top:3px}
+.line-worker{display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0;border-radius:14px;border:1px solid var(--line,rgba(20,22,28,.1))}
+.line-worker b{display:block}
+.line-clock{margin:0 0 12px}
+.line-foot{align-items:center}
+.btn.danger{color:#c0392b;border-color:#f4b1aa}
+.btn.danger:hover{background:#fde9e9}

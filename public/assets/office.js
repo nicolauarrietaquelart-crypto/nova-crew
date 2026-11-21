@@ -268,14 +268,14 @@ function serviceRows(){
 }
 function servicePostTable(posts,assignments){
  if(!posts.length)return '<div class="empty">Todavía no hay puestos en este bloque.</div>';
- return '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Trabajador</th><th>Equipo / Horario</th><th>Confirmación / fichaje</th><th></th></tr></thead><tbody>'+
+ return '<div class="table-wrap"><table><thead><tr><th>Categoría</th><th>Trabajador</th><th>Horario y fichaje</th><th>Estado</th><th></th></tr></thead><tbody>'+
  posts.map(p=>{
    const a=assignments.find(x=>x.orderLineId===p.id&&!x.archived);
    return '<tr><td><strong>'+esc(p.role)+'</strong><small>'+esc(p.serviceType||'')+'</small></td>'+
    '<td>'+(a?esc(name('workers',a.workerId)):'<span class="unfilled-tag">Sin cubrir</span>'+((data.offers||[]).some(o=>o.orderLineId===p.id&&o.status==='open')?(()=>{const o=(data.offers||[]).find(o=>o.orderLineId===p.id&&o.status==='open'),y=Object.values(o.responses||{}).filter(r=>r.answer==='yes').length;return '<span class="offer-tag">Ofrecido · '+y+' interesado'+(y===1?'':'s')+'</span>';})():''))+'</td>'+
-   '<td>'+esc(p.team||'—')+'<small>'+esc(p.date)+' · '+esc(p.start)+'–'+esc(p.end)+'</small><small>Coordinador: '+esc(name('users',p.coordinatorId||list('serviceBlocks').find(b=>b.id===p.blockId)?.coordinatorId))+'</small></td><td>'+(a?badge(a.status)+'<small>Entrada: '+(a.checkIn?fmtTime(a.checkIn):'—')+' · Salida: '+(a.checkOut?fmtTime(a.checkOut):'—')+'</small>':'—')+'</td><td><div class="row-actions">'+
-   (a?action('view','Ver turno',a.id,'assignments')+action('edit','Modificar asignación',a.id,'assignments','edit')+button('attendance-service-edit','Corregir fichaje','clock','data-id="'+esc(a.id)+'"',''):button('assign-slot','Asignar','plus','data-id="'+esc(p.id)+'"',''))+
-   action('edit','Editar puesto',p.id,'orderLines','edit')+'</div></td></tr>';
+   '<td>'+clockChips(p,a)+'</td><td>'+(a?badge(a.status):'—')+'</td><td><div class="row-actions">'+
+   (a?button('line-manage','Gestionar','edit','data-id="'+esc(p.id)+'"',' small'):button('assign-slot','Asignar','plus','data-id="'+esc(p.id)+'"',' small')+action('line-manage','Horario del puesto',p.id,'orderLines','clock'))+
+   action('line-dup','Añadir otro puesto igual al bloque',p.id,'orderLines','plus')+action('line-delete','Eliminar puesto',p.id,'orderLines','trash')+'</div></td></tr>';
  }).join('')+'</tbody></table></div>';
 }
 function serviceWorkspacePage(){
@@ -1032,6 +1032,49 @@ async function activityPage(){
  }catch(e){$('#content').innerHTML='<p class="error">'+esc(e.message)+'</p>';}
 }
 
+/* v30 · Líneas de puesto: horario con colores de fichaje, gestionar, duplicar y eliminar. */
+const madridHMd=iso=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date(iso)),g=t=>p.find(x=>x.type===t)?.value;return {day:g('year')+'-'+g('month')+'-'+g('day'),hm:(g('hour')==='24'?'00':g('hour'))+':'+g('minute')};};
+const hmMin=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5));
+function nowMadrid(){return madridHMd(new Date().toISOString());}
+function slotPassed(date,t){const n=nowMadrid();return n.day>date||(n.day===date&&n.hm>=t);}
+function clockChips(p,a){
+ const endDate=p.endDate||p.date,start=a?.start||p.start,end=a?.end||p.end;
+ let sCls='idle',sTxt='',eCls='idle',eTxt='';
+ if(a&&a.noShow){sCls='bad';sTxt='No presentado';}
+ else if(a&&a.checkIn){const ci=madridHMd(a.checkIn),late=(ci.day>a.date?1440:ci.day<a.date?-1440:0)+hmMin(ci.hm)-hmMin(start);sCls=late>15?'late':'ok';sTxt='Entrada '+ci.hm+(late>15?' · '+late+' min tarde':'');}
+ else if(a&&slotPassed(a.date,start)){sCls='bad';sTxt='Sin fichar';}
+ if(a&&a.checkOut){eCls='ok';eTxt='Salida '+madridHMd(a.checkOut).hm;}
+ else if(a&&!a.noShow&&slotPassed(end<=start?new Date(Date.parse(a.date+'T12:00:00Z')+864e5).toISOString().slice(0,10):a.date,end)){eCls='bad';eTxt='Sin salida';}
+ return '<div class="clock-chips"><span class="cchip '+sCls+'" title="'+esc(sTxt||'Inicio previsto')+'">'+esc(start)+'</span><span class="cchip '+eCls+'" title="'+esc(eTxt||'Fin previsto')+'">'+esc(end)+'</span></div>'+(sTxt||eTxt?'<small class="cchip-txt">'+esc([sTxt,eTxt].filter(Boolean).join(' · '))+'</small>':'')+'<small>'+esc(fmt(p.date))+(p.team?' · '+esc(p.team):'')+'</small>';
+}
+function lineModal(lineId){
+ const p=find('orderLines',lineId);if(!p)return;const a=list('assignments').find(x=>x.orderLineId===p.id&&!x.archived),w=a?find('workers',a.workerId):null;
+ modal('Puesto · '+(p.role||''),`<form id="editor"><div class="picker-slot"><div><span class="eyebrow">${esc(p.serviceType||'Puesto')}</span><strong>${esc(name('services',p.serviceId))}</strong><small>${fmt(p.date)} · ${esc(p.team||'Principal')}</small></div></div>
+ <div class="line-worker">${w?`${avatar(w,44)}<div class="grow"><b>${esc(w.name)}</b><small>${badge(a.status)}</small></div><button type="button" class="btn small" data-action="line-change" data-id="${esc(p.id)}">Cambiar trabajador</button><button type="button" class="btn small" data-action="line-unassign" data-id="${esc(p.id)}">Quitar</button>`:`<div class="grow"><b>Sin trabajador</b><small>Este puesto está sin cubrir.</small></div><button type="button" class="btn primary small" data-action="assign-slot" data-id="${esc(p.id)}">Asignar</button>`}</div>
+ ${a?`<div class="line-clock">${clockChips(p,a)}</div>`:''}
+ <div class="form-grid">${field('start','Inicio',a?.start||p.start,'time','required')}${field('end','Fin',a?.end||p.end,'time','required')}${field('pause','Pausa (horas)',a?.pause??p.pause??0,'number','min="0" max="8" step="0.25"')}</div>
+ <p class="footnote">${a?.checkIn?'Este turno ya tiene fichaje: el horario previsto no cambia las horas fichadas.':'Cambia el horario solo de este puesto.'}</p>
+ <div class="form-error" hidden></div><div class="form-footer line-foot"><button type="button" class="btn danger" data-action="line-delete" data-id="${esc(p.id)}">${icon('trash')}Eliminar puesto</button><span class="grow"></span><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div></form>`);
+ const f=$('#editor');f.onsubmit=async e=>{e.preventDefault();const err=f.querySelector('.form-error');err.hidden=true;try{const d=Object.fromEntries(new FormData(f));
+  if(d.start!==p.start||d.end!==p.end||Number(d.pause)!==Number(p.pause||0))await api('save',{kind:'orderLines',record:{...p,start:d.start,end:d.end,pause:d.pause}});
+  if(a&&(d.start!==a.start||d.end!==a.end||Number(d.pause)!==Number(a.pause||0))&&!a.checkOut)await api('save',{kind:'assignments',record:{...find('assignments',a.id),start:d.start,end:d.end,pause:d.pause}});
+  $('#modal').close();await load();toast('Puesto actualizado');}catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false;}};
+}
+async function lineUnassign(lineId,thenPick){
+ const a=list('assignments').find(x=>x.orderLineId===lineId&&!x.archived);if(!a)return;
+ if(!confirm(thenPick?'Se quitará a '+name('workers',a.workerId)+' de este puesto para elegir a otra persona. ¿Seguir?':'¿Quitar a '+name('workers',a.workerId)+' de este puesto?'))return;
+ try{await api('archive',{kind:'assignments',id:a.id,revision:a.revision});await load();toast('Trabajador retirado del puesto');if(thenPick)assignPicker(lineId);else{$('#modal').close();}}catch(e){toast(e.message,true);}
+}
+async function lineDelete(lineId){
+ const p=find('orderLines',lineId),a=list('assignments').find(x=>x.orderLineId===lineId&&!x.archived);if(!p)return;
+ if(!confirm('¿Eliminar este puesto de '+(p.role||'')+'?'+(a?' También se quitará a '+name('workers',a.workerId)+'.':'')))return;
+ try{await api('line-delete',{id:lineId});if($('#modal').open)$('#modal').close();await load();toast('Puesto eliminado');}catch(e){toast(e.message,true);}
+}
+async function lineDuplicate(lineId){
+ const p=find('orderLines',lineId);if(!p?.blockId)return toast('Este puesto no pertenece a un bloque.',true);
+ try{await api('service-block-add-positions',{blockId:p.blockId,categories:[{categoryId:p.categoryId,quantity:1}]});await load();toast('Añadido otro puesto de '+(p.role||'')+' al bloque');}catch(e){toast(e.message,true);}
+}
+
 function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c.map(s=>`<td>${s}</td>`).join('')}</tr>`;
  if(page==='tariffs')html=table(['Categoría','Grupo / Unidad','Pago bruto','Cliente','Mínimo',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.id)}</small>`,esc(r.group)+'<small>'+esc(r.unit==='day'?'Por show/día':'Por hora')+'</small>',r.workerRate==null?'Pendiente':euro(r.workerRate),r.clientRate==null?'Pendiente':euro(r.clientRate),r.minHours+' h',action('edit','Modificar tarifa',r.id,'tariffs','edit')])));
   if(['clients','workers'].includes(page))html=table([page==='workers'?'Trabajador':'Cliente','Contacto',page==='workers'?'Especialidad':'NIF','Estado',''],(page==='workers'?rows.slice().sort((a,b)=>workerSince(a).localeCompare(workerSince(b))):rows).map(r=>tr([page==='workers'?`<button class="worker-cell" data-action="view" data-kind="workers" data-id="${esc(r.id)}">${avatar(r,38)}<span><strong>${esc(r.name)}</strong><small>${contractLabel(r)} · ${esc(seniorityText(r).split(' · ')[0])}</small></span></button>`:`<strong>${esc(r.name)}</strong><small>${esc(r.email)}</small>`,esc(r.phone||'—'),esc(page==='workers'?r.specialty:r.taxId),badge(r.active===false?'unavailable':'available'),rowActions(r,page)])));
@@ -1165,6 +1208,11 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='flow-open'){serviceFocus=id;openServicePage(id);serviceTab=el.dataset.tab||'planning';return serviceWorkspacePage();}
  if(a==='flow-remind')return remindPending(id);
  if(a==='worker-contract')return contractModal(id);
+ if(a==='line-manage')return lineModal(id);
+ if(a==='line-change')return lineUnassign(id,true);
+ if(a==='line-unassign')return lineUnassign(id,false);
+ if(a==='line-delete')return lineDelete(id);
+ if(a==='line-dup')return lineDuplicate(id);
  if(a==='offer-slot')return offerModal(id);
  if(a==='offer-cancel'){const o=(data.offers||[]).find(x=>x.id===id);if(!o||!confirm('¿Retirar la oferta? El personal dejará de verla.'))return;try{await api('offer-close',{id,status:'cancelled'});await load();toast('Oferta retirada');assignPicker(o.orderLineId);}catch(e){toast(e.message,true);}return}
  if(a==='activity-more'){activityLimit+=20;return activityPage();}
