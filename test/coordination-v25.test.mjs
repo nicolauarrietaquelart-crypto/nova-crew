@@ -263,7 +263,7 @@ test('v37: diets per tariff, line-update changes category/schedule/diets, negati
  const f=await setup();
  const st=(await f.call('state',null,f.g)).body;
  assert.ok(st.tariffs.every(t=>t.group!=='Montaje'&&t.group!=='Operativo'),'Montaje and Operativo are merged');
- assert.ok(st.tariffs.some(t=>t.group==='OPERATIVO'));
+ assert.ok(st.tariffs.some(t=>t.group==='OPERATIVO'));assert.ok(!st.tariffs.some(t=>t.name==='HAND / MONTADOR/A'),'HAND / MONTADOR/A removed');
  // diet rates: default 10 / 16.5 and editable per tariff
  let r=await f.call('diet-rate-set',{schedule:'Tarifa estándar 2026',clientRate:17},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
  assert.equal(r.body.record.workerRate,10);assert.equal(r.body.record.clientRate,17);
@@ -272,7 +272,7 @@ test('v37: diets per tariff, line-update changes category/schedule/diets, negati
  const hb=(await f.call('state',null,f.g)).body.tariffs.find(t=>t.schedule==='NAVIDAD -20'&&t.id!=='x'&&t.clientRate);assert.ok(hb);
  assert.equal((await f.call('state',null,f.g)).body.dietRates.find(d=>d.schedule==='NAVIDAD -20').clientRate,13.6);
  // a line with diets: assignment inherits one diet and invoice gets a diet line
- const cat=st.tariffs.find(t=>t.id==='hand-montador'),cat2=st.tariffs.find(t=>t.id==='climber');
+ const cat=st.tariffs.find(t=>t.id==='steelhand'),cat2=st.tariffs.find(t=>t.id==='climber');
  const line=(await f.call('save',{kind:'orderLines',record:{serviceId:f.svc.id,categoryId:cat.id,date:f.svc.date,start:'08:00',end:'14:00',diets:true}},f.g)).body.record;assert.equal(line.diets,true);
  const w=await f.save('workers',{name:'Dieta W',costRate:10,createAccess:false});
  const a=await f.save('assignments',{serviceId:f.svc.id,workerId:w.id,orderLineId:line.id,categoryId:cat.id});
@@ -287,7 +287,7 @@ test('v40: offers skip people already in the service; mass offers need the categ
  const f=await setup();
  const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
  const svc=await f.save('services',{...f.svc,id:undefined,revision:undefined,name:'Servicio v40',date:'2027-02-10',endDate:'2027-02-10'});
- const shift=await f.save('assignments',{serviceId:svc.id,workerId:hand.id,role:'HAND B',date:svc.date,endDate:svc.date,start:'08:00',end:'12:00',costRate:9.3,chargeRate:18.6});
+ const shift=await f.save('assignments',{serviceId:svc.id,workerId:hand.id,role:'HAND B',date:svc.date,endDate:svc.date,start:'17:00',end:'23:00',costRate:9.3,chargeRate:18.6});
  const inSvc=new Set([hand.id]);
  const withAccess=new Set(st.users.filter(u=>u.active&&u.role==='worker'&&u.workerId).map(u=>u.workerId));
  const blk=await f.call('service-block-save',{record:{serviceId:svc.id,serviceType:'LOAD IN',date:svc.date,endDate:svc.date,start:'18:00',end:'22:00',team:'Principal'},categories:[{categoryId:'steelhand',quantity:1},{categoryId:'climber',quantity:1}]},f.g);
@@ -303,6 +303,6 @@ test('v40: offers skip people already in the service; mass offers need the categ
  r=await f.call('offer-create',{orderLineId:steel.id,audience:'all'},f.g);assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.targets.slice().sort(),expected);
  // closing STEELHAND explicitly removes the default
  const other=st.workers.find(w=>expected.includes(w.id));
- await f.save('workers',{...other,categories:['Hand / Montador/a'],createAccess:false});
+ await f.save('workers',{...other,categories:['HAND B'],createAccess:false});
  r=await f.call('offer-create',{orderLineId:steel.id,audience:'all'},f.g);assert.ok(r.status===409||!r.body.record.targets.includes(other.id),JSON.stringify(r.body));
 });
