@@ -541,3 +541,22 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .cp-grid{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
 .cp-row span{flex:0 0 auto;max-width:55%}
 @media (max-width:760px){.cp-grid{grid-template-columns:1fr}.cp-row span{max-width:none}}
+
+/* v37 · urgentes, avisos y resultado del fichaje */
+.urgent-offers{border:2px solid #e5484d;background:#fff5f5;border-radius:20px;padding:16px;margin-bottom:18px;display:grid;gap:12px;animation:urgPulse 2.4s ease-in-out infinite}
+@keyframes urgPulse{0%,100%{box-shadow:0 0 0 0 rgba(229,72,77,.25)}50%{box-shadow:0 0 0 8px rgba(229,72,77,0)}}
+.urgent-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.urgent-head b{color:#c4282d;letter-spacing:.08em;font-size:13px}.urgent-head small{color:#7a3b3d}
+.urgent-dot{width:10px;height:10px;border-radius:50%;background:#e5484d;box-shadow:0 0 0 4px rgba(229,72,77,.2)}
+.offer-card.urgent{border-color:#f3b4b6 !important}
+.offer-card.urgent .eyebrow{color:#c4282d !important}
+.ebp-enable{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;margin:0 0 10px;padding:12px 14px;border-radius:14px;border:1.5px solid #ffc79c;background:#fff4ec;color:#15171b;font-weight:800;cursor:pointer;font-family:inherit}
+.ebp-enable small{font-weight:600;color:#6b7280}
+.top-notify{color:#ff7f1f !important;border-color:rgba(255,127,31,.45) !important}
+.clock-result{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;margin:12px 0;font-weight:700;font-size:14.5px}
+.clock-result b{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;color:#fff;flex:0 0 auto}
+.clock-result.ok{background:#e9f9f0;color:#13643f}.clock-result.ok b{background:#1f9d63}
+.clock-result.bad{background:#fdecec;color:#a5262b}.clock-result.bad b{background:#d93b3b}
+.clock-result.wait{background:#f3f4f6;color:#374151}.clock-result.wait b{background:#9ca3af}
+.offer-urgent{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;background:#fff5f5;border:1.5px solid #f3b4b6;cursor:pointer}
+.offer-urgent span{display:flex;flex-direction:column;gap:2px}.offer-urgent b{color:#c4282d}.offer-urgent small{color:#6b7280}

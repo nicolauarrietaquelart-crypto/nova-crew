@@ -130,7 +130,7 @@ function dashboard(){
   '<div class="actions-row">'+(focus&&focus.status==='pending'?btn('confirm','Confirmar turno',focus.id,'primary'):'')+(focus&&canClock(focus)?btn('open-clock',focus.checkIn?'Fichar salida':'Fichar entrada',focus.id,'primary'):'')+(focus?btn('detail','Ver detalles',focus.id):btn('go-availability','Indicar disponibilidad','','primary'))+(maps?'<a class="secondary btn-link" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Cómo llegar</a>':'')+'</div></div>'+
   '<div class="employee-next-aside"><div><span>Esta semana</span><b>'+week.length+' turno'+(week.length===1?'':'s')+'</b></div><div><span>Horas previstas en '+esc(monthLabel(m).split(' ')[0].toLowerCase())+'</span><b>'+monthHours.toLocaleString('es-ES')+' h</b></div><div><span>Bruto certificado del mes</span><b>'+(monthRows.some(a=>a.payStatus==='confirmed')?euro(monthGross):'Pendiente')+'</b></div><div><span>Mensajes nuevos</span><b>'+unreadCount()+'</b></div></div></section>';
  const alerts=[],todo=[];
- const offersOpen=openOffers();
+ const offersOpen=openOffers().filter(o=>!o.urgent);
  pending.forEach(a=>todo.push(['detail',a.id,'Confirma tu turno en '+(service(a.serviceId).name||'un servicio'),(a.date===today()?'Hoy':human(a.date))+' · '+a.start+'–'+a.end,'Confirmar']));
  as.filter(a=>a.status==='confirmed'&&canClock(a)&&!a.checkOut&&a!==focus).forEach(a=>todo.push(['open-clock',a.id,(a.checkIn?'Ficha la salida de ':'Ficha la entrada en ')+(service(a.serviceId).name||'tu turno'),a.start+'–'+a.end,a.checkIn?'Fichar salida':'Fichar entrada']));
  if(pendingTraining().length)alerts.push(['training','Tienes '+pendingTraining().length+' formación(es) pendiente(s) de leer','Ver formación']);
@@ -140,7 +140,7 @@ function dashboard(){
  const hasWeekly=Object.values(state.weeklyAvailability?.days||{}).some(d=>d?.slots?.length||d?.available);
  if(!hasWeekly&&!list('availability').some(a=>a.date>=today()))alerts.push(['availability','Aún no has indicado tu disponibilidad. Ayuda a la oficina a planificar.','Indicar']);
  const crewToday=crewDayList().filter(d=>d.date>=today()&&!(state.crewDayClosures||[]).some(c=>c.serviceId===d.serviceId&&c.date===d.date)&&!['completed','cancelled'].includes(service(d.serviceId).status)).sort((a,b)=>a.date.localeCompare(b.date))[0];
- $('#employee-content').innerHTML=''+(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
+ $('#employee-content').innerHTML=(urgentOffers().length?'<section class="urgent-offers"><div class="urgent-head"><span class="urgent-dot"></span><b>SERVICIO URGENTE</b><small>Necesitamos cubrir '+(urgentOffers().length===1?'este puesto':'estos puestos')+' cuanto antes</small></div>'+urgentOffers().map(o=>offerCard(o)).join('')+'</section>':'')+(crewToday?'<a class="crew-banner" href="/crew-control/?service='+encodeURIComponent(crewToday.serviceId)+'&date='+encodeURIComponent(crewToday.date)+'"><span><b>'+(crewToday.date===today()?'Hoy eres Crew Head':'Serás Crew Head el '+esc(human(crewToday.date)))+'</b><small>'+esc(service(crewToday.serviceId).name||'')+'</small></span><strong>Abrir Crew Control →</strong></a>':'')+'<div class="section-title"><h2>Hola, '+esc(state.user.name.split(' ')[0])+'</h2><p class="muted">'+esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))+'</p></div>'+hero+
  (offersOpen.length?'<div class="emp-todo-head"><h3>Servicios disponibles</h3><small class="muted">La oficina busca gente</small></div><div class="offer-list">'+offersOpen.map(o=>offerCard(o)).join('')+'</div>':'')+((todo.length||alerts.length)?'<div class="emp-todo-head"><h3>Lo que tienes pendiente</h3><small class="muted">'+(todo.length+alerts.length)+' paso'+(todo.length+alerts.length===1?'':'s')+'</small></div><div class="emp-todo">'+todo.map(([act,id,t,d,c],i)=>'<button class="emp-todo-item" data-action="'+act+'" data-id="'+esc(id)+'"><span class="step-num">'+(i+1)+'</span><span class="grow"><p>'+esc(t)+'</p><small>'+esc(d)+'</small></span><b>'+esc(c)+' →</b></button>').join('')+alerts.map(([p,t,c],i)=>'<button class="emp-todo-item" data-page="'+p+'"><span class="step-num">'+(todo.length+i+1)+'</span><span class="grow"><p>'+esc(t)+'</p></span><b>'+esc(c)+' →</b></button>').join('')+'</div>':'<div class="emp-todo-head"><h3>Todo al día</h3><small class="muted">No tienes nada pendiente</small></div>')+
  (pending.length?box('Pendientes de confirmar ('+pending.length+')','<div class="service-list">'+pending.slice(0,5).map(a=>serviceCard(a)).join('')+'</div>'):'')+
  box('Próximos 7 días',week.filter(a=>a.status!=='pending').length?'<div class="service-list">'+week.filter(a=>a.status!=='pending').slice(0,6).map(a=>serviceCard(a)).join('')+'</div>':'<div class="empty">No tienes turnos confirmados para los próximos 7 días.</div>');
@@ -245,6 +245,7 @@ function serviceDetailPage(){
   line('Referencia',ref)+line('Tipo de servicio',a.serviceType)+line('Fecha',human(a.date)+(a.endDate&&a.endDate!==a.date?' → '+human(a.endDate):''))+line('Especialidad',a.role)+line('Equipo',a.team||'Por asignar')+
   (s.callTime?line('Hora de llamada',human(a.date)+' · '+s.callTime):'')+line('Hora de inicio',human(a.date)+' · '+a.start)+line('Hora de fin',human(a.endDate||a.date)+' · '+a.end,' (*)')+(a.pause?line('Pausa',a.pause+' h'):'')+line('Horas previstas',a.hours+' h')+
   '<p class="muted compact">(*) El horario está sujeto a las necesidades del servicio.</p></section>'+
+ '<section class="panel"><h3>Información del servicio</h3>'+line('Cátering cliente',s.clientCatering?'Sí':'No')+line('Dietas',Number(a.dietCount||0)?(Number(a.dietCount)===1?'Sí · 1 dieta':'Sí · '+a.dietCount+' dietas'):'No')+line('Hora de pausa',s.hasPause||Number(a.pause||0)>0?'Sí'+(Number(a.pause||0)>0?' · '+Math.round(Number(a.pause)*60)+' min':''):'No')+line('Vestuario',s.uniform||'Uniformidad PW')+line('EPI',s.epi||'Sin EPI')+'</section>'+
  '<section class="panel"><h3>Datos del recinto</h3>'+line('Recinto',place?.name||s.venue)+(place?.address?line('Dirección',place.address):'')+(maps?'<a class="secondary btn-link" style="margin-top:12px" href="'+esc(maps)+'" target="_blank" rel="noopener noreferrer">Abrir en Google Maps</a>':'')+
  '<h3 style="margin-top:22px">Tu fichaje</h3>'+line('Entrada',stamp(a.checkIn))+line('Salida',stamp(a.checkOut))+
  '<h3 style="margin-top:22px">Contacto</h3>'+(a.coordinator?'<div class="sd-coord"><span>Tu coordinador</span><strong>'+esc(a.coordinator.name)+'</strong>'+(a.coordinator.phone?'<a class="primary btn-link" href="tel:'+esc(a.coordinator.phone.replace(/[^+\d]/g,''))+'">Llamar · '+esc(a.coordinator.phone)+'</a>':'')+'</div>':line('Coordinación','Oficina'))+(c.emergencyPhone?'<div class="sd-line"><span>Teléfono de guardia (solo urgencias)</span><strong><a href="tel:'+esc(c.emergencyPhone.replace(/[^+\d]/g,''))+'">'+esc(c.emergencyPhone)+'</a></strong></div>':'')+(a.coordinator?'':btn('go-messages','Escribir a la oficina','','secondary'))+'</section></div>';
@@ -598,13 +599,18 @@ function qrSvg(token){
  for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(qr.isDark(y,x))paths.push('M'+(x+4)+' '+(y+4)+'h1v1h-1z');
  return '<div class="qr-svg"><svg viewBox="0 0 '+(size+8)+' '+(size+8)+'" role="img" aria-label="QR temporal"><rect width="100%" height="100%" fill="white"/><path d="'+paths.join('')+'" fill="black"/></svg></div>';
 }
+let qrWatch=null;
+async function checkQrAccepted(){if(!qrWatch||!$('#clock-qr'))return;const a=myAssignments().find(x=>x.id===qrWatch.id);if(!a)return;
+ if((a.checkIn||'')!==qrWatch.checkIn||(a.checkOut||'')!==qrWatch.checkOut){const out=(a.checkOut||'')!==qrWatch.checkOut;clockResult={id:a.id,ok:true,text:(out?'Salida':'Entrada')+' aceptada por el coordinador a las '+hmOf(out?a.checkOut:a.checkIn),at:Date.now()};qrWatch=null;stopQrRefresh();
+  $('#clock-qr').innerHTML=clockResultHtml(a.id)+shiftSummary(a)+btn('clock-qr-new',a.checkOut?'Cerrar':'Mostrar QR de salida',a.id,'secondary');notice(out?'Salida registrada':'Entrada registrada');}}
 async function renderMyQr(){
  const box=$('#clock-qr'),a=clockAssignments().find(x=>x.id===clockSelection);if(!box||!a)return;
  try{
   if(!window.NOVA_QR_Encoder)throw Error('Codificador QR no disponible.');
   const d=await api('qr-issue',{id:a.id});if(!$('#clock-qr'))return;
   let left=Math.round((d.expiresAt-Date.now())/1000);
-  box.innerHTML=shiftSummary(a)+qrSvg(d.token)+'<p class="clock-qr-meta"><b>QR de '+(d.action==='in'?'entrada':'salida')+'</b> · se renueva en <span id="qr-left">'+left+'</span> s</p>'+btn('clock-qr-new','Generar otro ahora',a.id,'secondary');
+  qrWatch={id:a.id,checkIn:a.checkIn||'',checkOut:a.checkOut||''};
+  box.innerHTML=clockResultHtml(a.id)+shiftSummary(a)+qrSvg(d.token)+'<p class="clock-qr-meta"><b>QR de '+(d.action==='in'?'entrada':'salida')+'</b> · se renueva en <span id="qr-left">'+left+'</span> s</p>'+btn('clock-qr-new','Generar otro ahora',a.id,'secondary');
   stopQrRefresh();
   qrRefreshTimer=setInterval(()=>{if(!$('#clock-qr')||!$('#employee-modal').open)return stopQrRefresh();left--;const el=$('#qr-left');if(el)el.textContent=Math.max(0,left);if(left<=3){stopQrRefresh();load().then(()=>{if($('#clock-qr'))renderMyQr()}).catch(()=>{})}},1000);
  }catch(e){box.innerHTML='<div class="notice">'+esc(e.message)+'</div>'}
@@ -614,6 +620,8 @@ async function forcedLocation(){
  const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:0})).catch(err=>{throw new Error(err.code===1?'Permite la ubicación para fichar por geolocalización.':'No se ha podido obtener tu ubicación.')});
  return {latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy};
 }
+let clockResult=null;
+function clockResultHtml(id){const r=clockResult;if(!r||r.id!==id||Date.now()-r.at>10*60000)return '';return '<div class="clock-result '+(r.ok===true?'ok':r.ok===false?'bad':'wait')+'" role="status"><b>'+(r.ok===true?'✓':r.ok===false?'✕':'…')+'</b><span>'+esc(r.text)+'</span></div>';}
 function renderClockModal(){
  const root=$('#clock-service-summary');if(!root)return;
  const a=clockAssignments().find(x=>x.id===clockSelection);
@@ -625,7 +633,7 @@ function renderClockModal(){
  '<div class="clock-distance"><strong id="clock-distance">—</strong><small>distancia</small></div>'+
  '<div><small>Tu ubicación</small><strong id="clock-my-location">Sin comprobar</strong><span id="clock-location-detail">'+(asCoord?'Se envía al fichar':'Pulsa comprobar')+'</span></div></div>')+
  (distanceEnabled?'<div class="clock-geo-note">'+btn('check-location','Comprobar mi ubicación',a.id)+'</div>':'')+
- (closed?'<div class="notice">El fichaje de este turno ya está cerrado.</div>':
+ clockResultHtml(a.id)+ (closed?'<div class="notice">El fichaje de este turno ya está cerrado.</div>':
  '<div class="clock-popup-actions">'+btn('self-clock',a.checkIn?'Fichar salida':'Fichar entrada',a.id,'primary')+'</div><p class="muted compact">'+(asCoord?'Como coordinador nadie puede escanearte: tu fichaje se registra con tu ubicación y la hora del servidor.':'Fichaje personal con la hora del servidor.')+'</p>');
 }
 async function verifyClockPosition(id){
@@ -1022,6 +1030,18 @@ function coordShift(id){
 }
 
 /* v29 · Campana de notificaciones: ofertas de servicio, turnos asignados y mensajes. */
+function urgentOffers(){return openOffers().filter(o=>o.urgent)}
+function empNotifyTick(){
+ const N=window.NovaNotify;if(!N||!state.user)return;const uid=state.user.id,primeKey='nova-notify-primed-'+uid;let primed=false;try{primed=localStorage.getItem(primeKey)==='1'}catch{}
+ const msgs=(state.messages||[]).filter(m=>m.senderId!==uid),offers=openOffers(),pend=myAssignments().filter(a=>a.status==='pending'&&!shiftClosed(a)&&endMs(a)>Date.now());
+ if(!primed){msgs.forEach(m=>N.once('msg'+m.id));offers.filter(o=>!o.urgent).forEach(o=>N.once('offer'+o.id));pend.forEach(a=>N.once('shift'+a.id));try{localStorage.setItem(primeKey,'1')}catch{}}
+ if(!N.enabled())return;
+ for(const m of msgs.slice(-5))if(N.once('msg'+m.id))N.show('Nuevo mensaje · '+(m.senderName||'Oficina'),String(m.content||'').slice(0,140),{tag:'msg-'+m.id,url:'/empleado.html'});
+ for(const a of pend)if(N.once('shift'+a.id))N.show('Nuevo servicio asignado',(service(a.serviceId).name||'Servicio')+' · '+human(a.date)+' '+a.start+'–'+a.end+'. Confírmalo en la app.',{tag:'shift-'+a.id,url:'/empleado.html'});
+ for(const o of offers){const i=o.info,body=i.serviceName+' · '+offerWhen(i)+(i.category?' · '+i.category:'');
+  if(o.urgent&&!o.myAnswer){if(N.every('urgent'+o.id,5*60000))N.show('URGENTE · Servicio sin cubrir',body,{tag:'urgent-'+o.id,renotify:true,urgent:true,url:'/empleado.html'});}
+  else if(!o.urgent&&N.once('offer'+o.id))N.show('Servicio disponible',body,{tag:'offer-'+o.id,url:'/empleado.html'});}
+}
 function openOffers(){return (state.offers||[]).filter(o=>o.status==='open')}
 function notifItems(){
  const items=[];
@@ -1032,7 +1052,7 @@ function notifItems(){
 }
 function offerWhen(i){return (i.date===today()?'Hoy':human(i.date))+' · '+i.start+'–'+i.end}
 function offerCard(o,compact=false){
- const i=o.info;return '<div class="offer-card '+(o.myAnswer?'answered':'')+'"><span class="eyebrow">SERVICIO DISPONIBLE · '+esc(i.category)+'</span><strong>'+esc(i.serviceName)+'</strong><small>'+esc(offerWhen(i)+(i.venue?' · '+i.venue:'')+(i.serviceType?' · '+i.serviceType:''))+'</small>'+(o.message?'<p>'+esc(o.message)+'</p>':'')+
+ const i=o.info;return '<div class="offer-card '+(o.myAnswer?'answered':'')+(o.urgent?' urgent':'')+'"><span class="eyebrow">'+(o.urgent?'URGENTE':'SERVICIO DISPONIBLE')+' · '+esc(i.category)+'</span><strong>'+esc(i.serviceName)+'</strong><small>'+esc(offerWhen(i)+(i.venue?' · '+i.venue:'')+(i.serviceType?' · '+i.serviceType:''))+'</small>'+(o.message?'<p>'+esc(o.message)+'</p>':'')+
  (o.myAnswer==='yes'?'<div class="offer-ans yes">Has dicho que te interesa. La oficina decidirá y te avisará si te lo asigna. <button class="text-link" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="no">Ya no puedo</button></div>':o.myAnswer==='no'?'<div class="offer-ans no">Has indicado que no puedes. <button class="text-link" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="yes">Al final sí puedo</button></div>':
  '<div class="offer-actions"><button class="primary" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="yes">Me interesa</button><button class="secondary" data-action="offer-answer" data-id="'+esc(o.id)+'" data-answer="no">No puedo</button></div>')+'</div>';
 }
@@ -1055,7 +1075,7 @@ function toggleBellPanel(force){
 }
 function fillBellPanel(){
  const p=$('#emp-bell-panel');if(!p)return;const items=notifItems();
- p.innerHTML='<div class="ebp-head"><b>Notificaciones</b><button class="icon-close" data-action="bell-close" aria-label="Cerrar">×</button></div>'+(items.length?items.map(x=>{
+ p.innerHTML='<div class="ebp-head"><b>Notificaciones</b><button class="icon-close" data-action="bell-close" aria-label="Cerrar">×</button></div>'+(window.NovaNotify&&!window.NovaNotify.enabled()?'<button class="ebp-enable" data-action="notify-enable">🔔 Activar avisos en este dispositivo<small>Mensajes, servicios nuevos y urgentes aunque no tengas la app abierta en pantalla.</small></button>':'')+(items.length?items.map(x=>{
   if(x.kind==='offer')return offerCard(x.o,true);
   if(x.kind==='shift'){const s=service(x.a.serviceId);return '<button class="ebp-item" data-action="detail" data-id="'+esc(x.a.id)+'"><span class="ebp-ic shift">＋</span><span class="grow"><b>Te han asignado un turno</b><small>'+esc((s.name||'Servicio')+' · '+(x.a.date===today()?'Hoy':human(x.a.date))+' · '+x.a.start+'–'+x.a.end)+'</small><em>Pendiente de confirmar</em></span></button>';}
   return '<button class="ebp-item" data-page="messages"><span class="ebp-ic msg">✉</span><span class="grow"><b>Mensaje de la oficina</b><small>'+esc(String(x.m.content||'').slice(0,110))+'</small></span></button>';
@@ -1079,7 +1099,7 @@ async function load(){
   if(state.user.role!=='worker'){window.location.replace('/');return}
   $('#employee-login').hidden=true;$('#employee-app').hidden=false;
   const m=location.hash.match(/^#\/servicio\/(.+)$/);if(m&&page!=='service'&&myAssignments().some(a=>a.id===decodeURIComponent(m[1]))){serviceDetailId=decodeURIComponent(m[1]);page='service';}
-  render();
+  render();try{empNotifyTick()}catch{}
  }catch(e){
   if(e.status===401||String(e.message).includes('sesión')){state={};$('#employee-app').hidden=true;$('#employee-login').hidden=false}else error(e);
  }finally{isLoading=false}
@@ -1156,6 +1176,7 @@ document.addEventListener('click',async ev=>{
  if(action==='mobile-more'){$('.sidebar').classList.toggle('open');return}
  if(action==='redeem-qr')return redeemQr(id);
  if(action==='scan-qr')return scanQr(id);
+ if(action==='notify-enable'){try{await window.NovaNotify.enable();notice('Avisos activados en este dispositivo');window.NovaNotify.show('Avisos activados','Te avisaremos de mensajes, servicios nuevos y urgentes.',{tag:'nova-welcome'});fillBellPanel();}catch(e){error(e)}return}
  if(action==='edit-coord-shift')return coordShift(id);
  if(action==='crew-open'){const days=crewDayList().filter(d=>d.serviceId===id);const pick=days.find(d=>d.date===today())||days.find(d=>d.date>today())||days[days.length-1];location.href='/crew-control/'+(pick?'?service='+encodeURIComponent(pick.serviceId)+'&date='+encodeURIComponent(pick.date):'');return}
  if(action==='crew-category'){const a=crewAllRoster().find(x=>x.id===id);if(a&&$('#employee-modal').open)$('#employee-modal').close();if(a)return incidentModal(a.serviceId,{type:'category_change',assignmentId:a.id,workerId:a.workerId,severity:'low'});return}
@@ -1195,7 +1216,11 @@ document.addEventListener('click',async ev=>{
  if(action==='clock-mode'){clockMode=id;document.querySelectorAll('.clock-opt').forEach(x=>x.classList.toggle('active',x.dataset.id===id));return renderClockMode()}
  if(action==='clock-scan'){closeClock();return scanQr(id)}
  if(action==='clock-qr-new')return renderMyQr();
- if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){try{const geoMode=coordinatesMyService(a);const location=geoMode?await forcedLocation():await attendanceLocation(a.serviceId,a.id);await mutation('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location,...(geoMode?{mode:'geo'}:{})},'Fichaje registrado');if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();}catch(e){error(e)}return}}
+ if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){const kind=a.checkIn?'Salida':'Entrada';const btnEl=el;btnEl.disabled=true;clockResult={id,ok:null,text:'Registrando '+kind.toLowerCase()+'…',at:Date.now()};if($('#clock-service-summary'))renderClockModal();
+  try{const geoMode=coordinatesMyService(a);const location=geoMode?await forcedLocation():await attendanceLocation(a.serviceId,a.id);await api('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location,...(geoMode?{mode:'geo'}:{})});
+   clockResult={id,ok:true,text:kind+' aceptada · registrada a las '+hmNow(),at:Date.now()};await load();notice(kind+' registrada');}
+  catch(e){clockResult={id,ok:false,text:kind+' denegada · '+(e.message||'No se pudo fichar'),at:Date.now()};error(e)}
+  if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();return}}
 
  if(action==='logout'){try{await api('logout',{})}catch{}state={};location.replace('/empleado.html');return}
  if(action==='detail')return detail(id);
@@ -1238,12 +1263,13 @@ document.addEventListener('input',e=>{const t=e.target;if(t.closest&&t.closest('
 document.addEventListener('submit',()=>{setTimeout(()=>{formDirty=false},0)},true);
 document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('[data-page]'))formDirty=false},true);
 function canAutoRefresh(){const f=document.activeElement;return state.user&&!formDirty&&!document.hidden&&!$('#employee-modal').open&&!isLoading&&!(f&&f.matches('input,textarea,select'))&&!$('.sidebar').classList.contains('open')}
-setInterval(()=>{if(canAutoRefresh()){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},45000);
+setInterval(()=>{if(canAutoRefresh()){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}else if(state.user&&document.hidden&&!isLoading){api('state').then(st=>{if(st?.user?.role==='worker'){state=st;empNotifyTick();}}).catch(()=>{})}},45000);
+setInterval(()=>{try{empNotifyTick()}catch{}},60000);
 setInterval(()=>{if(page==='coordination'&&coordKey&&canAutoRefresh()&&!document.querySelector('.nqr')){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},12000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&canAutoRefresh())load()});
 window.addEventListener('online',()=>{if(state.user)load()});
 window.addEventListener('popstate',()=>{const m=location.hash.match(/^#\/servicio\/(.+)$/);if(m&&myAssignments().some(a=>a.id===decodeURIComponent(m[1]))){serviceDetailId=decodeURIComponent(m[1]);page='service';}else if(page==='service')page=servicePrev||'services';render();});
 load();
 /* v33 tiempo real */
-(()=>{let rev=null,pending=false;setInterval(async()=>{if(!state.user||document.hidden||pending)return;try{const r=await fetch('/api/office/rev',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();if(rev===null){rev=d.rev;return;}if(d.rev===rev||!canAutoRefresh()||document.querySelector('.nqr'))return;pending=true;rev=d.rev;const y=window.scrollY;try{await load();window.scrollTo({top:y});}finally{pending=false;}}catch{}},3000);})();
+(()=>{let rev=null,pending=false,lastHidden=0;setInterval(async()=>{if(!state.user||pending)return;if(document.hidden){if(Date.now()-lastHidden<30000)return;lastHidden=Date.now();}try{const r=await fetch('/api/office/rev',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();if(rev===null){rev=d.rev;return;}if(d.rev!==rev&&$('#clock-qr')&&qrWatch&&!isLoading){rev=d.rev;pending=true;try{await load();await checkQrAccepted();}finally{pending=false;}return;}if(d.rev===rev||!canAutoRefresh()||document.querySelector('.nqr'))return;pending=true;rev=d.rev;const y=window.scrollY;try{await load();window.scrollTo({top:y});}finally{pending=false;}}catch{}},3000);})();
 })();
