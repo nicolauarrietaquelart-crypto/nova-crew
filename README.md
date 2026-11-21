@@ -1,5 +1,14 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v32 · Control interno del trabajador y tarifas
+
+- **Crew Control solo para CREW HEAD**: ya no da acceso ningún permiso antiguo de bloque; solo estar asignado con la categoría CREW HEAD ese día. Un coordinador de otra categoría siempre ve la coordinación normal.
+- **Ficha del trabajador · Valoración y control interno** (solo Gestoría): media de uniformidad, actitud y puntualidad; comentarios internos (se ven al asignar); **bloqueo de disponibilidad** por sanción (con fecha de fin opcional) y **clientes que lo vetan**. Un trabajador bloqueado o vetado no se puede asignar ni recibe ofertas. El trabajador no ve nada de esto.
+- **Tarifas**: añadir y **eliminar categorías en todas las tarifas a la vez**, nombres en mayúsculas y sin columna de margen.
+- **Mensajes** pasa a un icono en la barra superior de Gestoría, con contador.
+- Plus Jakarta Sans forzada en ambas apps.
+- Crew Control actualizado a la última versión del repositorio (v11.2.46 con las mejoras de modo oscuro).
+
 ## Novedades v31 · Coordinadores y Crew Head
 
 - **Crew Head por categoría**: quien tiene asignado un puesto de categoría CREW HEAD un día ve todo ese servicio en Crew Control (desde Coordinación), sin tener que darle permisos.

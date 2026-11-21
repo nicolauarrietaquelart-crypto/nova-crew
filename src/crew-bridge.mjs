@@ -188,7 +188,7 @@ export function createCrewBridge(h){
    if(diet!=null&&Number.isFinite(diet)&&diet!==Number(a.dietCount||0)&&String(w.actualDiet)!==String(p.actualDiet)){a.dietCount=diet;changed=true;}
    const ratings=[w.ratingPuntualidad,w.ratingUniformidad,w.ratingActitud].map(Number).filter(n=>n>0&&n<=5);
    const rating=ratings.length?Math.round(ratings.reduce((n,x)=>n+x,0)/ratings.length):0;
-   if(rating!==Number(a.rating||0)&&JSON.stringify([w.ratingPuntualidad,w.ratingUniformidad,w.ratingActitud])!==JSON.stringify([p.ratingPuntualidad,p.ratingUniformidad,p.ratingActitud])){a.rating=rating;changed=true;}
+   if(JSON.stringify([w.ratingPuntualidad,w.ratingUniformidad,w.ratingActitud])!==JSON.stringify([p.ratingPuntualidad,p.ratingUniformidad,p.ratingActitud])){const n=v=>{const x=Number(v);return x>0&&x<=5?Math.round(x):0;};const r3=[n(w.ratingPuntualidad),n(w.ratingUniformidad),n(w.ratingActitud)];if(rating!==Number(a.rating||0)||r3.join()!==[a.ratingPuntualidad||0,a.ratingUniformidad||0,a.ratingActitud||0].join()){a.rating=rating;a.ratingPuntualidad=r3[0];a.ratingUniformidad=r3[1];a.ratingActitud=r3[2];changed=true;}}
    if(changed){
     a.revision=Number(a0.revision||0)+1;a.updatedAt=stamp;await db.put(key('assignments',a.id),a);
     for(const event of events){
