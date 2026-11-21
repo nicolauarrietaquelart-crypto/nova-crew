@@ -1233,7 +1233,11 @@ $('#employee-content').addEventListener('input',e=>{
 });
 $('#modal-close').onclick=()=>{stopQrCamera();closeClock()};$('#employee-modal').addEventListener('close',()=>{stopQrCamera();stopQrRefresh();$('#employee-modal').classList.remove('clock-dialog','ccm-dialog')});
 $('#mobile-menu').onclick=()=>$('.sidebar').classList.toggle('open');
-function canAutoRefresh(){const f=document.activeElement;return state.user&&!document.hidden&&!$('#employee-modal').open&&!isLoading&&!(f&&f.matches('input,textarea,select'))&&!$('.sidebar').classList.contains('open')}
+let formDirty=false;
+document.addEventListener('input',e=>{const t=e.target;if(t.closest&&t.closest('form')&&!t.closest('#employee-modal'))formDirty=true},true);
+document.addEventListener('submit',()=>{setTimeout(()=>{formDirty=false},0)},true);
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('[data-page]'))formDirty=false},true);
+function canAutoRefresh(){const f=document.activeElement;return state.user&&!formDirty&&!document.hidden&&!$('#employee-modal').open&&!isLoading&&!(f&&f.matches('input,textarea,select'))&&!$('.sidebar').classList.contains('open')}
 setInterval(()=>{if(canAutoRefresh()){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},45000);
 setInterval(()=>{if(page==='coordination'&&coordKey&&canAutoRefresh()&&!document.querySelector('.nqr')){const y=window.scrollY;load().then(()=>window.scrollTo({top:y}))}},12000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&canAutoRefresh())load()});

@@ -1,5 +1,9 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v36 · Formularios que no se borran
+
+- Arreglado: al escribir en Ajustes de empresa (o en cualquier formulario de una página) la actualización automática recargaba los datos y borraba lo escrito. Ahora gestor y empleado no se recargan mientras hay un campo activo o cambios sin guardar; al guardar o cambiar de página vuelve la actualización en tiempo real. Si intentas cerrar la pestaña con cambios sin guardar, el navegador avisa.
+
 ## Novedades v35 · Perfil, disponibilidad y datos de empresa
 
 - Al abrir un día en Disponibilidad salen ya marcadas las horas de tu disponibilidad habitual (mañana 06–15 h, tarde 15–24 h) o las que guardaste para ese día.
