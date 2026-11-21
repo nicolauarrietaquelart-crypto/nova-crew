@@ -567,3 +567,4 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .invoice-paper tr.inv-sub td:first-child{padding-left:26px !important}
 .inv-sub-mark{color:#ff7f1f;font-weight:800;margin-right:6px}
 .invoice-line.sub{margin-left:28px;border-left:3px solid #ffc79c;padding-left:12px}
+.invoice-paper td:nth-child(2),.invoice-paper th:nth-child(2){white-space:nowrap}
