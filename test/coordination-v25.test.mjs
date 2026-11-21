@@ -257,3 +257,27 @@ test('v33: realtime revision changes after every mutation and not after reads',a
  const r1=await rev(f.g);assert.ok(r1>r0,'the manager sees the coordinator change');
  assert.equal((await f.call('rev',null,'')).status,401);
 });
+
+test('v37: diets per tariff, line-update changes category/schedule/diets, negative tariff increment, OPERATIVO group',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body;
+ assert.ok(st.tariffs.every(t=>t.group!=='Montaje'&&t.group!=='Operativo'),'Montaje and Operativo are merged');
+ assert.ok(st.tariffs.some(t=>t.group==='OPERATIVO'));
+ // diet rates: default 10 / 16.5 and editable per tariff
+ let r=await f.call('diet-rate-set',{schedule:'Tarifa estándar 2026',clientRate:17},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.record.workerRate,10);assert.equal(r.body.record.clientRate,17);
+ // negative increment copies diets with discount
+ r=await f.call('tariff-schedule-create',{name:'NAVIDAD -20',source:'Tarifa estándar 2026',increasePercent:-20,applyTo:'client'},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
+ const hb=(await f.call('state',null,f.g)).body.tariffs.find(t=>t.schedule==='NAVIDAD -20'&&t.id!=='x'&&t.clientRate);assert.ok(hb);
+ assert.equal((await f.call('state',null,f.g)).body.dietRates.find(d=>d.schedule==='NAVIDAD -20').clientRate,13.6);
+ // a line with diets: assignment inherits one diet and invoice gets a diet line
+ const cat=st.tariffs.find(t=>t.id==='hand-montador'),cat2=st.tariffs.find(t=>t.id==='climber');
+ const line=(await f.call('save',{kind:'orderLines',record:{serviceId:f.svc.id,categoryId:cat.id,date:f.svc.date,start:'08:00',end:'14:00',diets:true}},f.g)).body.record;assert.equal(line.diets,true);
+ const w=await f.save('workers',{name:'Dieta W',costRate:10,createAccess:false});
+ const a=await f.save('assignments',{serviceId:f.svc.id,workerId:w.id,orderLineId:line.id,categoryId:cat.id});
+ assert.equal(a.dietCount,1);assert.equal(a.dietWorkerRate,10);assert.equal(a.dietClientRate,17);
+ r=await f.call('line-update',{id:line.id,categoryId:cat2.id,start:'09:00',end:'15:00',pause:0,diets:true,dietCount:2},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.assignment.categoryId,cat2.id);assert.equal(r.body.assignment.start,'09:00');assert.equal(r.body.assignment.dietCount,2);assert.equal(r.body.assignment.costRate,cat2.workerRate);
+ r=await f.call('invoice-from-service',{serviceId:f.svc.id},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.ok(r.body.record.lines.some(l=>/^Dietas/.test(l.description)&&l.quantity===2&&l.price===17),JSON.stringify(r.body.record.lines));
+});

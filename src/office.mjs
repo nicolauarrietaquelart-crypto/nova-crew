@@ -30,7 +30,15 @@ const PAYMENT_TERMS=[30,60,90];
 function termDays(v){const n=Number(v??30);if(!PAYMENT_TERMS.includes(n))fail('El plazo de cobro debe ser 30, 60 o 90 días.');return n;}
 async function clientTerm(db,clientId,config){const c=clientId?await db.get(key('clients',clientId)):null;return Number(c?.paymentDays)||Number(config.paymentDays)||30;}
 // Los nombres de categoría se muestran siempre en mayúsculas; las categorías eliminadas (archived) no se ofrecen.
-const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))].filter(t=>!t.archived).map(t=>({...t,name:String(t.name||'').toLocaleUpperCase('es-ES')}));};
+const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))].filter(t=>!t.archived).map(t=>({...t,group:/^(montaje|operativo)$/i.test(String(t.group||'').trim())?'OPERATIVO':t.group,name:String(t.name||'').toLocaleUpperCase('es-ES')}));};
+/* v37 · dietas por tarifa: pago al trabajador y precio al cliente (por defecto 10 € / 16,5 €). */
+const UNIFORMS=['Uniformidad PW','Ropa negra','Ropa del cliente','Sin requisito'],EPIS=['Sin EPI','Chaleco','Guantes+Botas','Guantes+Botas+Chaleco','Guantes+Botas+Chaleco+Casco'];
+const yesNo=(v,d)=>v==null||v===''?d:(v===true||v==='true'||v==='1'||v==='yes');
+const svcExtras=(b,old)=>({clientCatering:yesNo(b.clientCatering,!!old?.clientCatering),hasPause:yesNo(b.hasPause,!!old?.hasPause),uniform:UNIFORMS.includes(b.uniform)?b.uniform:(old?.uniform||'Uniformidad PW'),epi:EPIS.includes(b.epi)?b.epi:(old?.epi||'Sin EPI')});
+const DIET_DEFAULT={workerRate:10,clientRate:16.5};
+const dietRatesFor=async(db,schedule)=>{const r=await db.get(key('dietRates',schedule||'Tarifa estándar 2026'));return {workerRate:Number(r?.workerRate??DIET_DEFAULT.workerRate),clientRate:Number(r?.clientRate??DIET_DEFAULT.clientRate)};};
+const dietPay=a=>a.noShow?0:Number(a.dietCount||0)*Number(a.dietWorkerRate??DIET_DEFAULT.workerRate);
+const dietCharge=a=>a.noShow?0:Number(a.dietCount||0)*Number(a.dietClientRate??DIET_DEFAULT.clientRate);
 const date = s => {const d=text(s,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||Number.isNaN(Date.parse(d+'T12:00:00Z'))||new Date(d+'T12:00:00Z').toISOString().slice(0,10)!==d)fail('Fecha incorrecta.');return d;};
 const time = s => {if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))fail('Hora incorrecta.');return s;};
 const cleanUser = u => {const {passwordHash,salt,iterations,...safe}=u;return {...safe,role:safe.role==='coordinator'?'worker':safe.role};};
@@ -170,7 +178,7 @@ function publicAssignment(a,actor){
  if(actor.role==='manager')return a;
  const {costRate,chargeRate,baseCostRate,baseChargeRate,clientHours,billableHours,clientUnits,workerHours,workerUnits,minimumHours,incrementPercent,settlementStatus,settledAt,noShowChargeApproved,...rest}=a;
  // Worker receives only their own gross remuneration and settlement state, never customer rates.
- if(actor.role!=='manager'&&a.workerId===actor.workerId)return {...rest,grossPay:a.settlementStatus==='confirmed'?money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)):null,payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
+ if(actor.role!=='manager'&&a.workerId===actor.workerId)return {...rest,grossPay:a.settlementStatus==='confirmed'?money((a.workerUnits??a.workerHours??a.hours??0)*(a.costRate??0)+dietPay(a)):null,payStatus:a.settlementStatus==='confirmed'?'confirmed':'pending'};
  return rest;
 }
 async function view(db,actor){
@@ -208,9 +216,10 @@ async function view(db,actor){
   for(const r of coordinatorRoster){const src=assignments.find(x=>x.id===r.id)||r;r.closed=isClosedA(src);r.closedByMe=coordClosures.some(c=>c.closedBy===actor.id&&c.assignmentIds.includes(r.id));}
   const companySettings=await settings(db);
   const result={ok:true,user:cleanUser(actor),company:{name:companySettings.name,phone:companySettings.phone,address:companySettings.address,email:companySettings.email,staffNotice:companySettings.staffNotice||'',emergencyPhone:companySettings.emergencyPhone||''},users:directory,workers,services,assignments:assignments.map(a=>{const p=publicAssignment(a,actor);p.closed=isClosedA(a);if(actor.role!=='manager'&&a.orderLineId){const slot=allSlots.find(l=>l.id===a.orderLineId);if(slot){p.serviceType=slot.serviceType||'';const blk=allBlocks.find(x=>x.id===slot.blockId&&!x.archived),cid=blk?.coordinatorId||allOperators.find(o=>o.blockId===slot.blockId&&o.kind==='coordinator'&&!o.archived)?.userId;if(cid){const cu=allUsers.find(u=>u.id===cid),cw=cu?.workerId?allWorkersRaw.find(w=>w.id===cu.workerId):null;if(cu)p.coordinator={name:cw?.name||cu.name,phone:cw?.phone||''};}}}return p;}),coordinatorRoster,coordinatorBlocks,coordinatorWorkers,coordinatorCandidates,coordinatorServiceIds:assignedServices,normalCoordinationServiceIds:[...new Set([...allServices.filter(x=>x.coordinatorId===actor.id&&!x.archived).map(x=>x.id),...allCoordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...allBlocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId),...allOperators.filter(o=>o.userId===actor.id&&!o.archived&&o.kind!=='crew_head').map(o=>o.serviceId)])],crewTeams:(await rows(db,'crewTeams')).filter(t=>!t.archived&&actor.role!=='manager'&&coordinatorBlocks.some(b=>b.id===t.blockId)),crewHeadDays:[...crewDays].map(x=>{const [serviceId,date]=x.split('|');return {serviceId,date};}),crewDayClosures:(await rows(db,'crewDayClosures')).filter(c=>actor.role==='manager'||crewDays.has(c.serviceId+'|'+c.date)),categoryOptions:crewDays.size?(await tariffCatalog(db)).filter(t=>t.active!==false).map(t=>({id:t.id,name:t.name,schedule:t.schedule||'Tarifa estándar 2026'})):[],documents,availability,weeklyAvailability,messages,profile,hasProfilePhoto,trainingAcks,incidents,servicePlaces:(await rows(db,'servicePlaces')).filter(p=>!p.archived&&(!serviceScope||serviceScope.has(p.serviceId)))};
- {const offs=(await rows(db,'offers'));result.offers=actor.role==='manager'?offs.filter(o=>o.status==='open'||o.closedAt>new Date(Date.now()-14*86400000).toISOString()):offs.filter(o=>o.status==='open'&&o.targets.includes(actor.workerId)&&(o.info.endDate||o.info.date)>=new Date().toISOString().slice(0,10)).map(o=>({id:o.id,info:o.info,message:o.message,status:o.status,createdAt:o.createdAt,myAnswer:o.responses[actor.workerId]?.answer||''}));}
+ {const offs=(await rows(db,'offers'));result.offers=actor.role==='manager'?offs.filter(o=>o.status==='open'||o.closedAt>new Date(Date.now()-14*86400000).toISOString()):offs.filter(o=>o.status==='open'&&o.targets.includes(actor.workerId)&&(o.info.endDate||o.info.date)>=new Date().toISOString().slice(0,10)).map(o=>({id:o.id,info:o.info,message:o.message,urgent:!!o.urgent,status:o.status,createdAt:o.createdAt,myAnswer:o.responses[actor.workerId]?.answer||''}));}
  result.onCall=actor.role==='manager'?await rows(db,'onCall'):[];
  result.onCallPhone=ON_CALL_PHONE;
+ if(actor.role==='manager')result.dietRates=await rows(db,'dietRates');
  if(actor.role==='manager')Object.assign(result,{coordClosures,employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -244,7 +253,7 @@ async function saveEntity(db,actor,kind,b){
     if(b.coordinatorId){const coordinator=await record(db,'users',b.coordinatorId);if(!coordinator.active||coordinator.role!=='worker'||!coordinator.workerId)fail('El coordinador debe ser un trabajador activo, no un gestor de oficina.');}
     const assigned=(await rows(db,'assignments')).some(a=>a.orderLineId===old?.id&&!a.archived);
     if(assigned&&['categoryId','date','endDate','start','end'].some(k=>String(b[k]??old[k])!==String(old[k])))fail('Esta plaza ya está asignada: modifica primero el turno del trabajador.',409);
-    data={serviceId:service.id,categoryId:tariff.id,role:text(b.role)||tariff.name,serviceType:text(b.serviceType)||'Montaje',team:text(b.team),placeId:text(b.placeId),coordinatorId:text(b.coordinatorId),date:startDate,endDate,start,end,pause:number(b.pause??0,0,24),notes:text(b.notes,1500),status:b.status==='cancelled'?'cancelled':'open'};
+    data={serviceId:service.id,categoryId:tariff.id,role:text(b.role)||tariff.name,serviceType:text(b.serviceType)||'Montaje',team:text(b.team),placeId:text(b.placeId),coordinatorId:text(b.coordinatorId),date:startDate,endDate,start,end,pause:number(b.pause??0,0,24),diets:b.diets===true||b.diets==='true'||b.diets==='1'||(b.diets==null&&!!old?.diets),notes:text(b.notes,1500),status:b.status==='cancelled'?'cancelled':'open'};
    }
    if(kind==='clients')data={...personInput(b),contact:text(b.contact),paymentDays:termDays(b.paymentDays)};
  if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500),...(Array.isArray(b.categories)?{categories:[...new Map(b.categories.map(c=>text(c,100)).filter(Boolean).map(c=>[categoryKey(c),c])).values()].slice(0,150)}:{})};
@@ -260,7 +269,7 @@ async function saveEntity(db,actor,kind,b){
   const venueLat=b.venueLat===''||b.venueLat==null?null:Number(b.venueLat),venueLng=b.venueLng===''||b.venueLng==null?null:Number(b.venueLng);
    if((venueLat==null)!==(venueLng==null))fail('Introduce latitud y longitud o deja ambas vacías.');
    if(venueLat!=null&&(!Number.isFinite(venueLat)||!Number.isFinite(venueLng)||venueLat < -90||venueLat >90||venueLng < -180||venueLng>180))fail('Coordenadas del recinto incorrectas.');
-   data={name:required(b.name,'el nombre'),clientId:client.id,tariffSchedule,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000),employeeNotes:text(b.employeeNotes,3000),callTime:b.callTime?time(b.callTime):''};
+   data={name:required(b.name,'el nombre'),clientId:client.id,tariffSchedule,date:startDate,endDate,start,end,venue:required(b.venue,'el recinto'),venueLat,venueLng,radiusMeters:number(b.radiusMeters??500,100,5000),status,coordinatorId:text(b.coordinatorId),required:number(b.required,0,10000),notes:text(b.notes,5000),employeeNotes:text(b.employeeNotes,3000),callTime:b.callTime?time(b.callTime):'',...svcExtras(b,old)};
  }
  if(kind==='assignments'){
   const service=await record(db,'services',required(b.serviceId,'el servicio')),worker=await record(db,'workers',required(b.workerId,'el trabajador'));
@@ -305,7 +314,7 @@ async function saveEntity(db,actor,kind,b){
    const effectiveCostRate=money(costRate*(1+supplement/100)),effectiveChargeRate=money(chargeRate*(1+supplement/100));
    const workerHours=noShow?0:Math.max(minimum,actualHours??hours),billableHours=noShow&&!noShowChargeApproved?0:Math.max(minimum,clientHours??hours);
    const workerUnits=tariff?.unit==='day'?(noShow?0:1):workerHours,clientUnits=tariff?.unit==='day'?(billableHours>0?1:0):billableHours;
-   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),placeId:line?.placeId||text(b.placeId),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,workerUnits,clientUnits,rateUnit:tariff?.unit||'hour',noShow,noShowChargeApproved,categoryId:tariff?.id||text(b.categoryId),orderLineId:line?.id||'',incrementPercent:supplement,baseCostRate:costRate,baseChargeRate:chargeRate,costRate:effectiveCostRate,chargeRate:effectiveChargeRate,settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
+   data={serviceId:service.id,workerId:worker.id,role,team:text(b.team),placeId:line?.placeId||text(b.placeId),date:startDate,endDate,start,end,pause,hours,minimumHours:minimum,actualHours,clientHours,workerHours,billableHours,workerUnits,clientUnits,rateUnit:tariff?.unit||'hour',noShow,noShowChargeApproved,categoryId:tariff?.id||text(b.categoryId),orderLineId:line?.id||'',incrementPercent:supplement,baseCostRate:costRate,baseChargeRate:chargeRate,costRate:effectiveCostRate,chargeRate:effectiveChargeRate,dietCount:b.dietCount!=null&&b.dietCount!==''?number(b.dietCount,0,3):(old?.dietCount??(line?.diets?1:0)),...(await dietRatesFor(db,service.tariffSchedule).then(r=>({dietWorkerRate:r.workerRate,dietClientRate:r.clientRate}))),settlementStatus:old?.settlementStatus||'pending',settledAt:old?.settledAt||'',status:old?.status||'pending',checkIn:old?.checkIn||'',checkOut:old?.checkOut||'',notes:text(b.notes,1500)};
   if(old?.checkIn&&(data.workerId!==old.workerId||data.serviceId!==old.serviceId))fail('No se puede trasladar un fichaje a otra persona o servicio.',409);
  }
  if(kind==='invoices'||kind==='quotes'){
@@ -528,10 +537,31 @@ export function createOfficeApi(storage,env={}){
      if(audience==='category')targets=targets.filter(w=>Array.isArray(w.categories)&&w.categories.length?w.categories.some(c=>norm(c)===norm(category)):norm(w.specialty)===norm(category));
      if(audience==='workers'){const ids=new Set(Array.isArray(b.workerIds)?b.workerIds.map(String):[]);targets=targets.filter(w=>ids.has(w.id));}
      if(!targets.length)fail('No hay trabajadores con acceso en ese grupo.',409);
-     const id=uid(),v={id,orderLineId:l.id,serviceId:service.id,audience,targets:targets.map(w=>w.id),message:text(b.message,500),
+     const id=uid(),v={id,orderLineId:l.id,serviceId:service.id,audience,targets:targets.map(w=>w.id),message:text(b.message,500),urgent:b.urgent===true||b.urgent==='true',
       info:{serviceName:service.name,venue:l.locationName||service.venue,date:l.date,endDate:l.endDate||l.date,start:l.start,end:l.end,category,serviceType:l.serviceType||'',callTime:service.callTime||''},
       responses:{},status:'open',createdBy:actor.id,createdByName:actor.name,createdAt:now(),revision:1};
      await db.put(key('offers',id),v);await audit(db,actor,'offer-create','orderLines',l.id,category+' · '+targets.length+' trabajadores');return {record:v};
+    }
+    if(op==='diet-rate-set'){
+     managerOnly(actor);const schedule=required(b.schedule,'la tarifa').slice(0,100);
+     if(!(await tariffCatalog(db)).some(t=>(t.schedule||'Tarifa estándar 2026')===schedule))fail('Tarifa no encontrada.');
+     const cur=await dietRatesFor(db,schedule),v={id:schedule,schedule,workerRate:b.workerRate==null||b.workerRate===''?cur.workerRate:money(number(b.workerRate,0,1000)),clientRate:b.clientRate==null||b.clientRate===''?cur.clientRate:money(number(b.clientRate,0,1000)),updatedAt:now(),updatedBy:actor.id};
+     await db.put(key('dietRates',schedule),v);await audit(db,actor,'diet-rate-set','tariffs',schedule,'Dieta '+schedule+' · '+v.workerRate+' € / '+v.clientRate+' €');return {record:v};
+    }
+    if(op==='line-update'){
+     managerOnly(actor);const l=await record(db,'orderLines',required(b.id,'el puesto'));const service=await record(db,'services',l.serviceId);
+     if(service.settlementStatus==='confirmed'||service.archived)fail('Servicio liquidado o archivado.',409);
+     const start=time(b.start||l.start),end=time(b.end||l.end),pause=number(b.pause??l.pause??0,0,24),diets=b.diets==null?!!l.diets:(b.diets===true||b.diets==='true'||b.diets==='1');
+     const categoryId=text(b.categoryId)||l.categoryId,catChanged=categoryId!==l.categoryId;
+     let tariff=null;if(catChanged){tariff=await tariffLookup(db,categoryId);if(!tariff||tariff.active===false)fail('Categoría no disponible.');if(service.tariffSchedule&&(tariff.schedule||'Tarifa estándar 2026')!==service.tariffSchedule)fail('Esta categoría no pertenece a la tarifa del servicio.',409);}
+     if((l.endDate||l.date)===l.date&&end<=start)fail('El fin debe ser posterior al inicio.');
+     const nl={...l,start,end,pause,diets,...(catChanged?{categoryId:tariff.id,role:String(tariff.name||'').toLocaleUpperCase('es-ES')}:{}),revision:l.revision+1,updatedAt:now(),updatedBy:actor.id};
+     await db.put(key('orderLines',l.id),nl);
+     const a=(await rows(db,'assignments')).find(x=>x.orderLineId===l.id&&!x.archived);let assignment=null;
+     if(a){const dc=b.dietCount!=null&&b.dietCount!==''?number(b.dietCount,0,3):(b.diets==null?Number(a.dietCount||0):(diets?Math.max(1,Number(a.dietCount||0)):0));
+      assignment=await saveEntity(db,actor,'assignments',{...a,start:a.checkOut?a.start:start,end:a.checkOut?a.end:end,pause,dietCount:dc,...(catChanged?{categoryId:tariff.id,role:'',costRate:'',chargeRate:'',incrementPercent:''}:{}),revision:a.revision});}
+     await audit(db,actor,'line-update','orderLines',l.id,(catChanged?'Categoría '+nl.role+' · ':'')+start+'–'+end+(diets?' · con dietas':' · sin dietas'));
+     return {record:nl,assignment};
     }
     if(op==='offer-respond'){
      if(actor.role!=='worker'||!actor.workerId)fail('Solo trabajadores.',403);
@@ -793,7 +823,7 @@ export function createOfficeApi(storage,env={}){
           const amount=number(item.quantity,1,200);if(!Number.isInteger(amount))fail('Número de puestos incorrecto.');
           for(let i=0;i<amount;i++){
             const slot=await saveEntity(db,actor,'orderLines',{serviceId:service.id,categoryId:item.categoryId,
-              serviceType,team,placeId,coordinatorId,date:d,endDate:last,start,end,pause:input.pause??0,notes:input.notes||''});
+              serviceType,team,placeId,coordinatorId,date:d,endDate:last,start,end,pause:input.pause??0,diets:item.diets===true||item.diets==='true',notes:input.notes||''});
             const linked={...slot,blockId:value.id};await db.put(key('orderLines',slot.id),linked);created.push(linked);
           }
         }
@@ -824,7 +854,7 @@ export function createOfficeApi(storage,env={}){
         for(let i=0;i<quantity;i++){
           const raw=await saveEntity(db,actor,'orderLines',{serviceId:service.id,categoryId:cat.categoryId,
             serviceType:block.serviceType,team:block.team,placeId:block.placeId,coordinatorId:block.coordinatorId,
-            date:block.date,endDate:block.endDate,start:block.start,end:block.end,pause:cat.pause??0});
+            date:block.date,endDate:block.endDate,start:block.start,end:block.end,pause:cat.pause??0,diets:cat.diets===true||cat.diets==='true'});
           const value={...raw,blockId:block.id};await db.put(key('orderLines',value.id),value);positions.push(value);
         }
       }
@@ -933,7 +963,7 @@ export function createOfficeApi(storage,env={}){
       const name=required(b.name,'el nombre de la tarifa').slice(0,100);
       const catalog=await tariffCatalog(db);
       if(catalog.some(t=>(t.schedule||'Tarifa estándar 2026').toLowerCase()===name.toLowerCase()))fail('Ya existe una tarifa con este nombre.',409);
-      const source=text(b.source)||'Tarifa estándar 2026',base=catalog.filter(t=>(t.schedule||'Tarifa estándar 2026')===source&&t.active);const increase=number(b.increasePercent??0,0,500),applyTo=['client','worker','both'].includes(b.applyTo)?b.applyTo:'client';
+      const source=text(b.source)||'Tarifa estándar 2026',base=catalog.filter(t=>(t.schedule||'Tarifa estándar 2026')===source&&t.active);const increase=Number(b.increasePercent??0);if(!Number.isFinite(increase)||increase<=-100||increase>500)fail('El incremento debe estar entre -99 % y 500 %.');const applyTo=['client','worker','both'].includes(b.applyTo)?b.applyTo:'client';
       if(!base.length)fail('No hay categorías de la tarifa de origen.',409);
       if(base.length>100)fail('La tarifa supera 100 categorías.');
       const created=[];
@@ -941,6 +971,7 @@ export function createOfficeApi(storage,env={}){
         const id='cat-'+uid(),v={...item,id,schedule:name,source:'custom',workerRate:item.workerRate==null?null:money(item.workerRate*(applyTo==='client'?1:1+increase/100)),clientRate:item.clientRate==null?null:money(item.clientRate*(applyTo==='worker'?1:1+increase/100)),revision:1,createdAt:now(),updatedAt:now()};
         await db.put(key('tariffs',id),v);created.push(v);
       }
+      {const dr=await dietRatesFor(db,source);await db.put(key('dietRates',name),{id:name,schedule:name,workerRate:money(dr.workerRate*(applyTo==='client'?1:1+increase/100)),clientRate:money(dr.clientRate*(applyTo==='worker'?1:1+increase/100)),updatedAt:now()});}
       await audit(db,actor,'tariff-schedule-create','tariffs',created[0].id);
       return {records:created};
     }
@@ -963,6 +994,7 @@ export function createOfficeApi(storage,env={}){
       const lastEnd=items.filter(x=>(x.endDate||x.date)===endDate).map(x=>x.end).filter(Boolean).sort().at(-1);
       const service=await saveEntity(db,actor,'services',{
         name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
+        clientCatering:info.clientCatering,hasPause:info.hasPause,uniform:info.uniform,epi:info.epi,
         venue:info.venue||quote?.serviceVenue||items[0]?.locationName||'Ubicación por asignar',
         venueLat:info.venueLat!==''&&info.venueLat!=null?info.venueLat:(quote?.serviceVenueLat??null),venueLng:info.venueLng!==''&&info.venueLng!=null?info.venueLng:(quote?.serviceVenueLng??null),
         date:startDate,start:info.start||firstStart||'08:00',
@@ -1004,7 +1036,7 @@ export function createOfficeApi(storage,env={}){
           team:item.team||'',placeId,coordinatorId:item.coordinatorId||'',
           date:item.date||service.date,start:item.start||service.start,
           endDate:item.endDate||item.date||service.endDate,end:item.end||service.end,
-          pause:item.pause??0,notes:item.notes||''
+          pause:item.pause??0,diets:item.diets===true||item.diets==='true',notes:item.notes||''
         });
         const linked={...slot,blockId:blockIds.get(blockKey)};await db.put(key('orderLines',linked.id),linked);positions.push(linked);
         if(item.workerId){
@@ -1274,7 +1306,7 @@ export function createOfficeApi(storage,env={}){
      const aa=(await rows(db,'assignments')).filter(a=>a.serviceId===s.id&&!a.archived);
      if(!aa.length)fail('No hay personal para liquidar.');
      if(aa.some(a=>a.checkIn&&!a.checkOut&&!a.noShow))fail('Hay trabajadores con fichaje abierto. Ciérralos o corrige los fichajes antes de liquidar.',409);
-     const stamp=now(),cost=money(aa.reduce((n,a)=>n+(a.workerUnits??a.workerHours??a.hours)*a.costRate,0)),revenue=money(aa.reduce((n,a)=>n+(a.clientUnits??a.billableHours??a.hours)*a.chargeRate,0));
+     const stamp=now(),cost=money(aa.reduce((n,a)=>n+(a.workerUnits??a.workerHours??a.hours)*a.costRate+dietPay(a),0)),revenue=money(aa.reduce((n,a)=>n+(a.clientUnits??a.billableHours??a.hours)*a.chargeRate+dietCharge(a),0));
      for(const a of aa)await db.put(key('assignments',a.id),{...a,settlementStatus:'confirmed',settledAt:stamp,revision:a.revision+1,updatedAt:stamp});
      await db.put(key('services',s.id),{...s,settlementStatus:'confirmed',settledAt:stamp,settlementCost:cost,settlementRevenue:revenue,...(s.closedBy?{}:{closedBy:actor.id,closedByName:actor.name}),revision:s.revision+1,updatedAt:stamp});
      await audit(db,actor,'settlement-confirm','services',s.id);return {cost,revenue,margin:money(revenue-cost)};
@@ -1309,6 +1341,7 @@ export function createOfficeApi(storage,env={}){
     if(!assignments.length)fail(day?'No queda personal pendiente de facturar ese día.':'Todo el personal de este servicio ya está facturado.',409);
     const config=await settings(db),workers=await rows(db,'workers'),dmy=d=>d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
     const lines=assignments.sort((x,y)=>(x.date+x.start).localeCompare(y.date+y.start)).map(a=>({description:`${service.name} · ${dmy(a.date)} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'} · ${a.role}${a.noShow?' · Cancelación pactada (no presentado)':''}`,quantity:a.clientUnits??a.billableHours??a.hours,price:a.chargeRate,vat:config.vat}));
+    {const sorted=assignments.slice().sort((x,y)=>(x.date+x.start).localeCompare(y.date+y.start));const out=[];sorted.forEach((a,i)=>{out.push(lines[i]);if(dietCharge(a)>0)out.push({description:`Dietas · ${dmy(a.date)} · ${workers.find(w=>w.id===a.workerId)?.name||'Personal'}`,quantity:Number(a.dietCount),price:Number(a.dietClientRate??DIET_DEFAULT.clientRate),vat:config.vat});});lines.length=0;lines.push(...out);}
     const today=now().slice(0,10),due=new Date(Date.parse(today+'T12:00:00Z')+(await clientTerm(db,service.clientId,config))*86400000).toISOString().slice(0,10);
     const saved=await saveEntity(db,actor,'invoices',{clientId:service.clientId,serviceId:service.id,date:today,dueDate:due,lines,notes:day?'Cierre parcial del servicio · jornada del '+dmy(day):(existing.length?'Resto del servicio pendiente de facturar':'')});
     const value={...saved,scope:day?'day':'service',serviceDate:day,assignmentIds:assignments.map(a=>a.id)};

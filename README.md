@@ -1,5 +1,16 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v37 · Dietas, tarifas, información del servicio y avisos urgentes
+
+- Tarifas: sin textos de ayuda; «Montaje» y «Operativo» se muestran juntas como **OPERATIVO**; el incremento al crear una tarifa admite valores negativos (descuento).
+- **Dietas en el tarifario** (sección DIETAS de cada tarifa): por defecto 10 € al trabajador y 16,5 € al cliente, editables por tarifa; al duplicar una tarifa se aplica el mismo incremento o descuento.
+- Al crear puestos (asistente, bloques y «Añadir puestos») se indica si llevan dietas; la asignación hereda 1 dieta. Las dietas suman al pago del trabajador, al coste/venta del cierre y salen como línea «Dietas» en la factura.
+- **Gestionar** un puesto permite cambiar la categoría (con los precios de la nueva), el horario, la pausa y las dietas (`line-update`).
+- Servicio: selectores de **cátering cliente**, **hora de pausa**, **vestuario** y **EPI**; el trabajador los ve en «Información del servicio» junto a sus dietas.
+- Fichaje: la ventana muestra si la entrada/salida se ha **aceptado o denegado**; con «Mostrar mi QR» avisa cuando el coordinador la acepta.
+- **Avisos en móvil y ordenador** (notificaciones del navegador): mensajes, servicios asignados y ofertas para el trabajador; mensajes y respuestas «me interesa» para el gestor.
+- **Ofertas urgentes**: aviso cada 5 minutos a quien no haya respondido hasta que se cubra el puesto, y bloque «Servicio urgente» arriba en el inicio de todos los destinatarios.
+
 ## Novedades v36 · Formularios que no se borran
 
 - Arreglado: al escribir en Ajustes de empresa (o en cualquier formulario de una página) la actualización automática recargaba los datos y borraba lo escrito. Ahora gestor y empleado no se recargan mientras hay un campo activo o cambios sin guardar; al guardar o cambiar de página vuelve la actualización en tiempo real. Si intentas cerrar la pestaña con cambios sin guardar, el navegador avisa.
