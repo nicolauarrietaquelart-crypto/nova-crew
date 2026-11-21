@@ -22,3 +22,15 @@ header{position:relative}
 .nova-scan[hidden]{display:none}
 .nova-day{right:420px}
 @media(max-width:700px){.nova-scan{right:104px;padding:9px}.nova-scan span{display:none}.nova-day{right:150px;max-width:100px}}
+/* v33 · cabecera NOVA: Plus Jakarta Sans, botón QR vectorial y selector de día sólido */
+.nova-back,.nova-day,.nova-scan,#novaCrewStart,#novaCrewStart *{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important}
+.nova-back{height:40px;padding:0 16px;font-size:13px;font-weight:800;opacity:1}
+.nova-scan{width:44px;height:44px;padding:0!important;justify-content:center;border-radius:14px;background:#f58220;color:#111;opacity:1;right:226px}
+.nova-scan svg{width:24px;height:24px}
+.nova-scan:hover{filter:brightness(1.06)}
+.nova-day{right:282px;height:40px;padding:0 34px 0 14px;border-radius:12px;border:1.5px solid #d1d5db;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:#111!important;font-size:13px;font-weight:700;opacity:1;-webkit-appearance:none;appearance:none;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+@media(max-width:700px){.nova-back{height:38px;padding:0 12px}.nova-scan{right:104px;width:40px;height:40px}.nova-day{right:152px;max-width:110px;height:38px;font-size:12px;padding:0 28px 0 10px}}
+.nova-hdr{position:absolute;right:24px;top:50%;transform:translateY(-50%);z-index:5;display:flex;align-items:center;gap:10px}
+.nova-hdr .nova-back,.nova-hdr .nova-scan,.nova-hdr .nova-day{position:static!important;transform:none!important;right:auto!important;top:auto!important}
+.nova-hdr .nova-day{max-width:260px}
+@media(max-width:700px){.nova-hdr{right:56px;gap:6px}#crewThemeToggle{display:none!important}.nova-hdr .nova-scan,.nova-hdr .nova-back{width:38px;height:38px;padding:0!important;justify-content:center;border-radius:12px}.nova-hdr .nova-scan svg{width:22px;height:22px}.nova-hdr .nova-day{max-width:96px}}

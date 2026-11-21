@@ -8,8 +8,8 @@ try{localStorage.removeItem('crew-control-remembered-service')}catch{}
 const header=document.querySelector('header .wrap');
 const back=document.createElement('a');back.href='/empleado.html';back.className='nova-back';back.title='Volver al área de empleado';back.innerHTML='‹ <span>Volver al área de empleado</span>';
 const daySelect=document.createElement('select');daySelect.className='nova-day';daySelect.hidden=true;daySelect.setAttribute('aria-label','Día como Crew Head');
-const scanBtn=document.createElement('button');scanBtn.type='button';scanBtn.className='nova-scan';scanBtn.hidden=true;scanBtn.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg><span>Escanear QR</span>';
-if(header){const brand=header.querySelector('.brand');(brand||header.firstChild).after(back);back.after(scanBtn);scanBtn.after(daySelect);}
+const scanBtn=document.createElement('button');scanBtn.type='button';scanBtn.className='nova-scan';scanBtn.hidden=true;scanBtn.title='Escanear QR';scanBtn.setAttribute('aria-label','Escanear QR');scanBtn.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7M17 3h2.5A1.5 1.5 0 0 1 21 4.5V7M21 17v2.5a1.5 1.5 0 0 1-1.5 1.5H17M7 21H4.5A1.5 1.5 0 0 1 3 19.5V17"/><rect x="7" y="7" width="4" height="4" rx=".6"/><rect x="13" y="7" width="4" height="4" rx=".6"/><rect x="7" y="13" width="4" height="4" rx=".6"/><path d="M13 13h1.5v1.5H13zM16 16h1v1h-1zM13 17h1M17 13v1"/></svg>';
+if(header){const brand=header.querySelector('.brand');const bar=document.createElement('div');bar.className='nova-hdr';bar.append(daySelect,scanBtn,back);(brand||header.firstChild).after(bar);}
 let names={},current=null,geo=null;
 async function redeem(token){
  try{return await api('qr-redeem',{token});}

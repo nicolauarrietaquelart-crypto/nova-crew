@@ -245,3 +245,14 @@ test('v32: internal notes, sanctions and client vetoes are manager-only and bloc
  r=await f.call('tariff-category-delete',{name:'DRONE PILOT'},f.g);assert.equal(r.status,200);
  assert.ok(!(await f.call('state',null,f.g)).body.tariffs.some(t=>t.name==='DRONE PILOT'));
 });
+
+test('v33: realtime revision changes after every mutation and not after reads',async()=>{
+ const f=await setup();
+ const rev=async c=>(await f.call('rev',null,c)).body.rev;
+ const r0=await rev(f.h);assert.equal(typeof r0,'number');
+ await f.call('assignment-history',{id:f.aHand.id},f.g);
+ assert.equal(await rev(f.h),r0,'reads do not bump the revision');
+ const st=(await f.call('state',null,f.c)).body,cur=st.coordinatorRoster.find(a=>a.id===f.aHand.id);const r=await f.call('coord-update',{id:f.aHand.id,revision:cur.revision,changes:{status:'contacted'}},f.c);assert.equal(r.status,200,JSON.stringify(r.body));
+ const r1=await rev(f.g);assert.ok(r1>r0,'the manager sees the coordinator change');
+ assert.equal((await f.call('rev',null,'')).status,401);
+});

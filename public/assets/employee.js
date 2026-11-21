@@ -277,6 +277,11 @@ const hmOf=iso=>iso?new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',ho
 const hmNow=()=>hmOf(new Date().toISOString());
 /* Coordinación tipo Crew Control (sin equipos): estados, selección por turno, ficha y edición masiva. */
 let coordSel=new Set();
+const CI=(()=>{const w=p=>'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';return{
+ check:w('<path d="M20 6 9 17l-5-5"/>'),x:w('<path d="M18 6 6 18M6 6l12 12"/>'),close:w('<path d="M18 6 6 18M6 6l12 12"/>'),
+ phone:w('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>'),
+ gear:w('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+ qr:w('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>')};})();
 const COORD_STATUS=[['pending','NO CONTACTADO'],['contacted','CONTACTADO'],['present','PRESENTE'],['absent','NO PRESENTADO']];
 const coordStatus=a=>a.noShow?'absent':a.checkIn?'present':a.contacted?'contacted':'pending';
 const coordState=a=>a.noShow?'absent':a.checkOut?'done':a.checkIn?'present':a.contacted?'contacted':'pending';
@@ -304,28 +309,35 @@ function coordinationPage(){
  const visible=e.rows.filter(a=>(coordFilter==='all'||(coordFilter==='present'?a.checkIn&&!a.noShow:coordState(a)===coordFilter))&&(!q||[coordWorkerName(a.workerId),a.role,a.serviceType].join(' ').toLocaleLowerCase().includes(q)));
  const groups=[...new Set(e.rows.map(coordShiftKey))].sort((x,y)=>x.split(' · ')[1].localeCompare(y.split(' · ')[1]));
  const tile=(k,l)=>'<button class="cc-tile '+k+(coordFilter===k?' selected':'')+'" data-action="coord-filter" data-id="'+k+'"><b>'+counts[k]+(k==='present'?'<small>/'+counts.all+'</small>':'')+'</b><span>'+l+'</span></button>';
- const stars=a=>{const n=Number(a.rating||0);return n?'<span class="cc-stars">★ '+n+'</span>':''};
- const row=a=>{const st=coordStatus(a),ph=coordWorkerPhone(a.workerId),sel=coordSel.has(a.id);
-  return '<div class="cc-row2 st-'+st+(a.checkOut?' st-done':'')+(sel?' selected':'')+'">'+
-  (closed?'':'<label class="cc-cb"><input type="checkbox" data-coord-sel="'+esc(a.id)+'" '+(sel?'checked':'')+'></label>')+
-  '<select class="cc-status st-'+st+'" data-coord-status="'+esc(a.id)+'" '+(closed?'disabled':'')+'>'+COORD_STATUS.map(([k,l])=>'<option value="'+k+'" '+(st===k?'selected':'')+'>'+l+'</option>').join('')+'</select>'+
-  '<button class="cc-name" data-action="coord-edit" data-id="'+esc(a.id)+'"><strong>'+esc(coordWorkerName(a.workerId))+'</strong><small>'+esc(a.role||'')+(a.dietCount?' · '+a.dietCount+' dieta'+(a.dietCount>1?'s':''):'')+'</small></button>'+
-  '<span class="cc-times"><b>'+esc(a.start+'–'+a.end)+'</b><small>'+(a.checkIn?'Entrada '+hmOf(a.checkIn)+(a.checkOut?' · Fin '+hmOf(a.checkOut):''):a.noShow?'No presentado':'Sin entrada')+'</small></span>'+stars(a)+
-  (ph?'<a class="icon-call" href="tel:'+esc(ph.replace(/[^+\d]/g,''))+'" aria-label="Llamar">☎</a>':'')+'</div>'};
+ const pauseTxt=a=>a.actualPause&&a.actualPause!=='00:00'?a.actualPause.replace(/^0?(\d+):(\d\d)$/,(m,h,mm)=>(+h?h+' h ':'')+(+mm?mm+' min':'')).trim():a.actualPause==='00:00'?'Sin pausa':Number(a.pause||0)?Math.round(Number(a.pause)*60)+' min':'Sin pausa';
+ const rateOf=a=>{const v=[a.ratingUniformidad,a.ratingActitud,a.ratingPuntualidad].map(Number).filter(n=>n>0);const n=v.length?v.reduce((x,y)=>x+y,0)/v.length:Number(a.rating||0);return n?(Math.round(n*10)/10).toString().replace('.',','):''};
+ const row=a=>{const st=coordStatus(a),ph=coordWorkerPhone(a.workerId),sel=coordSel.has(a.id),r=rateOf(a),diets=Number(a.dietCount||0);
+  const clock=a.checkIn?hmOf(a.checkIn)+(a.checkOut?' – '+hmOf(a.checkOut):''):a.noShow?'No presentado':'—';
+  return '<div class="cc-row2 cc-r3 st-'+st+(a.checkOut?' st-done':'')+(sel?' selected':'')+'" data-coord-row="'+esc(a.id)+'" aria-selected="'+(sel?'true':'false')+'">'+
+  '<select class="cc-status st-'+st+'" data-coord-status="'+esc(a.id)+'" '+(closed?'disabled':'')+' aria-label="Estado">'+COORD_STATUS.map(([k,l])=>'<option value="'+k+'" '+(st===k?'selected':'')+'>'+l+'</option>').join('')+'</select>'+
+  '<button class="cc-name" data-action="coord-edit" data-id="'+esc(a.id)+'"><strong>'+esc(coordWorkerName(a.workerId))+'</strong><small>'+esc(a.role||'')+'</small></button>'+
+  '<span class="cc-cell cc-phone">'+(ph?'<a href="tel:'+esc(ph.replace(/[^+\d]/g,''))+'">'+CI.phone+'<span>'+esc(ph)+'</span></a>':'<em>Sin teléfono</em>')+'</span>'+
+  '<span class="cc-cell cc-sched"><small>Horario</small><b>'+esc(a.start+'–'+a.end)+'</b></span>'+
+  '<span class="cc-cell cc-clock"><small>Fichaje</small><b>'+esc(clock)+'</b></span>'+
+  '<span class="cc-cell"><small>Pausa</small><b>'+esc(pauseTxt(a))+'</b></span>'+
+  '<span class="cc-cell"><small>Dietas</small><b>'+diets+'</b></span>'+
+  '<span class="cc-cell cc-rate"><small>Valoración</small><b>'+(r?'★ '+r:'—')+'</b></span>'+
+  '</div>'};
  const groupHtml=g=>{const rs=visible.filter(a=>coordShiftKey(a)===g).sort((a,b)=>coordWorkerName(a.workerId).localeCompare(coordWorkerName(b.workerId)));if(!rs.length)return '';
   const all=e.rows.filter(a=>coordShiftKey(a)===g),pres=all.filter(a=>a.checkIn&&!a.noShow).length,allSel=rs.every(a=>coordSel.has(a.id));
-  return '<section class="cc-group"><header>'+(closed?'':'<label class="cc-cb" title="Seleccionar todo el turno"><input type="checkbox" data-coord-group="'+esc(g)+'" '+(allSel?'checked':'')+'></label>')+'<strong>'+esc(g)+'</strong><span class="cc-group-count">'+pres+'/'+all.length+' presentes</span></header>'+rs.map(row).join('')+'</section>'};
+  return '<section class="cc-group"><header>'+(closed?'':'<button class="cc-groupsel'+(allSel?' on':'')+'" data-coord-group="'+esc(g)+'" title="Seleccionar todo el turno" aria-label="Seleccionar todo el turno">'+CI.check+'</button>')+'<strong>'+esc(g)+'</strong><span class="cc-group-count">'+pres+'/'+all.length+' presentes</span></header>'+
+  '<div class="cc-colhead"><span>Estado</span><span>Trabajador</span><span>Teléfono</span><span>Horario</span><span>Fichaje</span><span>Pausa</span><span>Dietas</span><span>Valoración</span></div>'+rs.map(row).join('')+'</section>'};
  $('#employee-content').innerHTML='<div class="cc-lite">'+
- '<div class="cc-top"><button class="back-link" data-action="coord-back">‹ Coordinación</button><div class="cc-title"><div><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||'')+' · '+coordRole(e))+'</p></div><div class="cc-actions">'+(closed?'<span class="badge done">Día cerrado</span>':btn('scan-qr','Escanear QR',e.serviceId,'primary'))+btn('incident-report','Incidencia',e.serviceId)+(closed?'':btn('coord-close-day','Cerrar día',e.key,'secondary cc-close'))+'</div></div></div>'+
+ '<div class="cc-top"><button class="back-link" data-action="coord-back">‹ Coordinación</button><div class="cc-title"><div><h2>'+esc(s.name||'Servicio')+'</h2><p class="muted">'+esc((e.date===t?'Hoy':human(e.date))+' · '+(s.venue||'')+' · '+coordRole(e))+'</p></div><div class="cc-actions">'+(closed?'<span class="badge done">Día cerrado</span>':'<button class="btn primary cc-scan" data-action="scan-qr" data-id="'+esc(e.serviceId)+'" title="Escanear QR" aria-label="Escanear QR">'+CI.qr+'</button>')+btn('incident-report','Incidencia',e.serviceId)+(closed?'':btn('coord-close-day','Cerrar día',e.key,'secondary cc-close'))+'</div></div></div>'+
  '<div class="cc-tiles">'+tile('present','Presentes')+tile('contacted','Contactados')+tile('pending','No contactados')+tile('absent','No presentados')+tile('done','Con salida')+tile('all','Todos')+'</div>'+
  '<label class="coord-search"><input type="search" id="coord-search" placeholder="Buscar persona o categoría…" value="'+esc(coordSearch)+'"></label>'+
  (visible.length?groups.map(groupHtml).join(''):'<div class="empty">Sin personal para este filtro.</div>')+
  (coordSel.size&&!closed?'<div class="cc-bulkbar"><b>'+coordSel.size+' seleccionado'+(coordSel.size>1?'s':'')+'</b><div class="cc-bulk-actions">'+
-  '<button data-action="coord-bulk-status" data-id="present" class="cc-b present">Presente</button><button data-action="coord-bulk-status" data-id="contacted" class="cc-b contacted">Contactado</button><button data-action="coord-bulk-status" data-id="pending" class="cc-b">No contactado</button><button data-action="coord-bulk-status" data-id="absent" class="cc-b absent">No presentado</button><button data-action="coord-bulk-out" class="cc-b">Fin ahora</button><button data-action="coord-bulk-edit" class="cc-b dark">Edición masiva</button><button data-action="coord-bulk-clear" class="cc-b ghost">✕</button></div></div>':'')+
+  '<button data-action="coord-bulk-status" data-id="present" class="cc-ib present" title="Presente" aria-label="Presente">'+CI.check+'</button><button data-action="coord-bulk-status" data-id="contacted" class="cc-ib contacted" title="Contactado" aria-label="Contactado">'+CI.phone+'</button><button data-action="coord-bulk-status" data-id="absent" class="cc-ib absent" title="No presentado" aria-label="No presentado">'+CI.x+'</button><button data-action="coord-bulk-edit" class="cc-ib dark" title="Edición masiva" aria-label="Edición masiva">'+CI.gear+'</button><button data-action="coord-bulk-clear" class="cc-ib ghost" title="Quitar selección" aria-label="Quitar selección">'+CI.close+'</button></div></div>':'')+
  '</div>';
  document.querySelectorAll('[data-coord-status]').forEach(el=>el.onchange=()=>coordSetStatus([el.dataset.coordStatus],el.value));
- document.querySelectorAll('[data-coord-sel]').forEach(el=>el.onchange=()=>{el.checked?coordSel.add(el.dataset.coordSel):coordSel.delete(el.dataset.coordSel);coordinationPage()});
- document.querySelectorAll('[data-coord-group]').forEach(el=>el.onchange=()=>{const ids=visible.filter(a=>coordShiftKey(a)===el.dataset.coordGroup).map(a=>a.id);ids.forEach(id=>el.checked?coordSel.add(id):coordSel.delete(id));coordinationPage()});
+ if(!closed){document.querySelectorAll('[data-coord-row]').forEach(el=>el.onclick=ev=>{if(ev.target.closest('a,button,select,input,label,textarea'))return;const id=el.dataset.coordRow;coordSel.has(id)?coordSel.delete(id):coordSel.add(id);coordinationPage()});
+ document.querySelectorAll('[data-coord-group]').forEach(el=>el.onclick=()=>{const ids=visible.filter(a=>coordShiftKey(a)===el.dataset.coordGroup).map(a=>a.id),on=ids.every(id=>coordSel.has(id));ids.forEach(id=>on?coordSel.delete(id):coordSel.add(id));coordinationPage()});}
 }
 function coordCloseModal(k){
  const e=coordEntries().find(x=>x.key===k);if(!e)return;
@@ -1101,7 +1113,6 @@ document.addEventListener('click',async ev=>{
  if(action==='coord-close-confirm'){const [serviceId,date]=id.split('|');try{await api('coord-day-close',{serviceId,date});$('#employee-modal').close();coordKey='';coordSel.clear();await load();page='coordination';render();notice('Día cerrado. Ya no aparece en Coordinación ni en Mis servicios.');}catch(err){error(err)}return}
  if(action==='coord-history')return coordHistory(id);
  if(action==='coord-bulk-status')return coordSetStatus([...coordSel],id).then(()=>{coordSel.clear();coordinationPage()});
- if(action==='coord-bulk-out')return coordSend([...coordSel],{realOut:hmNow()},'Fin registrado a '+coordSel.size).then(()=>{coordSel.clear();coordinationPage()});
  if(action==='coord-bulk-edit')return coordBulkModal();
  if(action==='coord-bulk-clear'){coordSel.clear();return coordinationPage()}
  if(action==='modal-close-x'){$('#employee-modal').close();return}
@@ -1202,4 +1213,6 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&canAutoRe
 window.addEventListener('online',()=>{if(state.user)load()});
 window.addEventListener('popstate',()=>{const m=location.hash.match(/^#\/servicio\/(.+)$/);if(m&&myAssignments().some(a=>a.id===decodeURIComponent(m[1]))){serviceDetailId=decodeURIComponent(m[1]);page='service';}else if(page==='service')page=servicePrev||'services';render();});
 load();
+/* v33 tiempo real */
+(()=>{let rev=null,pending=false;setInterval(async()=>{if(!state.user||document.hidden||pending)return;try{const r=await fetch('/api/office/rev',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();if(rev===null){rev=d.rev;return;}if(d.rev===rev||!canAutoRefresh()||document.querySelector('.nqr'))return;pending=true;rev=d.rev;const y=window.scrollY;try{await load();window.scrollTo({top:y});}finally{pending=false;}}catch{}},3000);})();
 })();

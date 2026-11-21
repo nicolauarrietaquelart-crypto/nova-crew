@@ -1423,4 +1423,7 @@ window.addEventListener('popstate',()=>{
  else if(data.user){page='services';renderNav();render();}
 });
 (async()=>{try{await load();}catch{await authScreen();}})();
+/* v33 tiempo real: consulta ligera de revisión cada 3 s */
+(()=>{let rev=null,pending=false;setInterval(async()=>{if(!data.user||document.hidden||pending)return;try{const r=await fetch('/api/office/rev',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();if(rev===null){rev=d.rev;return;}if(d.rev===rev)return;const f=document.activeElement;if($('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||(f&&f.matches&&f.matches('input,textarea,select')))return;pending=true;rev=d.rev;const y=window.scrollY;try{await load();window.scrollTo({top:y});}finally{pending=false;}}catch{}},3000);})();
 })();
+
