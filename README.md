@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v42 · Bloques sin horario
+
+- Los bloques (LOAD IN, SHOW CALL…) ya **no tienen horario propio**: al crearlos o al «Añadir puestos», cada categoría lleva su **inicio, fin y pausa** (los turnos que pasan de medianoche terminan al día siguiente).
+- La cabecera del bloque muestra cuántos puestos y cuántos horarios distintos tiene; los puestos se ordenan por hora.
+- Editar el bloque (tipo, equipo, ubicación, fecha) ya no cambia los horarios de los puestos; cada horario se cambia en «Gestionar».
+
 ## Novedades v41 · HAND y ofertas por horario
 
 - **HAND** agrupa HAND A, HAND B, HAND C1 y HAND M: todas abiertas por defecto para todos los trabajadores, junto con STEELHAND. Se elimina la categoría «HAND / MONTADOR/A».

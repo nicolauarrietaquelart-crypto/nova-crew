@@ -878,7 +878,7 @@ function crewOperationalModal(id){
 }
 function crewLeadBlockEditor(blockId){
  const block=(state.coordinatorBlocks||[]).find(b=>b.id===blockId&&b.lead);if(!block)return;
- modal('Crew Head · gestionar bloque','<form id="crew-block-form" style="display:grid;gap:12px"><div class="notice">'+esc(block.date+' · '+block.start+'–'+block.end)+'<p>Solo puedes modificar el tipo de servicio y equipo del bloque autorizado. Las horas de cada trabajador se modifican desde su ficha en Crew Control.</p></div>'+
+ modal('Crew Head · gestionar bloque','<form id="crew-block-form" style="display:grid;gap:12px"><div class="notice">'+esc(block.date+' · '+block.serviceType)+'<p>Solo puedes modificar el tipo de servicio y equipo del bloque autorizado. Las horas de cada trabajador se modifican desde su ficha en Crew Control.</p></div>'+
  '<label class="form-label">Tipo de servicio<input class="field" name="serviceType" required maxlength="150" value="'+esc(block.serviceType)+'"></label>'+
  '<label class="form-label">Equipo / escenario<input class="field" name="team" maxlength="100" value="'+esc(block.team||'')+'"></label>'+
  '<button type="submit" class="primary">Guardar bloque</button></form>');
@@ -889,7 +889,7 @@ function crewDelegateModal(blockId){
  const roster=(state.coordinatorRoster||[]).filter(a=>a.blockId===blockId),allowedIds=new Set(roster.map(a=>a.workerId));
  const candidates=(state.coordinatorCandidates||[]).filter(u=>allowedIds.has(u.workerId));
  const operators=block.operators||[];
- modal('Coordinadores de '+block.serviceType,'<div class="notice">'+esc(block.date+' · '+block.start+'–'+block.end)+'<p>Como Crew Head puedes designar coordinadores normales de este bloque, pero no conceder permisos sobre otros turnos.</p></div>'+
+ modal('Coordinadores de '+block.serviceType,'<div class="notice">'+esc(block.date+' · '+block.serviceType)+'<p>Como Crew Head puedes designar coordinadores normales de este bloque, pero no conceder permisos sobre otros turnos.</p></div>'+
  operators.filter(o=>o.kind==='coordinator').map(o=>'<div class="line"><strong>'+esc((state.coordinatorCandidates||[]).find(u=>u.id===o.userId)?.name||'Coordinador')+'</strong>'+btn('crew-remove-delegate','Quitar',o.id)+'</div>').join('')+
  '<form id="crew-delegate-form" style="display:grid;gap:13px"><label class="form-label">Trabajador del bloque<select class="field" name="userId" required><option value="">Seleccionar</option>'+
  candidates.filter(u=>!operators.some(o=>o.userId===u.id)).map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><button class="primary" type="submit">Añadir coordinador normal</button></form>');

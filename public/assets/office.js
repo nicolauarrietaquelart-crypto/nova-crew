@@ -306,11 +306,11 @@ function serviceWorkspacePage(){
     legacy=positions.filter(p=>p.date===date&&!p.blockId);
     const dayRecord=days.find(d=>d.date===date);
     return '<section class="service-day-panel"><header><div><span class="eyebrow">JORNADA</span><h3>'+fmt(date)+'</h3><small>'+esc(dayRecord?.name||'Planificación del día')+'</small></div>'+
-    '<div class="service-day-actions">'+button('service-block-new','Añadir tipo / horario','plus','data-date="'+date+'"','')+
+    '<div class="service-day-actions">'+button('service-block-new','Añadir tipo de servicio','plus','data-date="'+date+'"','')+
     (dayRecord?button('service-day-edit','Editar jornada','edit','data-id="'+esc(dayRecord.id)+'"','')+button('service-day-remove','Eliminar jornada','trash','data-id="'+esc(dayRecord.id)+'"',''):'')+'</div></header>'+
     blocksOn.map(block=>{
-     const posts=positions.filter(p=>p.blockId===block.id);
-     return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
+     const posts=positions.filter(p=>p.blockId===block.id).sort((a,b)=>(a.start+a.end).localeCompare(b.start+b.end)),hrs=[...new Set(posts.map(p=>p.start+'–'+p.end))];
+     return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+posts.length+' puesto'+(posts.length===1?'':'s')+(hrs.length>1?' · '+hrs.length+' horarios':'')+'</span><h4>'+esc(block.serviceType)+'</h4>'+
      '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+'</p><p><strong>Coordinador:</strong> '+(coordinatorLabel(block)?esc(coordinatorLabel(block)):'<span class="muted">Sin asignar</span>')+'</p>'+(blockCrewHeads(block).length?'<p><strong>Crew Head:</strong> '+esc(blockCrewHeads(block).map(id=>name('workers',id)).join(', '))+'</p>':'')+'</div>'+
      '<div class="service-block-tools">'+button('service-block-add-positions','Añadir puestos','plus','data-id="'+esc(block.id)+'"','')+
      button('block-coordinator','Coordinador','users','data-id="'+esc(block.id)+'"','')+
@@ -383,6 +383,7 @@ function serviceBlockCategoryField(c={},i=0){
  return '<div class="block-category-row" data-category-index="'+i+'">'+
  '<label>Categoría<select data-cat="categoryId" required>'+selectOptions(list('tariffs').filter(t=>t.active&&(!find('services',serviceFocus)?.tariffSchedule||(t.schedule||'Tarifa estándar 2026')===find('services',serviceFocus).tariffSchedule)).map(t=>({id:t.id,name:t.name})),c.categoryId)+'</select></label>'+
  '<label>N.º trabajadores<input data-cat="quantity" type="number" min="1" max="200" step="1" value="'+esc(c.quantity||1)+'"></label>'+
+ '<label>Inicio<input data-cat="start" type="time" required value="'+esc(c.start||'08:00')+'"></label><label>Fin<input data-cat="end" type="time" required value="'+esc(c.end||'18:00')+'"></label><label>Pausa (h)<input data-cat="pause" type="number" min="0" max="8" step="0.25" value="'+esc(c.pause??0)+'"></label>'+
  '<label>Dietas<select data-cat="diets"><option value="false" '+(String(c.diets)==='true'?'':'selected')+'>Sin dietas</option><option value="true" '+(String(c.diets)==='true'?'selected':'')+'>Con dietas</option></select></label>'+
  '<button type="button" class="btn" data-action="block-category-remove" data-index="'+i+'">Quitar</button></div>';
 }
@@ -398,18 +399,14 @@ function serviceBlockEditor(id='',preDate=''){
  coordinators=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  blockEditorId=id;blockEditorService=serviceFocus;blockCategoryRows=[{categoryId:'',quantity:1}];
  const fields=field('serviceType','Tipo de servicio (LOAD IN, SHOW CALL...)',old?.serviceType||'LOAD IN','text','required',true)+
- field('date','Fecha inicio',old?.date||preDate||sv.date,'date','required')+
- field('start','Hora inicio',old?.start||'08:00','time','required')+
- field('endDate','Fecha fin',old?.endDate||preDate||sv.date,'date','required')+
- field('end','Hora fin',old?.end||'18:00','time','required')+
+ field('date','Fecha',old?.date||preDate||sv.date,'date','required')+
  select('placeId','Ubicación',places.map(p=>({id:p.id,name:p.name})),old?.placeId||'')+
  
  field('team','Equipo / escenario',old?.team||'')+
- (!old?field('pause','Pausa prevista (h)',0,'number','min="0" max="24" step="0.5"'):'')+
  notes(old?.notes||'','Notas de producción')+
  (!old?'<div class="wide"><div class="subhead"><h3>Categorías y trabajadores requeridos</h3>'+
  button('block-category-add','Añadir categoría','plus','type="button"','')+'</div><div id="block-categories"></div></div>':'');
- modal(old?'Editar tipo de servicio':'Añadir tipo de servicio y horario',formWrap(fields,old?'Guardar cambios':'Crear bloque y puestos'));
+ modal(old?'Editar tipo de servicio':'Añadir tipo de servicio',formWrap(fields,old?'Guardar cambios':'Crear bloque y puestos'));
  if(!old)drawBlockCategories();
  formHandler(async b=>{
   if(!old){captureBlockCategories();if(!blockCategoryRows.length||blockCategoryRows.some(x=>!x.categoryId))throw Error('Selecciona las categorías del bloque.');}
@@ -433,7 +430,7 @@ function serviceBlockOperatorsEditor(blockId){
  const operators=list('serviceBlockOperators').filter(o=>o.blockId===block.id),staff=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
  const people='<div class="service-operator-list">'+operators.map(o=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',o.userId))+'</strong><small>'+esc(o.kind==='crew_head'?'Crew Head · responsable del bloque':'Coordinador de este bloque')+'</small></div>'+
  button('block-operator-remove','Quitar','trash','data-id="'+esc(o.id)+'"','')+'</div>').join('')+'</div>';
- const form='<form id="block-operator-form"><div class="notice"><strong>'+esc(block.date)+' · '+esc(block.serviceType)+' · '+esc(block.start)+'–'+esc(block.end)+'</strong><p>Los permisos se limitan a este bloque; Crew Head puede añadir coordinadores normales sin ser gestor de oficina.</p></div>'+
+ const form='<form id="block-operator-form"><div class="notice"><strong>'+esc(block.date)+' · '+esc(block.serviceType)+'</strong><p>Los permisos se limitan a este bloque; Crew Head puede añadir coordinadores normales sin ser gestor de oficina.</p></div>'+
  people+'<div class="form-grid">'+select('userId','Trabajador',staff,'',true)+select('kind','Permiso del bloque',[{id:'crew_head',name:'Crew Head (responsable)'},{id:'coordinator',name:'Coordinador normal'}],'coordinator')+'</div>'+
  '<div class="form-footer"><button type="button" class="btn" data-action="close">Cerrar</button><button type="submit" class="btn primary">Asignar al bloque</button></div><div class="form-error" hidden></div></form>';
  modal('Personal que coordina este turno',form);
@@ -1103,7 +1100,7 @@ function coordinatorPicker(blockId){
  const people=[...byWorker.values()].map(x=>({...x,w:find('workers',x.workerId),u:list('users').find(u=>u.workerId===x.workerId&&u.active&&u.role==='worker'),crew:[...x.roles].some(isCrewHeadName)})).filter(x=>x.w&&(!q||normCat(x.w.name+' '+[...x.roles].join(' ')).includes(q)))
   .sort((a,b)=>(b.here-a.here)||(b.crew-a.crew)||a.w.name.localeCompare(b.w.name));
  const curU=cid?find('users',cid):null,curW=curU?.workerId?find('workers',curU.workerId):null;
- modal('Coordinador del turno',`<div class="picker-slot"><div><span class="eyebrow">${esc(block.serviceType||'Turno')}</span><strong>${esc(name('services',block.serviceId))}</strong><small>${fmt(block.date)} · ${esc(block.start)}–${esc(block.end)}</small></div></div>
+ modal('Coordinador del turno',`<div class="picker-slot"><div><span class="eyebrow">${esc(block.serviceType||'Turno')}</span><strong>${esc(name('services',block.serviceId))}</strong><small>${fmt(block.date)}</small></div></div>
  <p class="footnote">Solo puede coordinar alguien asignado a este servicio ese día. El personal del turno verá su nombre y teléfono. Un Crew Head ya tiene Crew Control de todo el servicio ese día; nómbralo aquí solo si quieres que salga como coordinador del turno.</p>
  ${curU?`<div class="line-worker">${curW?avatar(curW,44):''}<div class="grow"><b>${esc(curW?.name||curU.name)}</b><small>Coordinador actual${curW?.phone?' · '+esc(curW.phone):''}</small></div><button class="btn small" data-action="coord-pick-clear" data-id="${esc(block.id)}">Quitar</button></div>`:''}
  <div class="searchbox picker-search">${icon('search')}<input id="coord-pick-search" placeholder="Buscar por nombre o categoría…" value="${esc(coordPickQuery)}"></div>
@@ -1323,7 +1320,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='service-block-add-positions')return blockAddCategories(id);
  if(a==='service-block-operators')return serviceBlockOperatorsEditor(id);
  if(a==='block-operator-remove'){const o=find('serviceBlockOperators',id);if(!o)return;return runMutation('service-block-operator-remove',{id:o.id,revision:o.revision},'Coordinador retirado')}
- if(a==='block-category-add'){captureBlockCategories();blockCategoryRows.push({categoryId:'',quantity:1});return drawBlockCategories()}
+ if(a==='block-category-add'){captureBlockCategories();{const last=blockCategoryRows[blockCategoryRows.length-1]||{};blockCategoryRows.push({categoryId:'',quantity:1,start:last.start,end:last.end,pause:last.pause});}return drawBlockCategories()}
  if(a==='block-category-remove'){captureBlockCategories();blockCategoryRows.splice(Number(el.dataset.index),1);return drawBlockCategories()}
  if(a==='service-place-new')return servicePlaceEditor();
  if(a==='service-place-edit')return servicePlaceEditor(id);
