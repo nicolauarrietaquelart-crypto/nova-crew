@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v35 · Perfil, disponibilidad y datos de empresa
+
+- Al abrir un día en Disponibilidad salen ya marcadas las horas de tu disponibilidad habitual (mañana 06–15 h, tarde 15–24 h) o las que guardaste para ese día.
+- Liquidaciones sin el aviso de «Importe bruto certificado…».
+- Foto de perfil con recorte circular (arrastrar y zoom) antes de guardarla; se muestra en la barra superior en lugar de «Cuenta privada» y lleva a Mi perfil.
+- Datos empresa: documentación (protocolos de acoso, prevención, normativa BCN2026), contactos de Penny Wise, móviles de coordinadores, qué hacer en caso de accidente (Asepeyo) y centros asistenciales de Barcelona, Tarragona y Lleida, con teléfonos para llamar.
+
 ## Novedades v34 · Teléfono de guardia y coordinación sin fichajes
 
 - El empleado ya no ve quién está de guardia: en la barra superior tiene un botón para llamar al **teléfono de guardia 670 514 308** (solo icono en móvil). La lista de guardias solo llega al gestor.
