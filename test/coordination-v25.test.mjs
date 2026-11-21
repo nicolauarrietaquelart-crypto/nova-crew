@@ -279,5 +279,5 @@ test('v37: diets per tariff, line-update changes category/schedule/diets, negati
  r=await f.call('line-update',{id:line.id,categoryId:cat2.id,start:'09:00',end:'15:00',pause:0,diets:true,dietCount:2},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
  assert.equal(r.body.assignment.categoryId,cat2.id);assert.equal(r.body.assignment.start,'09:00');assert.equal(r.body.assignment.dietCount,2);assert.equal(r.body.assignment.costRate,cat2.workerRate);
  r=await f.call('invoice-from-service',{serviceId:f.svc.id},f.g);
- assert.equal(r.status,200,JSON.stringify(r.body));assert.ok(r.body.record.lines.some(l=>/^Dietas/.test(l.description)&&l.quantity===2&&l.price===17),JSON.stringify(r.body.record.lines));
+ assert.equal(r.status,200,JSON.stringify(r.body));{const ls=r.body.record.lines,i=ls.findIndex(l=>l.sub&&/^Dietas/.test(l.description));assert.ok(i>0&&ls[i].quantity===2&&ls[i].price===17,JSON.stringify(ls));assert.match(ls[i-1].description,/Dieta W · .* · 09:00–15:00 · Sin pausa/);}
 });
