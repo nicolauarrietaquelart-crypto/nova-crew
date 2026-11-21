@@ -1,5 +1,15 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v31 · Coordinadores y Crew Head
+
+- **Crew Head por categoría**: quien tiene asignado un puesto de categoría CREW HEAD un día ve todo ese servicio en Crew Control (desde Coordinación), sin tener que darle permisos.
+- **Coordinador por turno**: botón «Coordinador» en cada bloque con buscador de fotos. Solo puede coordinar alguien asignado al servicio ese día; ya no se elige coordinador al crear el servicio o el presupuesto.
+- El personal del turno ve en el servicio a **su coordinador con nombre y teléfono** (botón para llamar). Un Crew Head no aparece como coordinador salvo que se le elija.
+- **Coordinación del trabajador**: un turno por tarjeta para el coordinador normal (versión reducida, solo su turno) y una tarjeta por día para el Crew Head (abre Crew Control). Desaparece «Crew Control» de la barra lateral.
+- Desde la página del servicio, botón **Abrir mi coordinación** / **Abrir Crew Control**.
+- Estado del trabajador con el mismo botón de icono y color que Crew Control.
+- Se quita la pestaña «Personal y fichajes» (era lo mismo que Jornadas) y «Responsables y permisos» pasa a «Coordinación».
+
 ## Novedades v30 · Líneas de puesto más claras
 
 - La barra de fases del servicio ya no se solapa: progreso arriba y siguiente paso debajo.

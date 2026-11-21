@@ -200,3 +200,25 @@ test('v30: delete individual position lines; blocked when there are clock-ins',a
  assert.equal((await f.call('coord-update',{id:b2.id,revision:b2.revision,changes:{realIn:'20:00'}},f.c)).status,200);
  assert.equal((await f.call('line-delete',{id:l3.id},f.g)).status,409);
 });
+
+test('v31: Crew Head by category gets Crew Control for the service day; block coordinator must be assigned and is shown to staff',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand'),coordW=st.workers.find(w=>w.name==='Coord');
+ const coordUser=st.users.find(u=>u.workerId===coordW.id),handUser=st.users.find(u=>u.workerId===hand.id);
+ const blk=(await f.call('service-block-save',{record:{serviceId:f.svc.id,serviceType:'MONTAJE',date:f.svc.date,endDate:f.svc.date,start:'18:00',end:'22:00',team:'Principal'},categories:[{categoryId:'HAND B',quantity:1}]},f.g)).body;
+ const block=blk.record||st.serviceBlocks?.[0]||(await f.call('state',null,f.g)).body.serviceBlocks.find(b=>b.serviceType==='MONTAJE');
+ const line=blk.positions[0];
+ const other=(await f.call('save',{kind:'workers',record:{name:'Otro',costRate:10,createAccess:false}},f.g)).body.record;
+ const otherUser=(await f.call('user',{record:{name:'Otro',username:'otro',role:'worker',workerId:other.id,password:'otro-password-123'}},f.g)).body.record;
+ assert.equal((await f.call('block-coordinator-set',{blockId:block.id,userId:otherUser.id},f.g)).status,409,'not assigned to the service');
+ const a=await f.save('assignments',{serviceId:f.svc.id,orderLineId:line.id,workerId:hand.id,categoryId:line.categoryId,date:line.date,endDate:line.endDate,start:line.start,end:line.end});
+ let r=await f.call('block-coordinator-set',{blockId:block.id,userId:coordUser.id},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
+ const hs=(await f.call('state',null,f.h)).body.assignments.find(x=>x.id===a.id);assert.equal(hs.coordinator.name,'Coord');
+ // Crew Head by category: assign "CREW HEAD" role to Otro on that day -> Crew Control for the whole service day
+ await f.save('assignments',{serviceId:f.svc.id,workerId:other.id,role:'CREW HEAD',date:f.svc.date,endDate:f.svc.date,start:'07:00',end:'23:00',costRate:12,chargeRate:24});
+ const oc=(await f.call('login',{username:'otro',password:'otro-password-123'})).cookie;
+ const os=(await f.call('state',null,oc)).body;assert.ok(os.crewHeadDays.some(d=>d.serviceId===f.svc.id&&d.date===f.svc.date),JSON.stringify(os.crewHeadDays));
+ assert.ok(os.coordinatorRoster.some(x=>x.id===a.id&&x.crew),'crew head sees the whole service');
+ assert.equal((await f.call('crew-open',{serviceId:f.svc.id,date:f.svc.date},oc)).status,200);
+ assert.equal((await f.call('block-coordinator-set',{blockId:block.id,userId:coordUser.id},f.c)).status,403);
+});

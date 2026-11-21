@@ -74,7 +74,7 @@ function quotePlanRowHTML(p={},i=0){
  '<label>Categoría de personal<select data-plan="categoryId" required>'+selectOptions(rates.map(r=>({id:r.id,name:r.name+(r.clientRate==null?' · Sin tarifa':' · '+euro(r.clientRate))})),p.categoryId)+'</select></label>'+
  f('quantity','N.º trabajadores',p.quantity||1,'number','min="1" max="100" step="1"')+
  f('team','Equipo / escenario',p.team||'')+
- '<label>Coordinador de este día y tipo de servicio<select data-plan="coordinatorId">'+selectOptions(list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId),p.coordinatorId,'Sin asignar')+'</select></label>'+
+''+
  f('locationName','Ubicación / recinto',p.locationName||'')+
  f('locationAddress','Dirección del lugar',p.locationAddress||'')+
  f('pause','Pausa (horas)',p.pause??0,'number','min="0" max="24" step="0.5"')+
@@ -182,7 +182,7 @@ function wizardPositionRow(p={},index=0){
  f('endDate','Fecha de fin',p.endDate||p.date||$('#service-wizard-form [name=date]')?.value||'','date')+f('end','Fin',p.end||'18:00','time')+
  f('pause','Pausa (h)',p.pause??0,'number')+
  f('locationName','Ubicación',p.locationName||'')+f('locationAddress','Dirección',p.locationAddress||'')+
- '<label>Coordinador de este puesto<select data-position="coordinatorId">'+selectOptions(list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId),p.coordinatorId,'Sin asignar')+'</select></label></div></section>';
+ '</div></section>';
 }
 function wizardRows(){
  const root=$('#wizard-positions');if(root)root.innerHTML=wizardPositions.map(wizardPositionRow).join('');
@@ -208,7 +208,7 @@ function serviceWizard(quoteId='',refresh=false){
  select('clientId','Cliente',clients,quote?.clientId)+select('tariffSchedule','Tarifa aplicable',quoteScheduleNames().map(name=>({id:name,name})),quote?.schedule||quoteScheduleNames()[0]||'Tarifa estándar 2026')+field('venue','Recinto principal',quote?.serviceVenue||'','text','required')+
  field('date','Primer día',start,'date','required')+field('start','Hora de inicio','08:00','time','required')+
  field('endDate','Último día',end,'date','required')+field('end','Hora de fin','23:59','time','required')+
- select('coordinatorId','Coordinador principal',coordinators,'')+'</div>'+
+ '</div>'+
  '<div id="wizard-quote-preview"></div>'+
  '<div class="subhead"><div><h3>Jornadas, horarios y puestos</h3><p>Una línea genera puestos individuales según la cantidad. Cada trabajador se podrá asignar por separado.</p></div><div class="row-actions">'+button('wizard-add-day','Añadir otro día','calendar','type="button"','')+button('wizard-add-position','Añadir línea','plus','type="button"','')+'</div></div>'+
  '<div id="wizard-positions"></div><div class="form-error" role="alert" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Crear servicio y jornadas</button></div></form>';
@@ -287,7 +287,8 @@ function serviceWorkspacePage(){
  $('#page-actions').innerHTML=button('service-back','Volver a servicios','left','','')+
  button('history','Historial','clock','data-kind="services" data-id="'+esc(sv.id)+'"','')+button('edit','Editar servicio','edit','data-kind="services" data-id="'+esc(sv.id)+'"','');
  const svStaff=staffing(sv),totalUnfilled=svStaff.missing;
- const menu=[['planning','Jornadas y horarios'],['staff','Personal y fichajes'],['places','Ubicaciones'],['coordinators','Responsables y permisos'],['closing','Cierre y facturación']];
+ if(serviceTab==='staff')serviceTab='planning';
+ const menu=[['planning','Jornadas y horarios'],['places','Ubicaciones'],['coordinators','Coordinación'],['closing','Cierre y facturación']];
  const nav='<div class="service-workspace-nav">'+menu.map(([k,label])=>'<button class="'+(serviceTab===k?'selected':'')+'" type="button" data-action="service-tab" data-tab="'+k+'">'+label+'</button>').join('')+'</div>';
  const top='<div class="service-overview"><div><span class="eyebrow">CLIENTE Y RECINTO</span><h3 class="so-client">'+esc(name('clients',sv.clientId))+'</h3><p>'+esc(sv.venue)+'</p>'+
  '<div class="service-meta">'+badge(sv.status)+'<span>'+fmt(sv.date)+' — '+fmt(sv.endDate)+'</span><span>Tarifa: '+esc(sv.tariffSchedule||'Estándar')+'</span>'+(sv.closedBy?'<span>Cierre: '+esc(responsibleName(sv,'closedBy'))+'</span>':'')+(()=>{const q=list('quotes').find(q=>q.serviceId===sv.id&&q.preparedBy);return q?'<span>Presupuesto: '+esc(responsibleName(q,'preparedBy'))+'</span>':'';})()+'</div></div>'+
@@ -307,9 +308,9 @@ function serviceWorkspacePage(){
     blocksOn.map(block=>{
      const posts=positions.filter(p=>p.blockId===block.id);
      return '<article class="service-block"><div class="service-block-heading"><div><span class="eyebrow">'+esc(block.start)+' – '+esc(block.end)+'</span><h4>'+esc(block.serviceType)+'</h4>'+
-     '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+'</p><p><strong>Coordinador del turno:</strong> '+esc(block.coordinatorId?name('users',block.coordinatorId):'Sin asignar')+'</p></div>'+
+     '<p>'+esc(block.team||'Sin equipo')+' · '+esc(servicePlaceName(block.placeId))+'</p><p><strong>Coordinador:</strong> '+(coordinatorLabel(block)?esc(coordinatorLabel(block)):'<span class="muted">Sin asignar</span>')+'</p>'+(blockCrewHeads(block).length?'<p><strong>Crew Head:</strong> '+esc(blockCrewHeads(block).map(id=>name('workers',id)).join(', '))+'</p>':'')+'</div>'+
      '<div class="service-block-tools">'+button('service-block-add-positions','Añadir puestos','plus','data-id="'+esc(block.id)+'"','')+
-     button('service-block-operators','Crew Head y coordinadores','users','data-id="'+esc(block.id)+'"','')+
+     button('block-coordinator','Coordinador','users','data-id="'+esc(block.id)+'"','')+
      button('service-block-edit','Editar bloque','edit','data-id="'+esc(block.id)+'"','')+
      button('service-block-remove','Eliminar bloque','trash','data-id="'+esc(block.id)+'"','')+'</div></div>'+
      servicePostTable(posts,assigned)+'</article>';
@@ -343,13 +344,9 @@ function serviceWorkspacePage(){
  }else if(serviceTab==='closing'){
   body=serviceClosingTab(sv);
  }else{
-  const allUsers=list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId);
-  body='<div class="service-section-header"><div><h3>Coordinación por día y turno</h3><p>Asigna Crew Heads y coordinadores normales desde cada tipo de servicio. Los permisos se limitan al bloque elegido.</p></div>'+
-   button('service-coordinator-new','Añadir coordinador','plus','','')+'</div>'+
-   '<div class="panel"><div class="list-item"><span class="grow">Coordinador general (opcional)</span><strong>'+esc(name('users',sv.coordinatorId))+'</strong>'+
-   button('edit','Cambiar','edit','data-kind="services" data-id="'+esc(sv.id)+'"','')+'</div>'+
-   coordinators.map(c=>'<div class="list-item"><div class="grow"><strong>'+esc(name('users',c.userId))+'</strong><small>Coordinador adicional</small></div>'+
-    button('service-coordinator-remove','Quitar','trash','data-id="'+esc(c.id)+'"','')+'</div>').join('')+'</div>';
+  const bl=blocks.slice().sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  body='<div class="service-section-header"><div><h3>Coordinación por turno</h3><p>Cada turno tiene un coordinador elegido entre el personal asignado. Quien tenga la categoría CREW HEAD ese día ve todo el servicio en Crew Control.</p></div></div>'+
+   (bl.length?'<div class="panel">'+bl.map(b=>{const c=coordinatorLabel(b),ch=blockCrewHeads(b);return '<div class="list-item"><div class="grow"><p><b>'+fmt(b.date)+' · '+esc(b.serviceType||'Turno')+' · '+esc(b.start)+'–'+esc(b.end)+'</b></p><small>Coordinador: '+(c?esc(c):'sin asignar')+(ch.length?' · Crew Head: '+esc(ch.map(id=>name('workers',id)).join(', ')):'')+'</small></div>'+button('block-coordinator',c?'Cambiar':'Elegir coordinador','users','data-id="'+esc(b.id)+'"',' small')+'</div>';}).join('')+'</div>':'<div class="panel empty">Crea primero los turnos y asigna el personal.</div>');
  }
  $('#content').innerHTML=top+nav+body;
 }
@@ -402,7 +399,7 @@ function serviceBlockEditor(id='',preDate=''){
  field('endDate','Fecha fin',old?.endDate||preDate||sv.date,'date','required')+
  field('end','Hora fin',old?.end||'18:00','time','required')+
  select('placeId','Ubicación',places.map(p=>({id:p.id,name:p.name})),old?.placeId||'')+
- select('coordinatorId','Trabajador coordinador de este día y tipo de servicio',coordinators,old?.coordinatorId||'')+
+ 
  field('team','Equipo / escenario',old?.team||'')+
  (!old?field('pause','Pausa prevista (h)',0,'number','min="0" max="24" step="0.5"'):'')+
  notes(old?.notes||'','Notas de producción')+
@@ -1010,7 +1007,7 @@ function offerModal(slotId){
  modal('Ofrecer el puesto',`<form id="editor"><div class="picker-slot"><div><span class="eyebrow">${esc(category)}</span><strong>${esc(name('services',l.serviceId))}</strong><small>${fmt(l.date)} · ${l.start}–${l.end}${l.serviceType?' · '+esc(l.serviceType):''}</small></div></div>
  <p class="footnote">Les llega una notificación con el servicio. Quien pueda pulsa «Me interesa» y tú decides a quién asignarlo. No se asigna a nadie automáticamente.</p>
  <div class="offer-aud">${[['category','Con esta categoría abierta'],['fixed','Todos los fijos'],['eventual','Todos los eventuales'],['all','Todo el personal'],['workers','Elegir personas']].map(([k,t],i)=>`<label class="offer-opt"><input type="radio" name="audience" value="${k}" ${i===0?'checked':''}><span><b>${t}</b><small>${k==='workers'?'Selecciona abajo':cnt[k]+' con acceso'}</small></span></label>`).join('')}</div>
- <div id="offer-people" hidden><div class="searchbox">${icon('search')}<input id="offer-search" placeholder="Buscar…"></div><div class="offer-pick">${ws.sort((a,b)=>a.name.localeCompare(b.name)).map(w=>`<label data-n="${esc(normCat(w.name))}"><input type="checkbox" name="w" value="${esc(w.id)}"> ${esc(w.name)} <small>${esc(contractLabel(w))}</small></label>`).join('')}</div></div>
+ <div id="offer-people" hidden><div class="searchbox">${icon('search')}<input id="offer-search" placeholder="Buscar…"></div><div class="offer-pick">${ws.sort((a,b)=>a.name.localeCompare(b.name)).map(w=>`<label data-n="${esc(normCat(w.name+' '+(w.categories||[]).join(' ')))}"><input type="checkbox" name="w" value="${esc(w.id)}">${avatar(w,32)}<span><b>${esc(w.name)}</b> <small>${esc(contractLabel(w))}${(w.categories||[]).length?' · '+esc(w.categories.join(', ')):''}</small></span></label>`).join('')}</div></div>
  <label class="wide">Mensaje (opcional)<textarea name="message" maxlength="500" placeholder="Ej.: Urgente, se paga dieta."></textarea></label>
  <div class="form-error" hidden></div><div class="form-footer"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Enviar oferta</button></div></form>`);
  const f=$('#editor');f.querySelectorAll('[name=audience]').forEach(r=>r.onchange=()=>{$('#offer-people').hidden=f.elements.audience.value!=='workers';});
@@ -1075,6 +1072,35 @@ async function lineDuplicate(lineId){
  try{await api('service-block-add-positions',{blockId:p.blockId,categories:[{categoryId:p.categoryId,quantity:1}]});await load();toast('Añadido otro puesto de '+(p.role||'')+' al bloque');}catch(e){toast(e.message,true);}
 }
 
+/* v31 · Coordinador del bloque: solo personal asignado al servicio ese día, con buscador de fotos. */
+const isCrewHeadName=r=>String(r||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'').includes('crewhead');
+function blockCoordinatorId(block){return block.coordinatorId||list('serviceBlockOperators').find(o=>o.blockId===block.id&&o.kind==='coordinator')?.userId||'';}
+function blockCrewHeads(block){const days=new Set();let d=block.date;while(d&&d<=(block.endDate||block.date)){days.add(d);d=new Date(Date.parse(d+'T12:00:00Z')+864e5).toISOString().slice(0,10);}
+ return [...new Set(list('assignments').filter(a=>a.serviceId===block.serviceId&&a.status!=='rejected'&&isCrewHeadName(a.role)&&days.has(a.date)).map(a=>a.workerId))];}
+function coordinatorLabel(block){const cid=blockCoordinatorId(block),u=cid?find('users',cid):null,w=u?.workerId?find('workers',u.workerId):null;return u?(w?.name||u.name)+(w?.phone?' · '+w.phone:''):'';}
+let coordPickBlock='',coordPickQuery='';
+function coordinatorPicker(blockId){
+ const block=find('serviceBlocks',blockId);if(!block)return;coordPickBlock=blockId;
+ const days=new Set();let d=block.date;while(d&&d<=(block.endDate||block.date)){days.add(d);d=new Date(Date.parse(d+'T12:00:00Z')+864e5).toISOString().slice(0,10);}
+ const inBlock=new Set(list('orderLines').filter(l=>l.blockId===block.id).map(l=>l.id));
+ const rows=list('assignments').filter(a=>a.serviceId===block.serviceId&&a.status!=='rejected'&&days.has(a.date));
+ const byWorker=new Map();for(const a of rows){const cur=byWorker.get(a.workerId)||{workerId:a.workerId,roles:new Set(),here:false};cur.roles.add(a.role);if(inBlock.has(a.orderLineId))cur.here=true;byWorker.set(a.workerId,cur);}
+ const cid=blockCoordinatorId(block),q=normCat(coordPickQuery);
+ const people=[...byWorker.values()].map(x=>({...x,w:find('workers',x.workerId),u:list('users').find(u=>u.workerId===x.workerId&&u.active&&u.role==='worker'),crew:[...x.roles].some(isCrewHeadName)})).filter(x=>x.w&&(!q||normCat(x.w.name+' '+[...x.roles].join(' ')).includes(q)))
+  .sort((a,b)=>(b.here-a.here)||(b.crew-a.crew)||a.w.name.localeCompare(b.w.name));
+ const curU=cid?find('users',cid):null,curW=curU?.workerId?find('workers',curU.workerId):null;
+ modal('Coordinador del turno',`<div class="picker-slot"><div><span class="eyebrow">${esc(block.serviceType||'Turno')}</span><strong>${esc(name('services',block.serviceId))}</strong><small>${fmt(block.date)} · ${esc(block.start)}–${esc(block.end)}</small></div></div>
+ <p class="footnote">Solo puede coordinar alguien asignado a este servicio ese día. El personal del turno verá su nombre y teléfono. Un Crew Head ya tiene Crew Control de todo el servicio ese día; nómbralo aquí solo si quieres que salga como coordinador del turno.</p>
+ ${curU?`<div class="line-worker">${curW?avatar(curW,44):''}<div class="grow"><b>${esc(curW?.name||curU.name)}</b><small>Coordinador actual${curW?.phone?' · '+esc(curW.phone):''}</small></div><button class="btn small" data-action="coord-pick-clear" data-id="${esc(block.id)}">Quitar</button></div>`:''}
+ <div class="searchbox picker-search">${icon('search')}<input id="coord-pick-search" placeholder="Buscar por nombre o categoría…" value="${esc(coordPickQuery)}"></div>
+ <div class="picker-list">${people.length?people.map(x=>`<button class="picker-row ${x.u?'':'disabled'} ${x.u?.id===cid?'current':''}" ${x.u?`data-action="coord-pick" data-id="${esc(x.u.id)}"`:'disabled'}>${avatar(x.w,48)}<span class="grow"><b>${esc(x.w.name)}</b><small>${esc([...x.roles].join(' · '))}${x.w.phone?' · '+esc(x.w.phone):''}</small></span>${x.crew?'<span class="badge issued">Crew Head</span>':''}${x.here?'<span class="badge confirmed">En este turno</span>':''}${x.u?'':'<span class="badge unavailable">Sin acceso a la app</span>'}</button>`).join(''):empty('Nadie asignado todavía','Asigna primero el personal del servicio; luego elige aquí quién coordina.')}</div>
+ <div class="form-footer"><button class="btn" data-action="close">Cerrar</button></div>`);
+ const s=$('#coord-pick-search');s.oninput=e=>{coordPickQuery=e.target.value;const pos=e.target.selectionStart;coordinatorPicker(blockId);const n=$('#coord-pick-search');n.focus();n.setSelectionRange(pos,pos);};
+}
+async function setBlockCoordinator(blockId,userId){
+ try{await api('block-coordinator-set',{blockId,userId});await load();toast(userId?'Coordinador asignado':'Coordinador quitado');coordinatorPicker(blockId);}catch(e){toast(e.message,true);}
+}
+
 function collection(){const rows=filtered(page);let html='';const tr=c=>`<tr>${c.map(s=>`<td>${s}</td>`).join('')}</tr>`;
  if(page==='tariffs')html=table(['Categoría','Grupo / Unidad','Pago bruto','Cliente','Mínimo',''],rows.map(r=>tr([`<strong>${esc(r.name)}</strong><small>${esc(r.id)}</small>`,esc(r.group)+'<small>'+esc(r.unit==='day'?'Por show/día':'Por hora')+'</small>',r.workerRate==null?'Pendiente':euro(r.workerRate),r.clientRate==null?'Pendiente':euro(r.clientRate),r.minHours+' h',action('edit','Modificar tarifa',r.id,'tariffs','edit')])));
   if(['clients','workers'].includes(page))html=table([page==='workers'?'Trabajador':'Cliente','Contacto',page==='workers'?'Especialidad':'NIF','Estado',''],(page==='workers'?rows.slice().sort((a,b)=>workerSince(a).localeCompare(workerSince(b))):rows).map(r=>tr([page==='workers'?`<button class="worker-cell" data-action="view" data-kind="workers" data-id="${esc(r.id)}">${avatar(r,38)}<span><strong>${esc(r.name)}</strong><small>${contractLabel(r)} · ${esc(seniorityText(r).split(' · ')[0])}</small></span></button>`:`<strong>${esc(r.name)}</strong><small>${esc(r.email)}</small>`,esc(r.phone||'—'),esc(page==='workers'?r.specialty:r.taxId),badge(r.active===false?'unavailable':'available'),rowActions(r,page)])));
@@ -1093,7 +1119,7 @@ function editor(kind,id='',preset={}){
  if(kind==='tariffs')fields=field('schedule','Tarifa',r.schedule||'Tarifa estándar 2026','text','required')+field('id','Código único de categoría',r.id||'','text',id?'readonly':'required pattern="[A-Za-z0-9_ -]{2,80}"')+field('name','Categoría',r.name||'','text','required',true)+field('group','Grupo',r.group||'Personalizado')+select('unit','Unidad',[{id:'hour',name:'Hora'},{id:'day',name:'Show / Día'}],r.unit||'hour')+amount('minHours','Mínimo (horas)',r.minHours??0)+field('workerRate','Pago bruto trabajador (€ por unidad)',r.workerRate??'','number','min="0" step="0.01"')+field('clientRate','Tarifa cliente (€ por unidad)',r.clientRate??'','number','min="0" step="0.01"')+amount('incrementPercent','Incremento trabajador y cliente (%)',r.incrementPercent??0)+bool('active','Categoría activa',r.active!==false)+notes(r.notes,'Notas y condiciones');
   if(kind==='orderLines')fields=select('serviceId','Servicio',list('services').filter(s=>s.status!=='cancelled'&&s.settlementStatus!=='confirmed'),r.serviceId)+select('categoryId','Categoría',list('tariffs').filter(t=>t.active).map(t=>({id:t.id,name:t.name})),r.categoryId)+field('serviceType','Tipo de servicio',r.serviceType||'LOAD IN')+field('team','Equipo o escenario',r.team)+select('coordinatorId','Trabajador coordinador de esta línea',list('users').filter(u=>u.active&&u.role==='worker'&&u.workerId),r.coordinatorId)+field('date','Día',r.date||day(),'date','required')+field('start','Inicio',r.start||'08:00','time','required')+field('endDate','Día final',r.endDate||r.date||day(),'date','required')+field('end','Fin',r.end||'18:00','time','required')+amount('pause','Pausa (h)',r.pause??0)+(id?'':field('quantity','Número de plazas individuales a crear',1,'number','min="1" max="100" step="1"'))+notes(r.notes,'Observaciones de la plaza');
   if(['workers','clients'].includes(kind))fields=field('name',kind==='workers'?'Nombre y apellidos':'Razón social',r.name,'text','required maxlength="200"',true)+field('taxId',kind==='workers'?'DNI / NIE':'NIF / CIF',r.taxId)+field('phone','Móvil',r.phone,'tel')+field('email','Correo electrónico',r.email,'email')+(kind==='workers'?field('specialty','Especialidad',r.specialty):field('contact','Persona de contacto',r.contact))+field('address','Dirección',r.address,'text','',true)+(kind==='workers'?amount('costRate','Coste por hora (€)',r.costRate)+select('contractType','Tipo de contrato',[{id:'eventual',name:'Eventual / por servicio'},{id:'indefinite',name:'Indefinido'},{id:'fixed_discontinuous',name:'Fijo discontinuo'}],r.contractType||'eventual')+field('username','Usuario de acceso (opcional, se genera si está vacío)','', 'text',id?'readonly':'autocomplete="off"',true)+field('iban','IBAN',r.iban)+field('startDate','Fecha de alta',r.startDate,'date')+field('endDate','Fin de contrato',r.endDate,'date')+field('emergency','Contacto de emergencia',r.emergency,'text','',true):select('paymentDays','Plazo de cobro',TERM_OPTIONS,String(r.paymentDays??30)))+notes(r.notes)+bool('active','Ficha activa',r.active!==false);
- if(kind==='services')fields=select('tariffSchedule','Tarifa del servicio',quoteScheduleNames().map(name=>({id:name,name})),r.tariffSchedule||'Tarifa estándar 2026')+field('name','Nombre del servicio',r.name,'text','required',true)+select('clientId','Cliente',list('clients').filter(c=>c.active),r.clientId)+field('venue','Recinto / ubicación',r.venue,'text','required')+field('venueLat','Latitud del recinto (opcional)',r.venueLat??'','number','step="any" min="-90" max="90"')+field('venueLng','Longitud del recinto (opcional)',r.venueLng??'','number','step="any" min="-180" max="180"')+field('radiusMeters','Radio de fichaje en metros',r.radiusMeters??500,'number','min="100" max="5000"')+field('date','Día de inicio',r.date||day(),'date','required')+field('start','Hora de inicio',r.start||'08:00','time','required')+field('endDate','Día de fin',r.endDate||r.date||day(),'date','required')+field('end','Hora de fin',r.end||'18:00','time','required')+select('coordinatorId','Trabajador que coordina el servicio',list('users').filter(u=>u.active&&(u.role==='manager'||u.workerId)),r.coordinatorId)+field('callTime','Hora de llamada (opcional)',r.callTime||'','time')+field('required','Personal requerido',r.required??1,'number','min="0" max="10000"')+`<label class="wide">Observaciones para el personal<textarea name="employeeNotes" maxlength="3000" placeholder="Entrada por puerta 5, uniformidad, EPIs, catering…">${esc(r.employeeNotes||'')}</textarea><small>Las verá cada trabajador asignado en la página del servicio.</small></label>`+select('status','Estado',Object.entries(statuses).filter(([v])=>['planned','confirmed','in_progress','completed','cancelled'].includes(v)).map(([id,name])=>({id,name})),r.status||'planned')+notes(r.notes);
+ if(kind==='services')fields=select('tariffSchedule','Tarifa del servicio',quoteScheduleNames().map(name=>({id:name,name})),r.tariffSchedule||'Tarifa estándar 2026')+field('name','Nombre del servicio',r.name,'text','required',true)+select('clientId','Cliente',list('clients').filter(c=>c.active),r.clientId)+field('venue','Recinto / ubicación',r.venue,'text','required')+field('venueLat','Latitud del recinto (opcional)',r.venueLat??'','number','step="any" min="-90" max="90"')+field('venueLng','Longitud del recinto (opcional)',r.venueLng??'','number','step="any" min="-180" max="180"')+field('radiusMeters','Radio de fichaje en metros',r.radiusMeters??500,'number','min="100" max="5000"')+field('date','Día de inicio',r.date||day(),'date','required')+field('start','Hora de inicio',r.start||'08:00','time','required')+field('endDate','Día de fin',r.endDate||r.date||day(),'date','required')+field('end','Hora de fin',r.end||'18:00','time','required')+field('callTime','Hora de llamada (opcional)',r.callTime||'','time')+field('required','Personal requerido',r.required??1,'number','min="0" max="10000"')+`<label class="wide">Observaciones para el personal<textarea name="employeeNotes" maxlength="3000" placeholder="Entrada por puerta 5, uniformidad, EPIs, catering…">${esc(r.employeeNotes||'')}</textarea><small>Las verá cada trabajador asignado en la página del servicio.</small></label>`+select('status','Estado',Object.entries(statuses).filter(([v])=>['planned','confirmed','in_progress','completed','cancelled'].includes(v)).map(([id,name])=>({id,name})),r.status||'planned')+notes(r.notes);
  if(kind==='assignments')fields=select('orderLineId','Puesto del servicio (opcional)',list('orderLines').filter(l=>l.status!=='cancelled'&&!list('assignments').some(a=>a.orderLineId===l.id&&a.id!==r.id)).map(l=>({id:l.id,name:`${name('services',l.serviceId)} · ${l.role} · ${l.date} ${l.start}`})),r.orderLineId)+select('categoryId','Categoría / tarifa',list('tariffs').map(t=>({id:t.id,name:t.name})),r.categoryId)+select('serviceId','Servicio',list('services').filter(s=>s.status!=='cancelled'),r.serviceId)+select('workerId','Trabajador',list('workers').filter(w=>w.active),r.workerId)+field('role','Especialidad / función',r.role)+field('team','Equipo',r.team)+field('date','Día de inicio',r.date||'','date')+field('start','Hora de inicio',r.start||'','time')+field('endDate','Día de fin',r.endDate||'','date')+field('end','Hora de fin',r.end||'','time')+amount('pause','Pausa no computable (h)',r.pause)+amount('costRate','Pago al trabajador por unidad (€)',r.baseCostRate??r.costRate)+amount('chargeRate','Tarifa al cliente por unidad (€)',r.baseChargeRate??r.chargeRate??((r.costRate??find('workers',r.workerId)?.costRate??0)*2))+amount('incrementPercent','Incremento de tarifa (%)',r.incrementPercent??0)+field('actualHours','Horas reales trabajador (vacío = previstas)',r.actualHours??'','number','min="0" max="744" step="0.01"')+field('clientHours','Horas facturables cliente (vacío = previstas)',r.clientHours??'','number','min="0" max="744" step="0.01"')+bool('noShow','No presentado: coste trabajador cero',r.noShow===true)+bool('noShowChargeApproved','Cobrar cancelación al cliente según acuerdo documentado en notas',r.noShowChargeApproved===true)+notes(r.notes)+`<p class="footnote wide">Deja el horario vacío para usar el del servicio. Para jornadas nocturnas indica el día de fin. La app comprueba solapes y asignaciones duplicadas.</p>`;
  if(['invoices','quotes'].includes(kind))fields=select('clientId','Cliente',list('clients'),r.clientId)+select('serviceId','Servicio (opcional)',list('services'),r.serviceId)+field('date','Fecha del documento',r.date||day(),'date','required')+field('dueDate',kind==='quotes'?'Válido hasta':'Fecha de vencimiento',r.dueDate||day(),'date','required')+`<div class="wide"><div class="subhead"><h3>Conceptos</h3><button type="button" class="text-btn" data-action="add-line">${icon('plus')} Añadir línea</button></div><div id="invoice-lines">${(r.lines||[{description:'',quantity:1,price:0,vat:data.settings.vat}]).map(lineHTML).join('')}</div><div class="lines-summary" id="lines-total"></div></div>`+notes(r.notes,'Observaciones del documento');
  if(kind==='expenses')fields=field('name','Concepto',r.name,'text','required',true)+field('supplier','Proveedor',r.supplier)+field('date','Fecha',r.date||day(),'date','required')+amount('amount','Importe total (€)',r.amount)+amount('vat','IVA incluido (%)',r.vat??21)+select('serviceId','Servicio (opcional)',list('services'),r.serviceId)+select('status','Estado',[{id:'pending',name:'Pendiente de pago'},{id:'paid',name:'Pagado'}],r.status||'pending')+notes(r.notes);
@@ -1209,6 +1235,9 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  if(a==='flow-remind')return remindPending(id);
  if(a==='worker-contract')return contractModal(id);
  if(a==='line-manage')return lineModal(id);
+ if(a==='block-coordinator'){coordPickQuery='';return coordinatorPicker(id);}
+ if(a==='coord-pick')return setBlockCoordinator(coordPickBlock,id);
+ if(a==='coord-pick-clear')return setBlockCoordinator(id,'');
  if(a==='line-change')return lineUnassign(id,true);
  if(a==='line-unassign')return lineUnassign(id,false);
  if(a==='line-delete')return lineDelete(id);

@@ -382,3 +382,27 @@
 .line-foot{align-items:center}
 .btn.danger{color:#c0392b;border-color:#f4b1aa}
 .btn.danger:hover{background:#fde9e9}
+
+/* v31 · Estado como en Crew Control: botón cuadrado con icono y color */
+.cc-status{flex:0 0 46px !important;width:46px !important;min-width:46px !important;height:46px !important;padding:0 !important;border-radius:12px !important;border:1.5px solid #d1d5db !important;font-size:0 !important;color:transparent !important;background-repeat:no-repeat !important;background-position:center !important;background-size:22px 22px !important;cursor:pointer;-webkit-appearance:none !important;appearance:none !important;text-indent:100px;overflow:hidden}
+.cc-status option{font-size:15px;color:#111;text-indent:0}
+.cc-status.st-pending{background-color:#eeeeee !important;border-color:#d1d5db !important;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23171717%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%2012h14%22%2F%3E%3C%2Fsvg%3E") !important}
+.cc-status.st-contacted{background-color:#ffedd5 !important;border-color:#f58220 !important;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23171717%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%203h4l2%205-2.5%202a16%2016%200%200%200%203.5%203.5L16%2011l5%202v4a3%203%200%200%201-3%203C9.7%2020%204%2014.3%204%206a3%203%200%200%201%203-3Z%22%2F%3E%3C%2Fsvg%3E") !important}
+.cc-status.st-present{background-color:#dcfce7 !important;border-color:#16a34a !important;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23171717%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4%2012%205%205L20%206%22%2F%3E%3C%2Fsvg%3E") !important}
+.cc-status.st-absent{background-color:#fee2e2 !important;border-color:#dc2626 !important;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23171717%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%205%2019%2019M19%205%205%2019%22%2F%3E%3C%2Fsvg%3E") !important}
+.ccm-status select{font-size:15px}
+@media (max-width:760px){.cc-row2 .cc-status{order:0 !important;flex:0 0 46px !important}.cc-row2 .cc-name{flex:1 1 calc(100% - 120px) !important;order:1}}
+button.picker-row{width:100%;border:0;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px}
+button.picker-row:hover{background:#fff6ee}
+button.picker-row.current{outline:2px solid #ff7f1f}
+button.picker-row.disabled{opacity:.5;cursor:not-allowed}
+button.picker-row b{display:block}button.picker-row small{color:var(--muted,#6d727c)}
+.picker-search{margin:10px 0}
+.sd-coord{display:grid;gap:6px;padding:14px;border-radius:14px;background:#f3f6ff;margin:8px 0}
+.sd-coord span{font-size:12px;color:var(--muted,#6d727c);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sd-coord strong{font-size:17px}
+.sd-coord a{justify-self:start}
+.coord-card.multi{cursor:default}
+.crew-svc-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.crew-svc-list a{padding:6px 12px;border-radius:999px;background:#15171b;color:#fff;font-weight:700;font-size:13px;text-decoration:none}
+.offer-pick label{padding:4px 6px;border-radius:10px}.offer-pick label:hover{background:#f6f7f9}.offer-pick b{font-weight:700}
