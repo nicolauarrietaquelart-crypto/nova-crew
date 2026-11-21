@@ -1,5 +1,13 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v43 · Información por tipo de servicio
+
+- **Editar servicio** queda en lo esencial: cliente, nombre, recinto principal, día de inicio, día de fin (sin horas) y tarifa.
+- Cada **tipo de servicio** (LOAD IN, SHOW CALL…) lleva su propia información: **cátering cliente**, **hora de pausa**, **vestuario** (por defecto Uniformidad PW), **EPI** (por defecto completo: guantes, botas, chaleco y casco) y **observaciones para el personal**.
+- **Ubicación** del tipo de servicio: por defecto el recinto del servicio; se puede elegir otra ya creada o «Otra ubicación…», buscándola en Google Maps o escribiéndola a mano.
+- Las **dietas** siguen siendo por trabajador/puesto, y el horario y la pausa por puesto.
+- El trabajador ve en su servicio la información de su tipo de servicio, incluidas las observaciones; el gestor la ve en la cabecera de cada bloque.
+
 ## Novedades v42 · Bloques sin horario
 
 - Los bloques (LOAD IN, SHOW CALL…) ya **no tienen horario propio**: al crearlos o al «Añadir puestos», cada categoría lleva su **inicio, fin y pausa** (los turnos que pasan de medianoche terminan al día siguiente).

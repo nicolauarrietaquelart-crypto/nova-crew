@@ -316,3 +316,17 @@ test('v42: blocks have no schedule; each category row sets its own start/end (ov
  const add=await f.call('service-block-add-positions',{blockId:r.body.record.id,categories:[{categoryId:'steelhand',quantity:1,start:'10:00',end:'12:00'}]},f.g);
  assert.equal(add.status,200,JSON.stringify(add.body));assert.equal(add.body.positions[0].start,'10:00');assert.equal(add.body.positions[0].end,'12:00');
 });
+
+test('v43: catering/pause/uniform/EPI/notes live on each service type and workers see them; service edit has only dates',async()=>{
+ const f=await setup();
+ const r=await f.call('service-block-save',{record:{serviceId:f.svc.id,serviceType:'SHOW CALL',date:f.svc.date,clientCatering:'true',hasPause:'true',uniform:'Ropa negra',notes:'Entrada puerta 5'},categories:[{categoryId:'steelhand',quantity:1,start:'01:00',end:'02:00'}]},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));const blk=r.body.record;
+ assert.equal(blk.clientCatering,true);assert.equal(blk.uniform,'Ropa negra');assert.equal(blk.epi,'Guantes+Botas+Chaleco+Casco');
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
+ const a=await f.save('assignments',{serviceId:f.svc.id,orderLineId:r.body.positions[0].id,workerId:hand.id,categoryId:'steelhand',date:f.svc.date,endDate:f.svc.date,start:'01:00',end:'02:00'});
+ const mine=(await f.call('state',null,f.h)).body.assignments.find(x=>x.id===a.id);
+ assert.deepEqual(mine.blockInfo,{serviceType:'SHOW CALL',clientCatering:true,hasPause:true,uniform:'Ropa negra',epi:'Guantes+Botas+Chaleco+Casco',notes:'Entrada puerta 5'});
+ const svc=st.services.find(s=>s.id===f.svc.id);
+ const e=await f.call('save',{kind:'services',record:{id:svc.id,revision:svc.revision,clientId:svc.clientId,name:'Renombrado',venue:svc.venue,date:svc.date,endDate:svc.endDate,tariffSchedule:svc.tariffSchedule}},f.g);
+ assert.equal(e.status,200,JSON.stringify(e.body));assert.equal(e.body.record.name,'Renombrado');assert.equal(e.body.record.start,svc.start);assert.equal(e.body.record.status,svc.status);
+});

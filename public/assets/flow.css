@@ -580,3 +580,10 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .block-category-row>label:first-child{grid-column:span 2}
 .block-category-row>label,.block-category-row>button{min-width:0}
 @media (max-width:900px){.block-category-row{grid-template-columns:1fr 1fr}}
+/* v43 · tipo de servicio con información propia */
+.blk-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.blk-tags span{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #e6e8ec;color:#374151}
+.blk-notes{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:#fff7f0;border:1px solid #ffd9bd;font-size:13px;white-space:pre-line;color:#3d424b}
+.blk-newplace{display:grid;gap:6px}
+.sd-obs{margin-top:12px;padding:12px 14px;border-radius:12px;background:#fff7f0;border:1px solid #ffd9bd}
+.sd-obs small{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#c2560b}.sd-obs p{margin:4px 0 0}
