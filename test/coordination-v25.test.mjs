@@ -131,7 +131,8 @@ test('v28: weekly morning/afternoon availability, contracts, on-call, draft quot
  // on-call
  const today=new Date().toISOString().slice(0,10);
  r=await f.call('oncall-set',{from:today,to:today,userId:me.id,phone:'600111222'},f.g);assert.equal(r.status,200);assert.equal(r.body.records.length,1);
- assert.ok((await f.call('state',null,f.h)).body.onCall.some(o=>o.date===today&&o.phone==='600111222'));
+ {const hs=(await f.call('state',null,f.h)).body;assert.equal(hs.onCall.length,0,'workers do not see who is on call');assert.equal(hs.onCallPhone,'670 514 308');}
+ assert.ok((await f.call('state',null,f.g)).body.onCall.some(o=>o.date===today&&o.phone==='600111222'));
  assert.equal((await f.call('oncall-set',{from:today,userId:st.users.find(u=>u.role==='worker').id},f.g)).status,400);
  r=await f.call('oncall-set',{from:today,userId:''},f.g);assert.equal((await f.call('state',null,f.g)).body.onCall.length,0);
  // draft quote can create a service

@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v34 · Teléfono de guardia y coordinación sin fichajes
+
+- El empleado ya no ve quién está de guardia: en la barra superior tiene un botón para llamar al **teléfono de guardia 670 514 308** (solo icono en móvil). La lista de guardias solo llega al gestor.
+- Coordinación: el coordinador ya no ve horas fichadas (sin columna «Fichaje», sin «Llegada registrada» ni «Entrada/Fin real» en la ficha y en la edición masiva). Puede cambiar el horario en cualquier momento.
+- Inicio del empleado: el turno sigue el recorrido **Asignado → Confirmación → Entrada → Salida** (sin «Certificado»).
+
 ## Novedades v33 · Coordinación como Crew Control y tiempo real
 
 - **Coordinación normal** con el mismo formato que Crew Control (sin chaleco ni equipos): filas con columnas en ordenador y tarjetas en móvil. Cada trabajador muestra estado, nombre y categoría, **teléfono completo**, horario, fichaje, **pausa**, **dietas** y **valoración**.
