@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v39 · Factura por horas y sin nombres
+
+- La factura ya no muestra el nombre del trabajador: cada línea indica servicio, día, categoría, horario y pausa.
+- La columna «Cant.» pasa a **Horas** (p. ej. «7,5 h»); las dietas se muestran como «1 dieta» y las tarifas por jornada como «1 jornada».
+- La pausa **no se factura**: las horas ya la descuentan y la línea lo indica («Pausa 30 min (no facturada)»).
+
 ## Novedades v38 · Dietas dentro del trabajador en la factura
 
 - Cada línea de trabajador de la factura indica su **horario** (inicio–fin) y si tiene **pausa** («Sin pausa» o su duración).
