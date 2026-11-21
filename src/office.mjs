@@ -23,6 +23,9 @@ function validateGeofence(service,input){
  const distance=6371000*2*Math.asin(Math.min(1,Math.sqrt(hav)));
  if(distance>(service.radiusMeters||500))fail('Fuera del radio autorizado de fichaje ('+Math.round(distance)+' m).',403);
 }
+/* v40 · todos los trabajadores tienen HAND y STEELHAND abiertas por defecto (se pueden cerrar). */
+const DEFAULT_CATEGORIES=['Hand / Montador/a','Steelhand'];
+const effectiveCategories=w=>{const own=Array.isArray(w?.categories)?w.categories:[];if(w?.defaultCatsApplied)return own;const keys=new Set(own.map(c=>categoryKey(c)));return [...own,...DEFAULT_CATEGORIES.filter(c=>!keys.has(categoryKey(c)))];};
 const categoryKey = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
 const categoryMinimum = role => ({'HAND B':5,'HAND A':3,'HAND M':4,'HAND C1':0,'CREW HEAD':6,'FORKLIFTER':5})[text(role).toUpperCase().replace(/\s+/g,' ')]||0;
 const tariffLookup = async(db,id) => {const base=STANDARD_TARIFFS.find(t=>t.id===id);const override=await db.get(key('tariffs',id));return override?{...base,...override}:base;};
@@ -256,7 +259,7 @@ async function saveEntity(db,actor,kind,b){
     data={serviceId:service.id,categoryId:tariff.id,role:text(b.role)||tariff.name,serviceType:text(b.serviceType)||'Montaje',team:text(b.team),placeId:text(b.placeId),coordinatorId:text(b.coordinatorId),date:startDate,endDate,start,end,pause:number(b.pause??0,0,24),diets:b.diets===true||b.diets==='true'||b.diets==='1'||(b.diets==null&&!!old?.diets),notes:text(b.notes,1500),status:b.status==='cancelled'?'cancelled':'open'};
    }
    if(kind==='clients')data={...personInput(b),contact:text(b.contact),paymentDays:termDays(b.paymentDays)};
- if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500),...(Array.isArray(b.categories)?{categories:[...new Map(b.categories.map(c=>text(c,100)).filter(Boolean).map(c=>[categoryKey(c),c])).values()].slice(0,150)}:{})};
+ if(kind==='workers')data={...personInput(b),specialty:text(b.specialty),costRate:number(b.costRate),startDate:b.startDate?date(b.startDate):'',endDate:b.endDate?date(b.endDate):'',iban:text(b.iban,60),emergency:text(b.emergency),contractType:['eventual','indefinite','fixed_discontinuous'].includes(b.contractType)?b.contractType:'eventual',employmentNotes:text(b.employmentNotes,1500),...(Array.isArray(b.categories)?{defaultCatsApplied:true}:{}),...(Array.isArray(b.categories)?{categories:[...new Map(b.categories.map(c=>text(c,100)).filter(Boolean).map(c=>[categoryKey(c),c])).values()].slice(0,150)}:{})};
  if(kind==='services'){
   const client=await record(db,'clients',required(b.clientId,'el cliente'));if(!client.active||client.archived)fail('El cliente está inactivo.');
   if(b.coordinatorId){const user=await record(db,'users',b.coordinatorId);if(!user.active||user.role!=='worker'||!user.workerId)fail('El coordinador del servicio debe ser un trabajador, no un gestor de oficina.',403);}
@@ -307,7 +310,7 @@ async function saveEntity(db,actor,kind,b){
    const clientHours=b.clientHours===''||b.clientHours==null?(old?.clientHours??null):number(b.clientHours,0,744);
    const noShow=b.noShow===true||b.noShow==='true',noShowChargeApproved=b.noShowChargeApproved===true||b.noShowChargeApproved==='true';if(noShowChargeApproved&&!noShow)fail('El cargo por ausencia requiere marcar No presentado.');if(noShowChargeApproved&&!text(b.notes))fail('Indica el acuerdo contractual que permite cobrar la cancelación.');
    const tariff=tariffCandidate;
-   if(Array.isArray(worker.categories)&&worker.categories.length&&tariff&&!worker.categories.some(c=>categoryKey(c)===categoryKey(tariff.name)||categoryKey(c)===categoryKey(tariff.id)))fail(worker.name+' no tiene abierta la categoría '+tariff.name+' en su ficha.',409);
+   if(Array.isArray(worker.categories)&&worker.categories.length&&tariff&&!effectiveCategories(worker).some(c=>categoryKey(c)===categoryKey(tariff.name)||categoryKey(c)===categoryKey(tariff.id)))fail(worker.name+' no tiene abierta la categoría '+tariff.name+' en su ficha.',409);
    const costRate=number(b.costRate===''||b.costRate==null?(tariff?.workerRate??worker.costRate):b.costRate);
    const chargeRate=number(b.chargeRate===''||b.chargeRate==null?(tariff?.clientRate??costRate*2):b.chargeRate);
    const supplement=number(b.incrementPercent??tariff?.incrementPercent??0,0,500);
@@ -531,13 +534,20 @@ export function createOfficeApi(storage,env={}){
      const tariff=(await tariffCatalog(db)).find(t=>t.id===l.categoryId),category=tariff?.name||l.role||'';
      const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
      let targets=(await rows(db,'workers')).filter(w=>w.active!==false&&!w.archived&&withAccess.has(w.id)&&!(w.sanction?.active&&(!w.sanction.until||w.sanction.until>=l.date))&&!(Array.isArray(w.vetoedClients)&&w.vetoedClients.includes(service.clientId)));
-     const fixed=w=>['indefinite','fixed_discontinuous'].includes(w.contractType);
-     if(audience==='fixed')targets=targets.filter(fixed);
-     if(audience==='eventual')targets=targets.filter(w=>!fixed(w));
-     if(audience==='category')targets=targets.filter(w=>Array.isArray(w.categories)&&w.categories.length?w.categories.some(c=>norm(c)===norm(category)):norm(w.specialty)===norm(category));
-     if(audience==='workers'){const ids=new Set(Array.isArray(b.workerIds)?b.workerIds.map(String):[]);targets=targets.filter(w=>ids.has(w.id));}
-     if(!targets.length)fail('No hay trabajadores con acceso en ese grupo.',409);
-     const id=uid(),v={id,orderLineId:l.id,serviceId:service.id,audience,targets:targets.map(w=>w.id),message:text(b.message,500),urgent:b.urgent===true||b.urgent==='true',
+     const urgent=b.urgent===true||b.urgent==='true',fixed=w=>['indefinite','fixed_discontinuous'].includes(w.contractType);
+     const hasCat=w=>effectiveCategories(w).some(c=>norm(c)===norm(category)||norm(c)===norm(tariff?.id))||(!(w.categories||[]).length&&norm(w.specialty)===norm(category));
+     /* Nunca se ofrece a quien ya está en ese servicio esos días. */
+     const lEnd=l.endDate||l.date,already=new Set((await rows(db,'assignments')).filter(a=>a.serviceId===service.id&&!a.archived&&a.status!=='rejected'&&a.date<=lEnd&&(a.endDate||a.date)>=l.date).map(a=>a.workerId));
+     targets=targets.filter(w=>!already.has(w.id));
+     if(urgent){/* Urgente: a todo el personal, tenga o no la categoría. */}
+     else{
+      if(audience==='fixed')targets=targets.filter(fixed);
+      if(audience==='eventual')targets=targets.filter(w=>!fixed(w));
+      if(audience==='workers'){const ids=new Set(Array.isArray(b.workerIds)?b.workerIds.map(String):[]);targets=targets.filter(w=>ids.has(w.id));}
+      else targets=targets.filter(hasCat);
+     }
+     if(!targets.length)fail(urgent?'No queda personal con acceso que no esté ya en este servicio.':'No hay trabajadores con esta categoría en ese grupo (sin contar a quien ya está en el servicio).',409);
+     const id=uid(),v={id,orderLineId:l.id,serviceId:service.id,audience:urgent?'all':audience,targets:targets.map(w=>w.id),message:text(b.message,500),urgent,
       info:{serviceName:service.name,venue:l.locationName||service.venue,date:l.date,endDate:l.endDate||l.date,start:l.start,end:l.end,category,serviceType:l.serviceType||'',callTime:service.callTime||''},
       responses:{},status:'open',createdBy:actor.id,createdByName:actor.name,createdAt:now(),revision:1};
      await db.put(key('offers',id),v);await audit(db,actor,'offer-create','orderLines',l.id,category+' · '+targets.length+' trabajadores');return {record:v};

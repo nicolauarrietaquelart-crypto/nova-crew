@@ -1,5 +1,13 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v40 · Ofertas sin repetir y categorías por defecto
+
+- Las ofertas (masivas o urgentes) **nunca** se envían a quien ya está asignado en ese servicio esos días.
+- Oferta normal/masiva: solo a quien tiene la categoría abierta (dentro del grupo elegido: fijos, eventuales, todos…).
+- Oferta **urgente**: a todo el personal con acceso, tenga o no la categoría.
+- Todos los trabajadores tienen **HAND / MONTADOR/A** y **STEELHAND** abiertas por defecto; se pueden cerrar desde su ficha.
+- Ventana «Ofrecer el puesto» más compacta, con los recuentos reales de destinatarios.
+
 ## Novedades v39 · Factura por horas y sin nombres
 
 - La factura ya no muestra el nombre del trabajador: cada línea indica servicio, día, categoría, horario y pausa.

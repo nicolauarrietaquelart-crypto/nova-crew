@@ -163,8 +163,9 @@ test('v28: address search returns places (OpenStreetMap by default) and only for
 test('v29: open a slot to a group, workers answer, Gestoría decides; payment terms; manager-only activity by service',async()=>{
  const f=await setup();
  const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
- await f.save('workers',{...hand,contractType:'fixed_discontinuous',createAccess:false});
- const blk=await f.call('service-block-save',{record:{serviceId:f.svc.id,serviceType:'LOAD IN',date:f.svc.date,endDate:f.svc.date,start:'18:00',end:'22:00',team:'Principal'},categories:[{categoryId:'HAND B',quantity:1}]},f.g);
+ await f.save('workers',{...hand,contractType:'fixed_discontinuous',categories:['HAND B'],createAccess:false});
+ const svc2=await f.save('services',{...f.svc,id:undefined,revision:undefined,name:'Servicio oferta'});
+ const blk=await f.call('service-block-save',{record:{serviceId:svc2.id,serviceType:'LOAD IN',date:f.svc.date,endDate:f.svc.date,start:'18:00',end:'22:00',team:'Principal'},categories:[{categoryId:'HAND B',quantity:1}]},f.g);
  assert.equal(blk.status,200,JSON.stringify(blk.body));const line=blk.body.positions[0];
  let r=await f.call('offer-create',{orderLineId:line.id,audience:'fixed',message:'¿Quién puede?'},f.g);
  assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.targets,[hand.id]);const offerId=r.body.record.id;
@@ -174,7 +175,7 @@ test('v29: open a slot to a group, workers answer, Gestoría decides; payment te
  r=await f.call('offer-respond',{id:offerId,answer:'yes'},f.h);assert.equal(r.status,200);
  const go=(await f.call('state',null,f.g)).body.offers.find(o=>o.id===offerId);assert.equal(go.responses[hand.id].answer,'yes');
  assert.equal((await f.call('state',null,f.h)).body.assignments.filter(a=>a.orderLineId===line.id).length,0,'answering does not assign');
- const a=await f.save('assignments',{serviceId:f.svc.id,orderLineId:line.id,workerId:hand.id,categoryId:line.categoryId,date:line.date,endDate:line.endDate,start:line.start,end:line.end});
+ const a=await f.save('assignments',{serviceId:svc2.id,orderLineId:line.id,workerId:hand.id,categoryId:line.categoryId,date:line.date,endDate:line.endDate,start:line.start,end:line.end});
  assert.ok(a.id);assert.equal((await f.call('state',null,f.g)).body.offers.find(o=>o.id===offerId).status,'filled');
  assert.equal((await f.call('offer-respond',{id:offerId,answer:'yes'},f.h)).status,409);
  // payment terms
@@ -280,4 +281,28 @@ test('v37: diets per tariff, line-update changes category/schedule/diets, negati
  assert.equal(r.body.assignment.categoryId,cat2.id);assert.equal(r.body.assignment.start,'09:00');assert.equal(r.body.assignment.dietCount,2);assert.equal(r.body.assignment.costRate,cat2.workerRate);
  r=await f.call('invoice-from-service',{serviceId:f.svc.id},f.g);
  assert.equal(r.status,200,JSON.stringify(r.body));{const ls=r.body.record.lines,i=ls.findIndex(l=>l.sub&&/^Dietas/.test(l.description));assert.ok(i>0&&ls[i].quantity===2&&ls[i].price===17,JSON.stringify(ls));assert.match(ls[i-1].description,/· 09:00–15:00 · Sin pausa$/);assert.ok(!ls.some(l=>/Dieta W/.test(l.description)),'no worker names on the invoice');assert.equal(ls[i].unit,'diet');}
+});
+
+test('v40: offers skip people already in the service; mass offers need the category; urgent goes to everyone; HAND and STEELHAND open by default',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
+ const svc=await f.save('services',{...f.svc,id:undefined,revision:undefined,name:'Servicio v40',date:'2027-02-10',endDate:'2027-02-10'});
+ const shift=await f.save('assignments',{serviceId:svc.id,workerId:hand.id,role:'HAND B',date:svc.date,endDate:svc.date,start:'08:00',end:'12:00',costRate:9.3,chargeRate:18.6});
+ const inSvc=new Set([hand.id]);
+ const withAccess=new Set(st.users.filter(u=>u.active&&u.role==='worker'&&u.workerId).map(u=>u.workerId));
+ const blk=await f.call('service-block-save',{record:{serviceId:svc.id,serviceType:'LOAD IN',date:svc.date,endDate:svc.date,start:'18:00',end:'22:00',team:'Principal'},categories:[{categoryId:'steelhand',quantity:1},{categoryId:'climber',quantity:1}]},f.g);
+ assert.equal(blk.status,200,JSON.stringify(blk.body));const [steel,climb]=blk.body.positions;
+ // urgent: everyone with access except people already in the service
+ let r=await f.call('offer-create',{orderLineId:climb.id,audience:'category',urgent:true},f.g);assert.equal(r.status,200,JSON.stringify(r.body));
+ const expected=st.workers.filter(w=>w.active!==false&&!w.archived&&withAccess.has(w.id)&&!inSvc.has(w.id)).map(w=>w.id).sort();
+ assert.deepEqual(r.body.record.targets.slice().sort(),expected);assert.equal(r.body.record.audience,'all');
+ assert.ok(!r.body.record.targets.some(id=>inSvc.has(id)));
+ // non-urgent climber: nobody has it → refused
+ assert.equal((await f.call('offer-create',{orderLineId:climb.id,audience:'all'},f.g)).status,409);
+ // steelhand is open by default for everybody not in the service
+ r=await f.call('offer-create',{orderLineId:steel.id,audience:'all'},f.g);assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.targets.slice().sort(),expected);
+ // closing STEELHAND explicitly removes the default
+ const other=st.workers.find(w=>expected.includes(w.id));
+ await f.save('workers',{...other,categories:['Hand / Montador/a'],createAccess:false});
+ r=await f.call('offer-create',{orderLineId:steel.id,audience:'all'},f.g);assert.ok(r.status===409||!r.body.record.targets.includes(other.id),JSON.stringify(r.body));
 });
