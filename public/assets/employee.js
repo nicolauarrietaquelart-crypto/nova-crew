@@ -201,8 +201,7 @@ function settlementsPage(){
  '<div class="actions-row" style="margin-bottom:16px"><label class="month-pick">Periodo<select class="field" id="payroll-month">'+months.map(m=>'<option value="'+esc(m)+'" '+(m===current?'selected':'')+'>'+esc(monthLabel(m))+'</option>').join('')+'</select></label>'+btn('download-payroll','Descargar CSV','','secondary')+'</div>'+
  '<div class="stats"><div class="stat orange"><span class="muted">Bruto certificado</span><strong>'+euro(sum(confirmed))+'</strong><small>'+confirmed.length+' servicio(s) certificados</small></div><div class="stat"><span class="muted">Pendientes de certificar</span><strong>'+pend.length+'</strong><small>Sin importe hasta su certificación</small></div><div class="stat"><span class="muted">Servicios del periodo</span><strong>'+rows.length+'</strong><small>'+esc(monthLabel(current))+'</small></div><div class="stat"><span class="muted">Horas previstas</span><strong>'+hours.toLocaleString('es-ES')+' h</strong><small>Según turnos asignados</small></div></div>'+
  box('Detalle del periodo',rows.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Fecha</th><th>Servicio</th><th>Categoría</th><th>Horario</th><th>Horas</th><th>Bruto</th><th>Estado</th></tr></thead><tbody>'+
- rows.map(a=>'<tr><td>'+human(a.date)+'</td><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+esc(a.role||'—')+'</td><td>'+esc(a.start+'–'+a.end)+'</td><td>'+Number(a.hours||0).toLocaleString('es-ES')+' h</td><td>'+(a.payStatus==='confirmed'?'<strong>'+euro(a.grossPay)+'</strong>':'<span class="muted">—</span>')+'</td><td>'+(a.payStatus==='confirmed'?'<span class="badge confirmed">Certificada</span>':'<span class="badge pending">Pendiente de certificar</span>')+'</td></tr>').join('')+'</tbody>'+(confirmed.length?'<tfoot><tr><td colspan="5"><strong>Total certificado</strong></td><td><strong>'+euro(sum(confirmed))+'</strong></td><td></td></tr></tfoot>':'')+'</table></div>':'<div class="empty">Sin servicios durante este periodo.</div>')+
- '<div class="notice">Importe <strong>bruto</strong> certificado por Gestoría. No es una nómina ni acredita transferencias; no incluye retenciones, cotizaciones ni otros ajustes laborales.</div>';
+ rows.map(a=>'<tr><td>'+human(a.date)+'</td><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+esc(a.role||'—')+'</td><td>'+esc(a.start+'–'+a.end)+'</td><td>'+Number(a.hours||0).toLocaleString('es-ES')+' h</td><td>'+(a.payStatus==='confirmed'?'<strong>'+euro(a.grossPay)+'</strong>':'<span class="muted">—</span>')+'</td><td>'+(a.payStatus==='confirmed'?'<span class="badge confirmed">Certificada</span>':'<span class="badge pending">Pendiente de certificar</span>')+'</td></tr>').join('')+'</tbody>'+(confirmed.length?'<tfoot><tr><td colspan="5"><strong>Total certificado</strong></td><td><strong>'+euro(sum(confirmed))+'</strong></td><td></td></tr></tfoot>':'')+'</table></div>':'<div class="empty">Sin servicios durante este periodo.</div>');
 }
 function tutorialsPage(){
  $('#employee-content').innerHTML='<div class="section-title"><h2>Guías rápidas</h2><p class="muted">Todo lo que necesitas para usar tu área de empleado.</p></div><div class="guide-list">'+guides.map(([title,body],i)=>'<details class="panel guide" '+(i===0?'open':'')+'><summary>'+esc(title)+'</summary><p class="muted">'+esc(body)+'</p></details>').join('')+'</div>';
@@ -888,13 +887,26 @@ function crewDelegateModal(blockId){
  candidates.filter(u=>!operators.some(o=>o.userId===u.id)).map(u=>'<option value="'+esc(u.id)+'">'+esc(u.name)+'</option>').join('')+'</select></label><button class="primary" type="submit">Añadir coordinador normal</button></form>');
  $('#crew-delegate-form').onsubmit=async e=>{e.preventDefault();try{await api('service-block-operator-save',{record:{blockId,userId:e.target.elements.userId.value,kind:'coordinator'}});$('#employee-modal').close();await load();notice('Coordinador añadido')}catch(err){error(err)}};
 }
+const tel=n=>'<a class="cp-tel" href="tel:+34'+n.replace(/[^\d]/g,'')+'">'+esc(n)+'</a>';
 function companyPage(){
- const c=state.company||{};
- $('#employee-content').innerHTML=box('Información de la empresa',
- '<div class="line"><span>Empresa</span><strong>'+esc(c.name||'No configurada')+'</strong></div>'+
- '<div class="line"><span>Dirección</span><strong>'+esc(c.address||'No indicada')+'</strong></div>'+
- '<div class="line"><span>Teléfono</span><strong>'+esc(c.phone||'No indicado')+'</strong></div>'+
- '<div class="line"><span>Correo</span><strong>'+esc(c.email||'No indicado')+'</strong></div>');
+ const link=(u,l)=>'<a class="cp-link" href="'+u+'" target="_blank" rel="noopener"><span>'+esc(l)+'</span><b>↗</b></a>';
+ const row=(l,v)=>'<div class="cp-row"><span>'+esc(l)+'</span><strong>'+v+'</strong></div>';
+ const center=(n,addr,h,ph)=>'<div class="cp-center"><strong>'+esc(n)+'</strong><span>'+esc(addr)+'</span>'+(h?'<small>'+esc(h)+'</small>':'')+(ph?tel(ph):'')+'</div>';
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Datos empresa</h2><p class="muted">Contactos, documentación y qué hacer en caso de accidente.</p></div>'+
+ '<div class="cp-grid">'+
+ '<div class="panel cp-card"><h3>Documentación</h3>'+link('https://servicios.penny-wise.es/proyectos/area-empleado/BCN/protocolos-acoso','Carpeta Protocolos Acoso')+link('https://servicios.penny-wise.es/proyectos/area-empleado/BCN/ver-tutorial/74','Política de prevención PennyWise')+link('https://servicios.penny-wise.es/proyectos/area-empleado/BCN/ver-tutorial/3','Normativa PennyWise BCN2026')+'</div>'+
+ '<div class="panel cp-card"><h3>Información de contacto Penny Wise</h3>'+
+  row('Oficina','C/ Zamora, 45-47 3º 4ª. 08005 Barcelona')+row('Horario','Lunes a viernes de 09:30 a 14:00 y de 15:00 a 18:00 h')+row('Teléfono oficina',tel('93 207 00 53'))+
+  row('Teléfono de guardia (solo urgencias)',tel('670 514 308'))+row('Captación y formación',tel('616 263 922'))+row('Departamento laboral',tel('607 084 726'))+'</div>'+
+ '<div class="panel cp-card"><h3>Móviles coordinadores de servicio</h3>'+[['Álvaro','664 690 034'],['Carlos','626 564 811'],['Fran','673 642 431'],['Blai','671 455 729']].map(([n,t])=>row(n,tel(t))).join('')+'</div>'+
+ '<div class="panel cp-card cp-alert"><h3>En caso de accidente</h3><p>Avisa al <b>móvil de guardia de Penny Wise</b>: '+tel('670 514 308')+'</p>'+
+  row('Mutua de accidentes de trabajo','Asepeyo')+row('Asepeyo 24 h',tel('900 151 000'))+'<p class="muted">Atención 24 horas para consultar el centro asistencial más cercano y/o solicitar una ambulancia.</p>'+link('https://www.asepeyo.es/red-de-delegaciones/','Red de centros asistenciales · Asepeyo')+'</div>'+
+ '</div>'+
+ '<div class="panel cp-card"><h3>Centros asistenciales Asepeyo</h3><div class="cp-regions">'+
+  '<div><h4>Barcelona</h4>'+center('Centro asistencial · Urgencias 24 h y festivos','Vía Augusta, 18. 08006 Barcelona','Servicio de urgencias y derivación para atención oftalmológica','')+center('C/ Casp, 76','Barcelona','L a V de 8:00 a 20:00','933 429 340')+center('Avenida Meridiana, 235','Barcelona','L a V de 8:00 a 20:00','932 435 910')+center('Avenida de Roma, 12','Barcelona','L a V de 8:00 a 20:00','932 261 585')+'</div>'+
+  '<div><h4>Tarragona</h4>'+center('Av. de Catalunya, 43-45','43002 Tarragona','L a V de 8:00 a 20:00','977 221 212')+center('Oftalmología · Hospital de Sant Pau i Santa Tecla','C/ Rambla Vella, s/n, Tarragona','24 h y festivos','977 310 300')+center('Hospital Sant Joan de Reus · Urgencias','Av. del Dr. Josep Laporte, 1. 43204 Reus (Tarragona)','24 h y festivos','977 310 300')+'</div>'+
+  '<div><h4>Lleida</h4>'+center('C/ Humbert Torres, 10','25008 Lleida','L a V de 8:00 a 20:00','973 234 056')+center('Área hospitalaria · Urgencias','C/ Bisbe Messeguer, 3. 25003 Lleida','24 h y festivos','973 266 100')+center('Oftalmología','Acudir a centro público de salud','','')+'</div>'+
+ '</div></div>';
 }
 function trainingPage(){
  const docs=list('documents').filter(d=>d.type==='training'),acks=state.trainingAcks||[];
@@ -919,19 +931,35 @@ const guides=[
  ['Liquidaciones','Consulta los importes brutos por servicio y los periodos confirmados, antes de retenciones.']
 ];
 function employeePhotoModal(){
- modal('Fotografía de perfil','<form id="employee-photo-form" style="display:grid;gap:12px"><p class="muted">Sube una fotografía PNG o JPEG de menos de 1 MB. Solo tú y la oficina podrán consultarla.</p><label class="form-label">Fotografía<input type="file" name="photo" accept="image/png,image/jpeg" required></label><button class="primary" type="submit">Guardar fotografía</button></form>');
- $('#employee-photo-form').onsubmit=async ev=>{
-  ev.preventDefault();
-  const file=ev.target.elements.photo.files[0];
-  if(!file||file.size>1024*1024||!['image/png','image/jpeg'].includes(file.type))return error(new Error('Selecciona un JPEG o PNG de menos de 1 MB.'));
-  try{
-   const content=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=()=>reject(new Error('No se pudo leer la imagen.'));reader.readAsDataURL(file)});
-   await api('employee-photo-upload',{mime:file.type,content});
-   $('#employee-modal').close();await load();notice('Fotografía guardada');
-  }catch(e){error(e)}
- };
+ modal('Fotografía de perfil','<div class="pc"><p class="muted">Elige una foto, encuádrala arrastrando y usa el zoom. Se guardará en círculo.</p>'+
+  '<label class="pc-pick"><input type="file" id="pc-file" accept="image/png,image/jpeg,image/webp,image/heic"><span>Elegir foto</span></label>'+
+  '<div class="pc-stage" id="pc-stage" hidden><canvas id="pc-canvas" width="560" height="560"></canvas><div class="pc-mask"></div></div>'+
+  '<label class="pc-zoom" id="pc-zoomwrap" hidden><span>Zoom</span><input type="range" id="pc-zoom" min="1" max="4" step="0.01" value="1"></label>'+
+  '<div class="actions-row"><button type="button" class="primary" id="pc-save" disabled>Guardar foto</button><button type="button" data-action="modal-close-x">Cancelar</button></div></div>');
+ const cv=$('#pc-canvas'),ctx=cv.getContext('2d'),S=cv.width;let img=null,base=1,zoom=1,ox=0,oy=0;
+ const clamp=()=>{const w=img.width*base*zoom,h=img.height*base*zoom;ox=Math.min(0,Math.max(S-w,ox));oy=Math.min(0,Math.max(S-h,oy));};
+ const draw=()=>{if(!img)return;clamp();ctx.fillStyle='#fff';ctx.fillRect(0,0,S,S);ctx.drawImage(img,ox,oy,img.width*base*zoom,img.height*base*zoom);};
+ $('#pc-file').onchange=e=>{const f=e.target.files[0];if(!f)return;if(f.size>15*1024*1024)return error(new Error('La foto es demasiado grande (máx. 15 MB).'));
+  const url=URL.createObjectURL(f),im=new Image();im.onload=()=>{img=im;base=S/Math.min(im.width,im.height);zoom=1;$('#pc-zoom').value=1;ox=(S-im.width*base)/2;oy=(S-im.height*base)/2;$('#pc-stage').hidden=false;$('#pc-zoomwrap').hidden=false;$('#pc-save').disabled=false;draw();};im.onerror=()=>error(new Error('No se pudo abrir la imagen. Usa JPEG o PNG.'));im.src=url;};
+ $('#pc-zoom').oninput=e=>{if(!img)return;const z=Number(e.target.value),c=S/2,k=z/zoom;ox=c-(c-ox)*k;oy=c-(c-oy)*k;zoom=z;draw();};
+ let drag=null;const scale=()=>S/cv.getBoundingClientRect().width;
+ cv.onpointerdown=e=>{if(!img)return;drag={x:e.clientX,y:e.clientY,ox,oy};cv.setPointerCapture(e.pointerId);};
+ cv.onpointermove=e=>{if(!drag)return;const k=scale();ox=drag.ox+(e.clientX-drag.x)*k;oy=drag.oy+(e.clientY-drag.y)*k;draw();};
+ cv.onpointerup=cv.onpointercancel=()=>{drag=null};
+ cv.onwheel=e=>{if(!img)return;e.preventDefault();const z=Math.min(4,Math.max(1,zoom*(e.deltaY<0?1.06:1/1.06)));$('#pc-zoom').value=z;$('#pc-zoom').oninput({target:{value:z}});};
+ $('#pc-save').onclick=async()=>{if(!img)return;const out=document.createElement('canvas');out.width=out.height=480;const o=out.getContext('2d');o.fillStyle='#fff';o.fillRect(0,0,480,480);o.drawImage(cv,0,0,480,480);
+  const content=out.toDataURL('image/jpeg',0.88).split(',')[1];$('#pc-save').disabled=true;
+  try{await api('employee-photo-upload',{mime:'image/jpeg',content});photoVer=Date.now();$('#employee-modal').close();await load();notice('Fotografía guardada');}catch(err){$('#pc-save').disabled=false;error(err)}};
 }
-
+let photoVer=Date.now();
+function photoUrl(){return '/api/office/employee-photo?workerId='+encodeURIComponent(state.user.workerId)+'&v='+photoVer}
+function initialsOf(n){return esc(String(n||'').split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase())}
+function renderTopAvatar(){
+ const head=document.querySelector('header.top');if(!head)return;head.querySelector('.session-pill')?.remove();
+ let b=$('#emp-top-avatar');if(!b){b=document.createElement('button');b.id='emp-top-avatar';b.type='button';b.className='emp-top-avatar';b.dataset.page='profile';head.appendChild(b);}
+ b.title=state.user.name+' · Mi perfil';b.setAttribute('aria-label','Mi perfil');
+ b.innerHTML=state.hasProfilePhoto?'<img alt="" src="'+photoUrl()+'">':'<span>'+initialsOf(state.user.name)+'</span>';
+}
 function extendedProfile(){
  const p=state.profile||{};
  const controls=[['nationality','Nacionalidad'],['postalCode','Código postal'],['city','Ciudad'],['province','Provincia'],['country','País'],['shirtSize','Talla de camiseta'],['drivingLicense','Carnet de conducir'],['ownVehicle','Vehículo propio'],['languages','Idiomas (separados por coma)'],['skills','Carnets y conocimientos (separados por coma)'],['education','Estudios (separados por coma)']];
@@ -1040,8 +1068,8 @@ async function answerOffer(id,answer){
 function render(){
  if(!state.user)return;
  if(page==='crewControl'&&!isCrewHead())page='dashboard';if(page==='coordination'&&!isNormalCoordinator()&&!isCrewHead())page='dashboard';
- renderNav();renderBell();renderOnCallBtn();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
- $('#employee-avatar').innerHTML=state.hasProfilePhoto?'<img alt="Foto de perfil" src="/api/office/employee-photo?workerId='+encodeURIComponent(state.user.workerId)+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase());
+ renderNav();renderBell();renderOnCallBtn();renderTopAvatar();$('#page-title').textContent=names[page];$('#employee-name').textContent=state.user.name;
+ $('#employee-avatar').innerHTML=state.hasProfilePhoto?'<img alt="Foto de perfil" src="'+photoUrl()+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block">':esc(state.user.name.split(' ').slice(0,2).map(x=>x.charAt(0)).join('').toUpperCase());
  ({service:serviceDetailPage,dashboard,clock:dashboard,availability:availabilityPage,services:servicesPage,calendar:calendarPage,coordination:coordinationPage,crewControl:crewControlPage,company:companyPage,training:trainingPage,documents:documentsPage,tutorials:tutorialsPage,settlements:settlementsPage,contracts:contractsPage,messages:messagesPage,profile:profilePage})[page]();
 }
 async function load(){
@@ -1072,7 +1100,11 @@ async function showQR(id){
 let selectedAvailabilitySlots={date:new Set()};
 function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
- selectedAvailabilitySlots={date:hoursFromLegacy(old)};
+ let pre=hoursFromLegacy(old);
+ if(!pre.size&&old?.status!=='unavailable'){const habit=(state.weeklyAvailability?.days||{})[['sun','mon','tue','wed','thu','fri','sat'][new Date(date+'T12:00:00').getDay()]];
+  if(habit){if(Array.isArray(habit.slots)&&habit.slots.length&&habit.morning==null&&habit.afternoon==null)pre=new Set(habit.slots.map(Number));else{const w=weekShiftOf(habit);if(w.morning)for(let h=6;h<15;h++)pre.add(h);if(w.afternoon)for(let h=15;h<24;h++)pre.add(h);}}
+  else if(old?.status==='available')for(let h=6;h<24;h++)pre.add(h);}
+ selectedAvailabilitySlots={date:pre};
  const grid=Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour" data-hour="'+h+'" aria-pressed="false">'+String(h).padStart(2,'0')+':00</button>').join('');
  modal('Disponibilidad · '+human(date),'<p class="muted">Selecciona o deselecciona horas sueltas, o arrastra para marcar varias horas. Se pueden crear franjas separadas.</p>'+
  '<div id="availability-time-grid" class="availability-hour-grid">'+grid+'</div>'+
