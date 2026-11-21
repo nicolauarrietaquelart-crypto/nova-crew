@@ -499,3 +499,12 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 @media (max-width:760px){.cc-bulkbar{position:fixed !important;left:12px !important;right:12px !important;bottom:calc(88px + env(safe-area-inset-bottom)) !important;margin:0 !important}.cc-lite{padding-bottom:84px}}
 .cc-actions .cc-scan{width:44px;height:44px;min-height:44px;padding:0 !important;border-radius:14px;background:#f58220 !important;border-color:#f58220 !important;color:#111 !important}
 .cc-actions .cc-scan svg{width:24px;height:24px}
+
+/* v34 · teléfono de guardia en la barra superior del empleado */
+.emp-oncall-call{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 14px 0 10px;margin-left:auto;margin-right:8px;border-radius:14px;background:#15171b;color:#fff !important;text-decoration:none;white-space:nowrap;font-family:"Plus Jakarta Sans",system-ui,sans-serif}
+.emp-oncall-call svg{width:18px;height:18px;color:#ff7f1f;flex:0 0 auto}
+.emp-oncall-call span{display:flex;flex-direction:column;line-height:1.1}
+.emp-oncall-call small{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ffb27a}
+.emp-oncall-call b{font-size:13.5px;font-weight:800}
+.emp-oncall-call+.emp-bell{margin-left:0}
+@media (max-width:760px){.emp-oncall-call{width:42px;padding:0;justify-content:center}.emp-oncall-call span{display:none}.emp-oncall-call svg{width:20px;height:20px}}
