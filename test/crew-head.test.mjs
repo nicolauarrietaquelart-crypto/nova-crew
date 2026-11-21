@@ -28,8 +28,9 @@ async function scenario(){
  const show=await block('SHOW CALL','2027-03-01','14:00','20:00',people.coord.user.id);
  const nextDay=await block('LOAD OUT','2027-03-02','08:00','12:00');
  const assign=(b,i,who)=>save('assignments',{serviceId:service.id,orderLineId:b.positions[i].id,workerId:people[who].worker.id,categoryId:'HAND B',costRate:9.3,chargeRate:18.6});
- const a1=await assign(loadIn,0,'hand1'),a2=await assign(show,0,'hand2'),a3=await assign(nextDay,0,'hand3'),a4=await assign(show,1,'head');
- assert.equal((await m('service-block-operator-save',{record:{blockId:loadIn.record.id,userId:people.head.user.id,kind:'crew_head'}})).status,200);
+ const a1=await assign(loadIn,0,'hand1'),a2=await assign(show,0,'hand2'),a3=await assign(nextDay,0,'hand3'),a4=await save('assignments',{serviceId:service.id,workerId:people.head.worker.id,categoryId:'CREW HEAD',date:'2027-03-01',endDate:'2027-03-01',start:'14:00',end:'20:00',costRate:14.4,chargeRate:28.8});
+ // Crew Head: categoría CREW HEAD asignada ese día.
+ assert.match(a4.role,/CREW HEAD/);
  return {api,m,request,people,service,a1,a2,a3,a4,blocks:{loadIn,show,nextDay}};
 }
 
@@ -43,7 +44,7 @@ test('Crew Head sees the whole service only on the day assigned; block coordinat
  assert.ok(head.categoryOptions.length>0);
  assert.equal(head.coordinatorRoster[0].costRate,undefined);
  const coord=(await s.request('state',null,s.people.coord.cookie)).body;
- assert.deepEqual(coord.coordinatorRoster.map(a=>a.id).sort(),[s.a2.id,s.a4.id].sort());
+ assert.deepEqual(coord.coordinatorRoster.map(a=>a.id).sort(),[s.a2.id].sort());
  assert.equal(coord.crewHeadDays.length,0);
  // Crew Head adjusts schedules on its day, not on others.
  assert.equal((await s.request('coordinator-shift',{id:s.a2.id,revision:s.a2.revision,start:'15:00',end:'20:30'},s.people.head.cookie)).status,200);

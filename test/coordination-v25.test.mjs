@@ -143,7 +143,7 @@ test('v28: weekly morning/afternoon availability, contracts, on-call, draft quot
  r=await f.call('tariff-category-create',{name:'Drone pilot',group:'Técnicos',unit:'hour',minHours:4,workerRate:20},f.g);
  assert.equal(r.status,200,JSON.stringify(r.body));assert.ok(r.body.records.length>=2);
  r=await f.call('tariff-category-sync',{name:'Drone pilot',newName:'Piloto de dron',minHours:5},f.g);assert.equal(r.status,200);
- const tariffs=(await f.call('state',null,f.g)).body.tariffs.filter(t=>t.name==='Piloto de dron');assert.ok(tariffs.length>=2&&tariffs.every(t=>t.minHours===5));
+ const tariffs=(await f.call('state',null,f.g)).body.tariffs.filter(t=>t.name==='PILOTO DE DRON');assert.ok(tariffs.length>=2&&tariffs.every(t=>t.minHours===5));
 });
 
 test('v28: address search returns places (OpenStreetMap by default) and only for Gestoría',async()=>{
@@ -221,4 +221,27 @@ test('v31: Crew Head by category gets Crew Control for the service day; block co
  assert.ok(os.coordinatorRoster.some(x=>x.id===a.id&&x.crew),'crew head sees the whole service');
  assert.equal((await f.call('crew-open',{serviceId:f.svc.id,date:f.svc.date},oc)).status,200);
  assert.equal((await f.call('block-coordinator-set',{blockId:block.id,userId:coordUser.id},f.c)).status,403);
+});
+
+test('v32: internal notes, sanctions and client vetoes are manager-only and block assignment; categories delete across tariffs',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
+ const otherClient=(await f.call('save',{kind:'clients',record:{name:'Vetador SL',paymentDays:30}},f.g)).body.record;
+ let r=await f.call('worker-admin',{id:hand.id,internalNotes:'Llega tarde a menudo',sanction:{active:true,until:'2099-01-01',reason:'Retrasos'},vetoedClients:[otherClient.id]},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal((await f.call('worker-admin',{id:hand.id,internalNotes:'x'},f.h)).status,403);
+ const hs=(await f.call('state',null,f.h)).body.workers[0];assert.equal(hs.internalNotes,undefined);assert.equal(hs.sanction,undefined);assert.equal(hs.vetoedClients,undefined);
+ const d=new Date().toISOString().slice(0,10);
+ const svc2=(await f.call('save',{kind:'services',record:{name:'Otro',clientId:f.svc.clientId,venue:'X',date:d,endDate:d,start:'19:00',end:'21:00'}},f.g)).body.record;
+ const blocked=await f.call('save',{kind:'assignments',record:{serviceId:svc2.id,workerId:hand.id,role:'HAND B',date:d,endDate:d,start:'19:00',end:'21:00',costRate:9.3,chargeRate:18.6}},f.g);
+ assert.equal(blocked.status,409);assert.match(blocked.body.error,/bloqueado/);
+ await f.call('worker-admin',{id:hand.id,sanction:{active:false}},f.g);
+ const svc3=(await f.call('save',{kind:'services',record:{name:'Vetado',clientId:otherClient.id,venue:'X',date:d,endDate:d,start:'19:00',end:'21:00'}},f.g)).body.record;
+ const veto=await f.call('save',{kind:'assignments',record:{serviceId:svc3.id,workerId:hand.id,role:'HAND B',date:d,endDate:d,start:'19:00',end:'21:00',costRate:9.3,chargeRate:18.6}},f.g);
+ assert.equal(veto.status,409);assert.match(veto.body.error,/vetado/);
+ assert.equal((await f.call('save',{kind:'assignments',record:{serviceId:svc2.id,workerId:hand.id,role:'HAND B',date:d,endDate:d,start:'19:00',end:'21:00',costRate:9.3,chargeRate:18.6}},f.g)).status,200);
+ // categories: uppercase and delete everywhere
+ r=await f.call('tariff-category-create',{name:'Drone pilot',group:'Técnicos',workerRate:20},f.g);assert.equal(r.status,200);assert.equal(r.body.records[0].name,'DRONE PILOT');
+ r=await f.call('tariff-category-delete',{name:'DRONE PILOT'},f.g);assert.equal(r.status,200);
+ assert.ok(!(await f.call('state',null,f.g)).body.tariffs.some(t=>t.name==='DRONE PILOT'));
 });

@@ -323,7 +323,7 @@ test('a cloned client tariff raises selling prices but preserves worker rates',a
  const f=await setup();
  const copy=await f.call('tariff-schedule-create',{name:'Festival 15',source:'Tarifa estándar 2026',increasePercent:15,applyTo:'client'});
  assert.equal(copy.status,200,JSON.stringify(copy.body));
- const rate=copy.body.records.find(x=>x.name==='CREW HEAD · Coordinador de Personal');
+ const rate=copy.body.records.find(x=>x.name.toUpperCase()==='CREW HEAD · COORDINADOR DE PERSONAL');
  assert.equal(rate.workerRate,14.4);
  assert.equal(rate.clientRate,33.12);
  assert.equal(rate.schedule,'Festival 15');
@@ -427,6 +427,7 @@ test('Crew Head delegation is bounded to assigned service block and never grants
  assert.equal(block.status,200,JSON.stringify(block.body));
  const slot=block.body.positions[0];
  const turn=await f.save('assignments',{serviceId:f.service.id,orderLineId:slot.id,categoryId:'HAND B',workerId:helper.id,date:'2027-02-01',start:'09:00',endDate:'2027-02-01',end:'12:00',costRate:9.3,chargeRate:18.6});
+ await f.save('assignments',{serviceId:f.service.id,workerId:lead.id,categoryId:'CREW HEAD',date:'2027-02-01',endDate:'2027-02-01',start:'06:00',end:'07:00',costRate:14.4,chargeRate:28.8});
  const grant=await f.call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:leadAccount.id,kind:'crew_head'}});
  assert.equal(grant.status,200,JSON.stringify(grant.body));
  const api=createOfficeApi(f.db,{});
@@ -442,7 +443,7 @@ test('Crew Head delegation is bounded to assigned service block and never grants
  const initial=(await call('state',null,lc)).body;
  assert.equal(initial.user.role,'worker');
  assert.equal(initial.coordinatorBlocks.find(b=>b.id===block.body.record.id).lead,true);
- assert.equal(initial.coordinatorRoster[0].id,turn.id);
+ assert.ok(initial.coordinatorRoster.some(x=>x.id===turn.id));
  assert.equal(initial.clients,undefined);
  assert.equal(initial.coordinatorRoster[0].costRate,undefined);
  assert.equal((await call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:outsideAccount.id,kind:'coordinator'}},lc)).status,403);
@@ -476,6 +477,7 @@ test('Crew Control team planning and bulk operations are isolated to assigned bl
  const second=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-02',endDate:'2027-02-02',start:'12:00',end:'15:00',coordinatorId:account2.id},categories:[{categoryId:'HAND B',quantity:1}]});
  assert.equal(first.status,200,JSON.stringify(first.body));assert.equal(second.status,200,JSON.stringify(second.body));
  assert.equal((await f.call('service-block-operator-save',{record:{blockId:first.body.record.id,userId:account1.id,kind:'crew_head'}})).status,200);
+ const ch1=await f.save('assignments',{serviceId:f.service.id,workerId:coordinatorWorker.id,categoryId:'CREW HEAD',date:'2027-02-01',endDate:'2027-02-01',start:'06:00',end:'07:00',costRate:14.4,chargeRate:28.8});
  const t1=await f.save('assignments',{serviceId:f.service.id,orderLineId:first.body.positions[0].id,workerId:f.worker.id,categoryId:'HAND B'});
  const w2=await f.save('workers',{name:'Otro HAND',specialty:'HAND B',costRate:9.3,createAccess:false});
  const t2=await f.save('assignments',{serviceId:f.service.id,orderLineId:second.body.positions[0].id,workerId:w2.id,categoryId:'HAND B',date:'2027-02-02',endDate:'2027-02-02',start:'12:00',end:'15:00'});
@@ -487,7 +489,7 @@ test('Crew Control team planning and bulk operations are isolated to assigned bl
  assert.equal(team.status,200,JSON.stringify(team.body));
  const data=(await call('state')).body;
  assert.equal(data.crewTeams.length,1);assert.equal(data.crewTeams[0].name,'Principal');
- assert.deepEqual(data.coordinatorRoster.map(x=>x.id),[t1.id]);
+ assert.deepEqual(data.coordinatorRoster.map(x=>x.id).filter(id=>id!==ch1.id),[t1.id]);
  const batch=await call('crew-bulk-control',{field:'team',value:'Principal',items:[{id:t1.id,revision:t1.revision}]});
  assert.equal(batch.status,200,JSON.stringify(batch.body));assert.equal(batch.body.records[0].team,'Principal');
  assert.equal((await call('crew-bulk-control',{field:'team',value:'Secundario',items:[{id:t1.id,revision:batch.body.records[0].revision},{id:t2.id,revision:t2.revision}]})).status,403);
@@ -510,6 +512,7 @@ test('manual Crew Control attendance requires assigned coordinator and logs corr
  const user=(await f.call('user',{record:{username:'crew-attendance',name:'Operador',role:'worker',workerId:w.id,password:'test-crew-attendance'}})).body.record;
  const block=await f.call('service-block-save',{record:{serviceId:f.service.id,serviceType:'SHOW CALL',date:'2027-02-01',endDate:'2027-02-01',start:'08:00',end:'12:00'},categories:[{categoryId:'HAND B',quantity:1}]});
  assert.equal((await f.call('service-block-operator-save',{record:{blockId:block.body.record.id,userId:user.id,kind:'crew_head'}})).status,200);
+ await f.save('assignments',{serviceId:f.service.id,workerId:w.id,categoryId:'CREW HEAD',date:'2027-02-01',endDate:'2027-02-01',start:'06:00',end:'07:00',costRate:14.4,chargeRate:28.8});
  assert.equal(block.status,200);const a=await f.save('assignments',{serviceId:f.service.id,workerId:f.worker.id,orderLineId:block.body.positions[0].id,categoryId:'HAND B'});
  const api=createOfficeApi(f.db,{});
  const login=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username:'crew-attendance',password:'test-crew-attendance'})}));

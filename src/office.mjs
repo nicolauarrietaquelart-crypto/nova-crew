@@ -29,7 +29,8 @@ const tariffLookup = async(db,id) => {const base=STANDARD_TARIFFS.find(t=>t.id==
 const PAYMENT_TERMS=[30,60,90];
 function termDays(v){const n=Number(v??30);if(!PAYMENT_TERMS.includes(n))fail('El plazo de cobro debe ser 30, 60 o 90 días.');return n;}
 async function clientTerm(db,clientId,config){const c=clientId?await db.get(key('clients',clientId)):null;return Number(c?.paymentDays)||Number(config.paymentDays)||30;}
-const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))];};
+// Los nombres de categoría se muestran siempre en mayúsculas; las categorías eliminadas (archived) no se ofrecen.
+const tariffCatalog = async db => {const custom=await rows(db,'tariffs');return [...STANDARD_TARIFFS.map(t=>({...t,...custom.find(c=>c.id===t.id)})),...custom.filter(c=>!STANDARD_TARIFFS.some(t=>t.id===c.id))].filter(t=>!t.archived).map(t=>({...t,name:String(t.name||'').toLocaleUpperCase('es-ES')}));};
 const date = s => {const d=text(s,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||Number.isNaN(Date.parse(d+'T12:00:00Z'))||new Date(d+'T12:00:00Z').toISOString().slice(0,10)!==d)fail('Fecha incorrecta.');return d;};
 const time = s => {if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))fail('Hora incorrecta.');return s;};
 const cleanUser = u => {const {passwordHash,salt,iterations,...safe}=u;return {...safe,role:safe.role==='coordinator'?'worker':safe.role};};
@@ -48,7 +49,7 @@ function changedFields(old,next){if(!old)return '';return Object.keys({...old,..
 const defaults = {name:'',taxId:'',address:'',email:'',phone:'',iban:'',invoicePrefix:'NOVA',vat:21,paymentDays:30,footer:'',staffNotice:'',emergencyPhone:''};
 async function settings(db){return {...defaults,...await db.get('office/settings')};}
 async function scope(db,actor){if(actor.role==='manager')return null;const services=await rows(db,'services'),a=await rows(db,'assignments'),coordinators=await rows(db,'serviceCoordinators'),blocks=await rows(db,'serviceBlocks'),operators=await rows(db,'serviceBlockOperators');return new Set([...services.filter(s=>s.coordinatorId===actor.id).map(s=>s.id),...a.filter(x=>x.workerId===actor.workerId).map(x=>x.serviceId),...coordinators.filter(c=>c.userId===actor.id&&!c.archived).map(c=>c.serviceId),...blocks.filter(c=>c.coordinatorId===actor.id&&!c.archived).map(c=>c.serviceId),...operators.filter(o=>o.userId===actor.id&&!o.archived).map(o=>o.serviceId)]);}
-async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId===actor.id)return;const allowed=(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===id&&c.userId===actor.id&&!c.archived)||(await rows(db,'serviceBlocks')).some(c=>c.serviceId===id&&c.coordinatorId===actor.id&&!c.archived)||(await rows(db,'serviceBlockOperators')).some(o=>o.serviceId===id&&o.userId===actor.id&&!o.archived);if(!allowed)fail('No coordinas este servicio.',403);}
+async function canCoordinate(db,actor,id){if(actor.role==='manager')return;const service=await record(db,'services',id);if(service.coordinatorId===actor.id)return;const allowed=(await rows(db,'serviceCoordinators')).some(c=>c.serviceId===id&&c.userId===actor.id&&!c.archived)||(await rows(db,'serviceBlocks')).some(c=>c.serviceId===id&&c.coordinatorId===actor.id&&!c.archived)||(await rows(db,'serviceBlockOperators')).some(o=>o.serviceId===id&&o.userId===actor.id&&!o.archived)||[...await crewHeadDays(db,actor)].some(x=>x.startsWith(id+'|'));if(!allowed)fail('No coordinas este servicio.',403);}
 function datesBetween(from,to){const out=[];let d=from;for(let i=0;i<62&&d&&d<=(to||from);i++){out.push(d);d=new Date(Date.parse(d+'T12:00:00Z')+86400000).toISOString().slice(0,10);}return out;}
 const assignmentDates=a=>datesBetween(a.date,a.endDate||a.date);
 /* Crew Control belongs only to the worker designated Crew Head of a service, and only for the days of the Crew Head blocks. */
@@ -57,9 +58,7 @@ async function crewHeadDays(db,actor){
  const set=new Set();if(actor.role!=='worker'||!actor.workerId)return set;
  // Crew Head por categoría: quien tiene asignado un puesto de CREW HEAD ese día ve todo el servicio de ese día en Crew Control.
  for(const a of await rows(db,'assignments'))if(a.workerId===actor.workerId&&!a.archived&&a.status!=='rejected'&&isCrewHeadRole(a.role))for(const d of assignmentDates(a))set.add(a.serviceId+'|'+d);
- const ops=(await rows(db,'serviceBlockOperators')).filter(o=>o.userId===actor.id&&o.kind==='crew_head'&&!o.archived);if(!ops.length)return set;
- const blocks=await rows(db,'serviceBlocks');
- for(const o of ops){const block=blocks.find(x=>x.id===o.blockId&&!x.archived);if(block)for(const d of datesBetween(block.date,block.endDate||block.date))set.add(block.serviceId+'|'+d);}
+ // Crew Control solo para quien está asignado con la categoría CREW HEAD (los antiguos permisos de bloque ya no dan acceso).
  return set;
 }
 const isCrewDay=(set,a)=>assignmentDates(a).some(d=>set.has(a.serviceId+'|'+d));
@@ -269,7 +268,11 @@ async function saveEntity(db,actor,kind,b){
   // A position (orderLine) carries its own day and hours; use them when the form leaves them empty.
   const lineDefaults=b.orderLineId?await db.get(key('orderLines',text(b.orderLineId)))||{}:{};
   if(!b.date&&lineDefaults.date){b={...b,date:lineDefaults.date,endDate:b.endDate||lineDefaults.endDate||lineDefaults.date,start:b.start||lineDefaults.start,end:b.end||lineDefaults.end};}
-  const startDate=date(b.date||service.date);if(worker.endDate&&worker.endDate<startDate)fail('El contrato del trabajador finaliza antes del servicio.');if(worker.startDate&&worker.startDate>startDate)fail('El trabajador aún no está dado de alta en esa fecha.');const unavailable=(await rows(db,'availability')).find(a=>a.workerId===worker.id&&a.date>=startDate&&a.date<=(b.endDate||service.endDate)&&a.status==='unavailable');if(unavailable)fail('El trabajador ha indicado que no está disponible el '+unavailable.date+'.',409);
+  const startDate=date(b.date||service.date);
+  {const prev=b.id?await db.get(key('assignments',text(b.id))):null;if(!prev||prev.workerId!==worker.id){
+   if(worker.sanction?.active&&(!worker.sanction.until||worker.sanction.until>=startDate))fail('Este trabajador está bloqueado'+(worker.sanction.until?' hasta el '+worker.sanction.until.split('-').reverse().join('/'):'')+' (sanción interna).',409);
+   if(Array.isArray(worker.vetoedClients)&&worker.vetoedClients.includes(service.clientId))fail('Este cliente tiene vetado a este trabajador.',409);}}
+  if(worker.endDate&&worker.endDate<startDate)fail('El contrato del trabajador finaliza antes del servicio.');if(worker.startDate&&worker.startDate>startDate)fail('El trabajador aún no está dado de alta en esa fecha.');const unavailable=(await rows(db,'availability')).find(a=>a.workerId===worker.id&&a.date>=startDate&&a.date<=(b.endDate||service.endDate)&&a.status==='unavailable');if(unavailable)fail('El trabajador ha indicado que no está disponible el '+unavailable.date+'.',409);
   const endDate=date(b.endDate||service.endDate),start=time(b.start||service.start),end=time(b.end||service.end),from=Date.parse(startDate+'T'+start+':00Z'),to=Date.parse(endDate+'T'+end+':00Z');
   if(to<=from)fail('El horario de fin debe ser posterior al inicio.');
   const pause=number(b.pause,0,24),hours=money((to-from)/3600000-pause);if(hours<=0)fail('La pausa supera la duración del turno.');
@@ -498,6 +501,14 @@ export function createOfficeApi(storage,env={}){
      const out=[];for(const e of (await db.list({prefix:'office/audit/'})).values())if(ids.has(e.recordId)){const as=e.kind==='assignments'?assigns.find(a=>a.id===e.recordId):null;out.push({...e,subject:as?workers.find(w=>w.id===as.workerId)?.name||'':''});}
      return {entries:out.sort((x,y)=>y.time.localeCompare(x.time)).slice(0,400)};
     }
+    if(op==='worker-admin'){
+     managerOnly(actor);const w=await record(db,'workers',required(b.id,'el trabajador'));const v={...w};
+     if(b.internalNotes!=null)v.internalNotes=text(b.internalNotes,3000);
+     if(b.sanction!=null){const sc=b.sanction||{};v.sanction=sc.active?{active:true,until:sc.until?date(sc.until):'',reason:text(sc.reason,300),since:w.sanction?.active?w.sanction.since:now(),by:actor.name}:{active:false};}
+     if(b.vetoedClients!=null){const clients=new Set((await rows(db,'clients')).map(c=>c.id));v.vetoedClients=[...new Set((Array.isArray(b.vetoedClients)?b.vetoedClients:[]).map(String).filter(id=>clients.has(id)))];}
+     v.revision=(w.revision||0)+1;v.updatedAt=now();await db.put(key('workers',w.id),v);
+     await audit(db,actor,'worker-admin','workers',w.id,[b.sanction!=null?(v.sanction.active?'bloqueado':'desbloqueado'):'',b.vetoedClients!=null?'vetos '+v.vetoedClients.length:'',b.internalNotes!=null?'notas':''].filter(Boolean).join(' · '));return {record:v};
+    }
     if(op==='offer-create'){
      managerOnly(actor);const l=await record(db,'orderLines',required(b.orderLineId,'el puesto'));const service=await record(db,'services',l.serviceId);
      if(['completed','cancelled'].includes(service.status))fail('El servicio está cerrado.',409);
@@ -506,7 +517,7 @@ export function createOfficeApi(storage,env={}){
      const users=(await rows(db,'users')).filter(u=>u.active&&u.role==='worker'&&u.workerId),withAccess=new Set(users.map(u=>u.workerId));
      const tariff=(await tariffCatalog(db)).find(t=>t.id===l.categoryId),category=tariff?.name||l.role||'';
      const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
-     let targets=(await rows(db,'workers')).filter(w=>w.active!==false&&!w.archived&&withAccess.has(w.id));
+     let targets=(await rows(db,'workers')).filter(w=>w.active!==false&&!w.archived&&withAccess.has(w.id)&&!(w.sanction?.active&&(!w.sanction.until||w.sanction.until>=l.date))&&!(Array.isArray(w.vetoedClients)&&w.vetoedClients.includes(service.clientId)));
      const fixed=w=>['indefinite','fixed_discontinuous'].includes(w.contractType);
      if(audience==='fixed')targets=targets.filter(fixed);
      if(audience==='eventual')targets=targets.filter(w=>!fixed(w));
@@ -575,7 +586,7 @@ export function createOfficeApi(storage,env={}){
      }catch(e){fail('El buscador de direcciones no responde ahora. Escribe la dirección a mano.',503);}
     }
     if(op==='tariff-category-create'){
-     managerOnly(actor);const catalog=await tariffCatalog(db),name=required(b.name,'el nombre de la categoría').slice(0,100);
+     managerOnly(actor);const catalog=await tariffCatalog(db),name=required(b.name,'el nombre de la categoría').slice(0,100).toLocaleUpperCase('es-ES');
      const schedules=[...new Set(catalog.map(t=>t.schedule||'Tarifa estándar 2026'))];if(!schedules.length)schedules.push('Tarifa estándar 2026');
      const workerRate=b.workerRate===''||b.workerRate==null?null:number(b.workerRate,0,1e5),clientRate=b.clientRate===''||b.clientRate==null?(workerRate==null?null:money(workerRate*2)):number(b.clientRate,0,1e6);
      const out=[];for(const sc of schedules){if(catalog.some(t=>(t.schedule||'Tarifa estándar 2026')===sc&&t.name.toLowerCase()===name.toLowerCase()))continue;
@@ -584,8 +595,16 @@ export function createOfficeApi(storage,env={}){
      if(!out.length)fail('Esa categoría ya existe en todas las tarifas.',409);
      await audit(db,actor,'tariff-category-create','tariffs',out[0].id,name+' · '+out.length+' tarifas');return {records:out};
     }
+    if(op==='tariff-category-delete'){
+     managerOnly(actor);const catalog=await tariffCatalog(db),from=required(b.name,'la categoría').toLowerCase();
+     const matches=catalog.filter(t=>t.name.toLowerCase()===from);if(!matches.length)fail('Categoría no encontrada.',404);
+     const open=(await rows(db,'orderLines')).filter(l=>!l.archived&&l.status!=='cancelled'&&matches.some(t=>t.id===l.categoryId)),svcs=await rows(db,'services');
+     if(open.some(l=>{const sv=svcs.find(x=>x.id===l.serviceId);return sv&&!['completed','cancelled'].includes(sv.status)&&(sv.endDate||sv.date)>=now().slice(0,10);}))fail('Hay servicios en curso o futuros con puestos de esta categoría. Cámbialos antes de eliminarla.',409);
+     for(const t of matches){const stored=await db.get(key('tariffs',t.id));await db.put(key('tariffs',t.id),{...(stored||t),archived:true,active:false,revision:((stored||t).revision||0)+1,updatedAt:now()});}
+     await audit(db,actor,'tariff-category-delete','tariffs',matches[0].id,b.name+' · '+matches.length+' tarifas');return {count:matches.length};
+    }
     if(op==='tariff-category-sync'){
-     managerOnly(actor);const catalog=await tariffCatalog(db),from=required(b.name,'la categoría').toLowerCase(),rename=text(b.newName).slice(0,100);
+     managerOnly(actor);const catalog=await tariffCatalog(db),from=required(b.name,'la categoría').toLowerCase(),rename=text(b.newName).slice(0,100).toLocaleUpperCase('es-ES');
      const matches=catalog.filter(t=>t.name.toLowerCase()===from);if(!matches.length)fail('Categoría no encontrada.',404);
      for(const t of matches){const v={...t,...(rename?{name:rename}:{}),...(b.group!=null?{group:text(b.group)||'Personalizado'}:{}),...(b.unit?{unit:b.unit==='day'?'day':'hour'}:{}),...(b.minHours!=null&&b.minHours!==''?{minHours:number(b.minHours,0,24)}:{}),...(b.active!=null?{active:b.active===true}:{}),revision:(t.revision||0)+1,updatedAt:now()};await db.put(key('tariffs',t.id),v);}
      await audit(db,actor,'tariff-category-sync','tariffs',matches[0].id,b.name+(rename?' → '+rename:''));return {count:matches.length};
