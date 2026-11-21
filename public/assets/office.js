@@ -1412,7 +1412,15 @@ $('#modal').addEventListener('close',stopCamera);
 document.addEventListener('input',e=>{if(e.target.closest('#invoice-lines'))lineTotal();});
 $('#close-modal').innerHTML=icon('close');$('#close-modal').onclick=()=>$('#modal').close();$('#refresh').innerHTML=icon('refresh');$('#refresh').insertAdjacentHTML('beforebegin',`<button class="search-trigger" data-action="global-search" aria-label="Buscar (Ctrl+K)">${icon('search')}<span>Buscar…</span><kbd>Ctrl K</kbd></button>`);$('#menu').innerHTML=icon('menu');$('#logout').innerHTML=icon('logout');$('#menu').onclick=()=>document.body.classList.toggle('nav-open');$('#shade').onclick=()=>document.body.classList.remove('nav-open');
 $('#account').onclick=()=>{modal('Cambiar mi contraseña',formWrap(field('current','Contraseña actual','','password','required autocomplete="current-password"',true)+field('password','Nueva contraseña (mínimo 12 caracteres)','','password','required minlength="12" maxlength="128" autocomplete="new-password"',true)));formHandler(async b=>{await api('password',b);data={};$('#app').hidden=true;$('#auth').hidden=false;await authScreen();});};
-setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||$('#search')===document.activeElement)return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
+/* v36: no recargar mientras se escribe o hay cambios sin guardar en la página */
+let formDirty=false;
+function editingNow(){const f=document.activeElement;return !!(f&&f.matches&&f.matches('input,textarea,select,[contenteditable]'))}
+document.addEventListener('input',e=>{const t=e.target;if(t.closest&&t.closest('#content form, main form')&&!t.closest('#modal')&&t.id!=='search')formDirty=true},true);
+document.addEventListener('change',e=>{const t=e.target;if(t.closest&&t.closest('#content form, main form')&&!t.closest('#modal'))formDirty=true},true);
+document.addEventListener('submit',()=>{setTimeout(()=>{formDirty=false},0)},true);
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('[data-page]'))formDirty=false},true);
+window.addEventListener('beforeunload',e=>{if(formDirty){e.preventDefault();e.returnValue=''}});
+setInterval(async()=>{if(!data.user||document.hidden||$('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||formDirty||editingNow())return;polling=true;try{await load();}catch(err){$('#sync').textContent='Sin conexión · reintentando';}finally{polling=false;}},30000);
 window.addEventListener('online',()=>{if(data.user)load().catch(e=>toast(e.message,true));});
 // Remove the previous demo service worker, if one was installed, so it cannot serve stale screens.
 if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
@@ -1424,6 +1432,6 @@ window.addEventListener('popstate',()=>{
 });
 (async()=>{try{await load();}catch{await authScreen();}})();
 /* v33 tiempo real: consulta ligera de revisión cada 3 s */
-(()=>{let rev=null,pending=false;setInterval(async()=>{if(!data.user||document.hidden||pending)return;try{const r=await fetch('/api/office/rev',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();if(rev===null){rev=d.rev;return;}if(d.rev===rev)return;const f=document.activeElement;if($('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||(f&&f.matches&&f.matches('input,textarea,select')))return;pending=true;rev=d.rev;const y=window.scrollY;try{await load();window.scrollTo({top:y});}finally{pending=false;}}catch{}},3000);})();
+(()=>{let rev=null,pending=false;setInterval(async()=>{if(!data.user||document.hidden||pending)return;try{const r=await fetch('/api/office/rev',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();if(rev===null){rev=d.rev;return;}if(d.rev===rev)return;if($('#modal').open||['service-create','quote-create'].includes(page)||polling||busy||formDirty||editingNow())return;pending=true;rev=d.rev;const y=window.scrollY;try{await load();window.scrollTo({top:y});}finally{pending=false;}}catch{}},3000);})();
 })();
 
