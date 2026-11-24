@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v44 · Referencias, históricos y vehículos
+
+- **Referencia N/AAAA** para presupuestos y servicios (1/2026, 2/2026…), con una única numeración por año. El servicio creado desde un presupuesto conserva su número. Los registros existentes se numeran automáticamente por orden de creación.
+- **Trabajadores → Históricos**: quien ya no está en la empresa (dado de baja o sin acceso a la app) sale de la plantilla activa y se consulta en la pestaña «Históricos».
+- **Vehículos** (nueva página): alta de furgonetas y vehículos con matrícula; calendario mensual por vehículo con los días **ocupados en rojo** y sus horas; al pulsar un día se ven sus reservas y se puede **reservar** por horas para un servicio o para «otro» motivo, con conductor y notas. No permite dos reservas solapadas del mismo vehículo. «Buscar por día» muestra qué vehículos están libres u ocupados ese día.
+
 ## Novedades v43 · Información por tipo de servicio
 
 - **Editar servicio** queda en lo esencial: cliente, nombre, recinto principal, día de inicio, día de fin (sin horas) y tarifa.

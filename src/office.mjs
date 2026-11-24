@@ -225,7 +225,7 @@ async function view(db,actor){
  {const offs=(await rows(db,'offers'));result.offers=actor.role==='manager'?offs.filter(o=>o.status==='open'||o.closedAt>new Date(Date.now()-14*86400000).toISOString()):offs.filter(o=>o.status==='open'&&o.targets.includes(actor.workerId)&&(o.info.endDate||o.info.date)>=new Date().toISOString().slice(0,10)).map(o=>({id:o.id,info:o.info,message:o.message,urgent:!!o.urgent,status:o.status,createdAt:o.createdAt,myAnswer:o.responses[actor.workerId]?.answer||''}));}
  result.onCall=actor.role==='manager'?await rows(db,'onCall'):[];
  result.onCallPhone=ON_CALL_PHONE;
- if(actor.role==='manager')result.dietRates=await rows(db,'dietRates');
+ if(actor.role==='manager'){result.dietRates=await rows(db,'dietRates');result.vehicles=(await rows(db,'vehicles')).filter(v=>!v.archived);result.vehicleBookings=(await rows(db,'vehicleBookings')).filter(v=>!v.archived);}
  if(actor.role==='manager')Object.assign(result,{coordClosures,employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
@@ -337,9 +337,18 @@ async function saveEntity(db,actor,kind,b){
  }
  if(kind==='workers'&&data.startDate&&data.endDate&&data.endDate<data.startDate)fail('La fecha de fin de contrato es anterior al alta.');
  if(kind==='quotes'&&!old&&!b.preparedBy){data.preparedBy=actor.id;data.preparedByName=actor.name;}
+ /* v44 · referencia N/AAAA compartida por presupuestos y servicios; el servicio hereda la de su presupuesto. */
+ if((kind==='quotes'||kind==='services')&&!old?.ref){const inherited=kind==='services'&&b.fromQuoteRef?text(b.fromQuoteRef,20):kind==='quotes'&&b.serviceId?((await db.get(key('services',text(b.serviceId))))?.ref||''):'';data.ref=inherited||await nextRef(db,(data.date||b.date||now()).slice(0,4));}
  const id=old?.id||uid(),value={...old,...data,id,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now(),updatedBy:actor.id};
  await db.put(key(kind,id),value);await audit(db,actor,old?'update':'create',kind,id,changedFields(old,value));return value;
 }
+const dmy=d=>String(d).slice(8,10)+'/'+String(d).slice(5,7)+'/'+String(d).slice(0,4);
+async function nextRef(db,year){const y=/^\d{4}$/.test(year)?year:now().slice(0,4),k='office/counter/ref/'+y,n=(Number(await db.get(k))||0)+1;await db.put(k,n);return n+'/'+y;}
+async function backfillRefs(db){if(await db.get('office/meta/refsBackfilled'))return;
+ const qs=(await rows(db,'quotes')).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))),ss=(await rows(db,'services')).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+ for(const q of qs)if(!q.ref){q.ref=await nextRef(db,String(q.date||q.createdAt||now()).slice(0,4));await db.put(key('quotes',q.id),q);}
+ for(const s of ss)if(!s.ref){const q=qs.find(x=>x.serviceId===s.id||x.id===s.quoteId);s.ref=q?.ref||await nextRef(db,String(s.date||s.createdAt||now()).slice(0,4));await db.put(key('services',s.id),s);}
+ await db.put('office/meta/refsBackfilled',now());}
 const crewBridge=createCrewBridge({rows,key,record,fail,uid,now,text,money,crewHeadDays,audit,tariffCatalog,datesBetween});
 const ON_CALL_PHONE='670 514 308';
 const READ_ONLY_POST=new Set(['assignment-history','history','activity-by-service','geocode','crew-open']);
@@ -377,6 +386,7 @@ export function createOfficeApi(storage,env={}){
   }
   const {actor,sessionKey}=await auth(req);
   if(req.method==='GET'){
+   if(op==='state'&&actor.role==='manager'&&!(await storage.get('office/meta/refsBackfilled')))await storage.transaction(db=>backfillRefs(db));
    if(op==='rev')return reply({ok:true,rev:Number(await storage.get('office/meta/rev')||0)});
    if(op==='state')return reply(await view(storage,actor));
    if(op==='employee-photo'){
@@ -557,6 +567,26 @@ export function createOfficeApi(storage,env={}){
       responses:{},status:'open',createdBy:actor.id,createdByName:actor.name,createdAt:now(),revision:1};
      await db.put(key('offers',id),v);await audit(db,actor,'offer-create','orderLines',l.id,category+' · '+targets.length+' trabajadores');return {record:v};
     }
+    if(op==='vehicle-save'){
+     managerOnly(actor);const v=b.record||{},old=v.id?await record(db,'vehicles',v.id):null;revision(old,v);
+     const value={...old,id:old?.id||uid(),name:required(v.name,'el nombre').slice(0,80),plate:text(v.plate,20).toUpperCase(),type:['furgoneta','turismo','camion','otro'].includes(v.type)?v.type:'furgoneta',seats:v.seats===''||v.seats==null?null:number(v.seats,1,60),notes:text(v.notes,500),active:v.active!==false&&v.active!=='false',revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now(),updatedBy:actor.id};
+     await db.put(key('vehicles',value.id),value);await audit(db,actor,old?'vehicle-update':'vehicle-create','vehicles',value.id,value.name);return {record:value};
+    }
+    if(op==='vehicle-delete'){managerOnly(actor);const v=await record(db,'vehicles',required(b.id,'el vehículo'));const value={...v,archived:true,revision:v.revision+1,updatedAt:now()};await db.put(key('vehicles',v.id),value);await audit(db,actor,'vehicle-delete','vehicles',v.id,v.name);return {record:value};}
+    if(op==='vehicle-book'){
+     managerOnly(actor);const v=b.record||{},vehicle=await record(db,'vehicles',required(v.vehicleId,'el vehículo'));if(vehicle.archived||vehicle.active===false)fail('Vehículo no disponible.');
+     const old=v.id?await record(db,'vehicleBookings',v.id):null;revision(old,v);
+     const d=date(v.date),endDate=date(v.endDate||v.date),start=time(v.start||'00:00'),end=time(v.end||'23:59');
+     if(endDate+'T'+end<=d+'T'+start)fail('El final de la reserva debe ser posterior al inicio.');
+     let serviceId=text(v.serviceId),service=null;if(serviceId&&serviceId!=='other'){service=await record(db,'services',serviceId);}else serviceId='';
+     const other=text(v.other,200);if(!serviceId&&!other)fail('Elige el servicio o escribe para qué es (otro).');
+     const from=Date.parse(d+'T'+start+':00Z'),to=Date.parse(endDate+'T'+end+':00Z');
+     const clash=(await rows(db,'vehicleBookings')).find(x=>!x.archived&&x.id!==old?.id&&x.vehicleId===vehicle.id&&from<Date.parse(x.endDate+'T'+x.end+':00Z')&&to>Date.parse(x.date+'T'+x.start+':00Z'));
+     if(clash)fail(`${vehicle.name} ya está reservada ${clash.date===clash.endDate?dmy(clash.date):dmy(clash.date)+'–'+dmy(clash.endDate)} de ${clash.start} a ${clash.end}${clash.serviceName?' para '+clash.serviceName:clash.other?' ('+clash.other+')':''}.`,409);
+     const value={...old,id:old?.id||uid(),vehicleId:vehicle.id,date:d,endDate,start,end,serviceId,serviceName:service?((service.ref?service.ref+' · ':'')+service.name):'',other:serviceId?'':other,driver:text(v.driver,120),notes:text(v.notes,500),revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),createdBy:old?.createdBy||actor.id,updatedAt:now()};
+     await db.put(key('vehicleBookings',value.id),value);await audit(db,actor,old?'vehicle-booking-update':'vehicle-book','vehicles',vehicle.id,vehicle.name+' · '+dmy(d)+' '+start+'–'+end+' · '+(value.serviceName||value.other));return {record:value};
+    }
+    if(op==='vehicle-unbook'){managerOnly(actor);const x=await record(db,'vehicleBookings',required(b.id,'la reserva'));const value={...x,archived:true,revision:x.revision+1,updatedAt:now()};await db.put(key('vehicleBookings',x.id),value);await audit(db,actor,'vehicle-unbook','vehicles',x.vehicleId,dmy(x.date)+' '+x.start+'–'+x.end);return {record:value};}
     if(op==='diet-rate-set'){
      managerOnly(actor);const schedule=required(b.schedule,'la tarifa').slice(0,100);
      if(!(await tariffCatalog(db)).some(t=>(t.schedule||'Tarifa estándar 2026')===schedule))fail('Tarifa no encontrada.');
@@ -1014,7 +1044,7 @@ export function createOfficeApi(storage,env={}){
       const firstStart=items.filter(x=>x.date===startDate).map(x=>x.start).filter(Boolean).sort()[0];
       const lastEnd=items.filter(x=>(x.endDate||x.date)===endDate).map(x=>x.end).filter(Boolean).sort().at(-1);
       const service=await saveEntity(db,actor,'services',{
-        name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
+        fromQuoteRef:quote?.ref||'',name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
         clientCatering:info.clientCatering,hasPause:info.hasPause,uniform:info.uniform,epi:info.epi,
         venue:info.venue||quote?.serviceVenue||items[0]?.locationName||'Ubicación por asignar',
         venueLat:info.venueLat!==''&&info.venueLat!=null?info.venueLat:(quote?.serviceVenueLat??null),venueLng:info.venueLng!==''&&info.venueLng!=null?info.venueLng:(quote?.serviceVenueLng??null),
