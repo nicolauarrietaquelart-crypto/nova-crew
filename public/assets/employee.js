@@ -61,8 +61,8 @@ function status(s){return '<span class="badge '+esc(s)+'">'+esc(STATUS_ES[s]||s)
 const startMs=a=>Date.parse(a.date+'T'+(a.start||'00:00')+':00');
 const endMs=a=>Date.parse((a.endDate||a.date)+'T'+(a.end||'23:59')+':00');
 const shiftClosed=a=>!!a.closed||['completed','cancelled'].includes(service(a.serviceId).status);
-function shiftState(a){if(a.checkOut)return 'done';if(a.checkIn)return 'live';const now=Date.now();if(now>=startMs(a)&&now<=endMs(a))return 'live';return now<startMs(a)?'upcoming':'past';}
-const canClock=a=>{const sv=service(a.serviceId);if(a.status==='rejected'||a.checkOut||a.closed||['completed','cancelled'].includes(sv.status))return false;if(a.checkIn)return true;return Date.now()>=startMs(a)-4*3600000&&Date.now()<=endMs(a)+4*3600000;};
+function shiftState(a){if(a.checkOut)return 'done';if(a.checkIn)return Date.now()<=endMs(a)+4*3600000?'live':'past';const now=Date.now();if(now>=startMs(a)&&now<=endMs(a))return 'live';return now<startMs(a)?'upcoming':'past';}
+const canClock=a=>{const sv=service(a.serviceId);if(a.status==='rejected'||a.checkOut||a.closed||['completed','cancelled'].includes(sv.status))return false;if(a.checkIn)return Date.now()<=endMs(a)+4*3600000;return Date.now()>=startMs(a)-2*3600000&&Date.now()<=endMs(a);};
 const monthLabel=m=>{const d=new Date(m+'-01T12:00:00');const t=d.toLocaleDateString('es-ES',{month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1)};
 const empSeenKey=()=>'nova-emp-msg-seen-'+(state.user?.id||'');
 function empSeen(){try{return localStorage.getItem(empSeenKey())||''}catch{return ''}}
@@ -267,6 +267,7 @@ function coordEntries(){
  for(const a of coordRoster()){if(a.crew||isCrewHeadDay(a.serviceId,a.date)||a.closed||['completed','cancelled'].includes(service(a.serviceId).status))continue;add(a.serviceId,a.date,a.blockId).rows.push(a);}
  /* Un bloque es una jornada: aunque algún turno acabe de madrugada al día siguiente, sale una sola vez (su fecha). */
  for(const b of blocks){if(b.lead||['completed','cancelled'].includes(service(b.serviceId).status))continue;const d=b.date;if(d&&d>=t&&!isCrewHeadDay(b.serviceId,d)&&!(state.coordinatorRoster||[]).some(a=>a.blockId===b.id&&a.date===d&&a.closed))add(b.serviceId,d,b.id);}
+ const nowMs=Date.now();for(const [k,e] of map){const rs=e.rows.length?e.rows:(state.coordinatorRoster||[]).filter(a=>e.blockId&&a.blockId===e.blockId&&a.date===e.date);if(rs.length?rs.every(r=>endMs(r)<nowMs&&(!r.checkIn||r.checkOut||endMs(r)+4*3600000<nowMs)):e.date<t)map.delete(k);}
  return [...map.values()].sort((a,b)=>{const ga=a.date===t?0:a.date>t?1:2,gb=b.date===t?0:b.date>t?1:2;const ba=blocks.find(x=>x.id===a.blockId),bb=blocks.find(x=>x.id===b.blockId);return ga-gb||(ga===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||String(ba?.start||'').localeCompare(String(bb?.start||''));});
 }
 function coordRole(e){
@@ -434,12 +435,14 @@ function scanQr(serviceId){
  const s=service(serviceId);
  window.NovaQrScanner.open({title:'Escanear QR',subtitle:(s.name||'')+' · el fichaje se registra al instante',onToken:async token=>{
   const r=await redeemToken(token,serviceId);
-  const name=coordWorkerName(r.workerId),time=new Date(r.time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const name=coordWorkerName(r.workerId),time=hmOf(r.time);
   clearTimeout(scanReload);scanReload=setTimeout(()=>load(),600);
-  return {label:name+' · '+(r.action==='in'?'Entrada':'Salida')+' '+time,short:name.split(' ')[0]+' '+(r.action==='in'?'entrada':'salida')};
+  return {label:name+' · '+(r.action==='in'?'Entrada':'Salida')+' '+time,short:name.split(' ')[0]+' '+(r.action==='in'?'entrada':'salida'),card:qrCardHtml(r,name,time)};
  }});
 }
 function redeemQr(serviceId){return scanQr(serviceId)}
+function qrCardHtml(r,name,time){const i=r.info||{},row=(k,v)=>v?'<div><small>'+esc(k)+'</small><b>'+esc(v)+'</b></div>':'';
+ return '<div class="qrc"><div class="qrc-head"><span class="qrc-ok">✓</span><div><small>'+(r.action==='in'?'ENTRADA REGISTRADA · PRESENTE':'SALIDA REGISTRADA')+'</small><strong>'+esc(i.name||name)+'</strong></div><b class="qrc-time">'+esc(time)+'</b></div><div class="qrc-grid">'+row('Categoría',i.role)+row('Tipo de servicio',i.serviceType)+row('Equipo',i.team)+row('Horario',i.start&&i.end?i.start+'–'+i.end:'')+row('Servicio',i.serviceName)+row('Teléfono',i.phone)+'</div></div>';}
 
 /* Control horario como página e integración con el calendario del móvil (.ics). */
 let clockMonth='';
@@ -537,7 +540,8 @@ function clockAssignments(){
 }
 /* Fichaje en ventana: mostrar mi QR · escanear QRs (coordinación) · fichar por geolocalización (coordinación) */
 let clockMode='',qrRefreshTimer=null;
-function isCoordinatorAnywhere(){return (state.coordinatorServiceIds||[]).length>0||crewDayList().length>0}
+/* Coordinador «ahora»: tiene alguna coordinación con turnos entre 2 h antes del inicio y el final. */
+function isCoordinatorAnywhere(){const now=Date.now(),ids=new Set([...(state.coordinatorServiceIds||[]),...crewDayList().map(d=>d.serviceId)]);return (state.coordinatorRoster||[]).some(r=>ids.has(r.serviceId)&&!r.closed&&now>=startMs(r)-2*3600000&&now<=endMs(r)+3600000);}
 function scanServices(){
  const ids=new Set([...(state.coordinatorServiceIds||[]),...crewDayList().map(d=>d.serviceId)]);
  const t=today();
@@ -563,10 +567,11 @@ function openClockModal(preferredId=''){
  const geoIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
  modal('Fichaje','<div class="clock-popup clock-v2"><div class="clock-opts">'+
   opt('scan','Escanear QRs','Ficha a tu personal escaneando su QR',scanIc,coord)+
-  opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc)+
+  opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc,clockableShifts().length>0)+
   opt('geo','Fichar por geolocalización',geo.some(a=>a.coordinator)?'Tu propio fichaje como coordinador':'Tu turno no tiene coordinador',geoIc,geo.length>0)+
   '</div><div id="clock-mode-body"></div></div>');
  $('#employee-modal').classList.add('clock-dialog');
+ if(!coord&&!clockableShifts().length){const nx=myAssignments().filter(a=>a.status!=='rejected'&&!shiftClosed(a)&&startMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b))[0];$('.clock-opts').innerHTML='';$('#clock-mode-body').innerHTML='<div class="clock-none"><b>Ahora no tienes ningún turno para fichar</b><p class="muted">Las opciones de fichaje aparecen desde 2 horas antes del inicio de tu turno hasta su final.'+(nx?' Tu próximo turno: <b>'+esc(service(nx.serviceId).name||'Servicio')+'</b> · '+esc(nx.date===today()?'hoy':human(nx.date))+' '+esc(nx.start)+'–'+esc(nx.end)+'.':'')+'</p></div>';return;}
  renderClockMode();
 }
 function shiftPicker(shifts){
@@ -604,7 +609,7 @@ function qrSvg(token){
 let qrWatch=null;
 async function checkQrAccepted(){if(!qrWatch||!$('#clock-qr'))return;const a=myAssignments().find(x=>x.id===qrWatch.id);if(!a)return;
  if((a.checkIn||'')!==qrWatch.checkIn||(a.checkOut||'')!==qrWatch.checkOut){const out=(a.checkOut||'')!==qrWatch.checkOut;clockResult={id:a.id,ok:true,text:(out?'Salida':'Entrada')+' aceptada por el coordinador a las '+hmOf(out?a.checkOut:a.checkIn),at:Date.now()};qrWatch=null;stopQrRefresh();
-  $('#clock-qr').innerHTML=clockResultHtml(a.id)+shiftSummary(a)+btn('clock-qr-new',a.checkOut?'Cerrar':'Mostrar QR de salida',a.id,'secondary');notice(out?'Salida registrada':'Entrada registrada');}}
+  const bi=a.blockInfo||{},row=(k,v)=>v?'<div><small>'+esc(k)+'</small><b>'+esc(v)+'</b></div>':'';$('#clock-qr').innerHTML='<div class="qrc qrc-light"><div class="qrc-head"><span class="qrc-ok">✓</span><div><small>'+(out?'SALIDA REGISTRADA':'ENTRADA REGISTRADA · PRESENTE')+'</small><strong>'+esc(state.user.name)+'</strong></div><b class="qrc-time">'+esc(hmOf(out?a.checkOut:a.checkIn))+'</b></div><div class="qrc-grid">'+row('Categoría',a.role)+row('Tipo de servicio',bi.serviceType)+row('Equipo',a.team)+row('Horario',a.start+'–'+a.end)+row('Servicio',service(a.serviceId).name)+row('Coordinador',a.coordinator?.name)+'</div></div>'+btn('clock-qr-new',a.checkOut?'Cerrar':'Mostrar QR de salida',a.id,'secondary');notice(out?'Salida registrada':'Entrada registrada');}}
 async function renderMyQr(){
  const box=$('#clock-qr'),a=clockAssignments().find(x=>x.id===clockSelection);if(!box||!a)return;
  try{

@@ -1,5 +1,15 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v53
+
+- Los servicios y las coordinaciones desaparecen del área del trabajador cuando termina su horario.
+- Fichaje: las opciones (mostrar mi QR, escanear QRs, geolocalización) solo aparecen desde 2 horas antes del inicio del turno hasta su final; si no hay turno, se indica el próximo.
+- Al escanear un QR, coordinador y trabajador ven una tarjeta con nombre, categoría, tipo de servicio, equipo, horario y servicio; el trabajador queda marcado como presente.
+- El Crew Head que coordina puede escanear los QR de su personal.
+- Gestoría: botón para eliminar servicios (bloqueado si ya hay fichajes, liquidación o factura); limpia asignaciones, ofertas y reservas de vehículo.
+- Gestoría más dinámica: contadores animados, entrada escalonada, hover en tarjetas y filas.
+- Corregido: la hora del escáner QR usaba la zona horaria del dispositivo en lugar de la del servicio.
+
 ## Novedades v52 · Geolocalización y coordinaciones
 
 - **Fichar por geolocalización** solo aparece (y solo lo acepta el servidor) si eres el **coordinador de tu bloque** o si **tu bloque no tiene coordinador**, aunque haya Crew Head ese día. Si tu turno tiene coordinador, fichas mostrándole tu QR.
