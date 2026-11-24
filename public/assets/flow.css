@@ -626,3 +626,7 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .vb-title{margin:6px 0 4px}
 @media (max-width:1000px){.veh-layout{grid-template-columns:1fr}.vc-cell{min-height:64px;padding:5px}.vc-cell small{display:none}.vc-cell.occ small:first-of-type{display:block}}
 .veh-layout>.panel{padding:18px 20px !important;overflow:visible}
+/* v45 · vehículo del runner */
+.picker-vehicle{margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#fff7f0;border:1.5px solid #ffd2b0}
+.veh-pick{display:grid;gap:6px;font-weight:700}.veh-pick small{font-weight:500;color:#6b7280}
+.veh-pick select{width:100%}

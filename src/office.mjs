@@ -340,9 +340,23 @@ async function saveEntity(db,actor,kind,b){
  /* v44 · referencia N/AAAA compartida por presupuestos y servicios; el servicio hereda la de su presupuesto. */
  if((kind==='quotes'||kind==='services')&&!old?.ref){const inherited=kind==='services'&&b.fromQuoteRef?text(b.fromQuoteRef,20):kind==='quotes'&&b.serviceId?((await db.get(key('services',text(b.serviceId))))?.ref||''):'';data.ref=inherited||await nextRef(db,(data.date||b.date||now()).slice(0,4));}
  const id=old?.id||uid(),value={...old,...data,id,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),updatedAt:now(),updatedBy:actor.id};
+ if(kind==='assignments'&&(b.vehicleId!==undefined||old?.vehicle)){await syncAssignmentVehicle(db,actor,value,b.vehicleId!==undefined?String(b.vehicleId||''):old.vehicle);}
  await db.put(key(kind,id),value);await audit(db,actor,old?'update':'create',kind,id,changedFields(old,value));return value;
 }
 const dmy=d=>String(d).slice(8,10)+'/'+String(d).slice(5,7)+'/'+String(d).slice(0,4);
+/* v45 · vehículo del runner: furgo propia (reserva automática a su nombre), externa u ninguno. */
+async function syncAssignmentVehicle(db,actor,a,vehicleId){
+ const all=await rows(db,'vehicleBookings'),cur=all.find(x=>x.assignmentId===a.id&&!x.archived);
+ if(a.archived||!vehicleId||vehicleId==='external'){a.vehicle=a.archived?a.vehicle:(vehicleId||'');if(cur)await db.put(key('vehicleBookings',cur.id),{...cur,archived:true,revision:cur.revision+1,updatedAt:now()});return;}
+ const vehicle=await record(db,'vehicles',vehicleId);if(vehicle.archived||vehicle.active===false)fail('Vehículo no disponible.');
+ const d=a.date,endDate=a.endDate||a.date,from=Date.parse(d+'T'+a.start+':00Z'),to=Date.parse(endDate+'T'+a.end+':00Z');
+ const clash=all.find(x=>!x.archived&&x.id!==cur?.id&&x.vehicleId===vehicle.id&&from<Date.parse(x.endDate+'T'+x.end+':00Z')&&to>Date.parse(x.date+'T'+x.start+':00Z'));
+ if(clash)fail(`${vehicle.name} ya está reservada ${dmy(clash.date)} de ${clash.start} a ${clash.end}${clash.driver?' ('+clash.driver+')':''}${clash.serviceName?' para '+clash.serviceName:clash.other?' · '+clash.other:''}.`,409);
+ const service=await db.get(key('services',a.serviceId)),worker=await db.get(key('workers',a.workerId));
+ const v={...(cur||{}),id:cur?.id&&cur.vehicleId===vehicle.id?cur.id:uid(),vehicleId:vehicle.id,assignmentId:a.id,date:d,endDate,start:a.start,end:a.end,serviceId:a.serviceId,serviceName:service?((service.ref?service.ref+' · ':'')+service.name):'',other:'',driver:worker?.name||'',notes:cur?.notes||'',revision:(cur?.revision||0)+1,createdAt:cur?.createdAt||now(),createdBy:cur?.createdBy||actor.id,updatedAt:now()};
+ if(cur&&cur.id!==v.id)await db.put(key('vehicleBookings',cur.id),{...cur,archived:true,revision:cur.revision+1,updatedAt:now()});
+ await db.put(key('vehicleBookings',v.id),v);a.vehicle=vehicle.id;
+}
 async function nextRef(db,year){const y=/^\d{4}$/.test(year)?year:now().slice(0,4),k='office/counter/ref/'+y,n=(Number(await db.get(k))||0)+1;await db.put(k,n);return n+'/'+y;}
 async function backfillRefs(db){if(await db.get('office/meta/refsBackfilled'))return;
  const qs=(await rows(db,'quotes')).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))),ss=(await rows(db,'services')).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
@@ -586,6 +600,7 @@ export function createOfficeApi(storage,env={}){
      const value={...old,id:old?.id||uid(),vehicleId:vehicle.id,date:d,endDate,start,end,serviceId,serviceName:service?((service.ref?service.ref+' · ':'')+service.name):'',other:serviceId?'':other,driver:text(v.driver,120),notes:text(v.notes,500),revision:(old?.revision||0)+1,createdAt:old?.createdAt||now(),createdBy:old?.createdBy||actor.id,updatedAt:now()};
      await db.put(key('vehicleBookings',value.id),value);await audit(db,actor,old?'vehicle-booking-update':'vehicle-book','vehicles',vehicle.id,vehicle.name+' · '+dmy(d)+' '+start+'–'+end+' · '+(value.serviceName||value.other));return {record:value};
     }
+    if(op==='assignment-vehicle'){managerOnly(actor);const a=await record(db,'assignments',required(b.id,'la asignación'));if(a.archived)fail('Asignación retirada.',409);const value={...a,revision:a.revision+1,updatedAt:now()};await syncAssignmentVehicle(db,actor,value,String(b.vehicleId||''));await db.put(key('assignments',a.id),value);await audit(db,actor,'assignment-vehicle','assignments',a.id,value.vehicle==='external'?'Vehículo externo':value.vehicle?'Vehículo propio':'Sin vehículo');return {record:value};}
     if(op==='vehicle-unbook'){managerOnly(actor);const x=await record(db,'vehicleBookings',required(b.id,'la reserva'));const value={...x,archived:true,revision:x.revision+1,updatedAt:now()};await db.put(key('vehicleBookings',x.id),value);await audit(db,actor,'vehicle-unbook','vehicles',x.vehicleId,dmy(x.date)+' '+x.start+'–'+x.end);return {record:value};}
     if(op==='diet-rate-set'){
      managerOnly(actor);const schedule=required(b.schedule,'la tarifa').slice(0,100);
@@ -886,7 +901,7 @@ export function createOfficeApi(storage,env={}){
       const as=(await rows(db,'assignments')).filter(a=>a.orderLineId===l.id&&!a.archived);
       if(as.some(a=>a.checkIn))fail('Este puesto tiene fichajes. No se puede eliminar.',409);
       const stamp=now();
-      for(const a of as){await db.put(key('assignments',a.id),{...a,archived:true,revision:a.revision+1,updatedAt:stamp});await audit(db,actor,'archive','assignments',a.id,'puesto eliminado');}
+      for(const a of as){if(a.vehicle)await syncAssignmentVehicle(db,actor,{...a,archived:true},'');await db.put(key('assignments',a.id),{...a,archived:true,revision:a.revision+1,updatedAt:stamp});await audit(db,actor,'archive','assignments',a.id,'puesto eliminado');}
       await db.put(key('orderLines',l.id),{...l,archived:true,status:'cancelled',revision:l.revision+1,updatedAt:stamp});
       for(const o of (await rows(db,'offers')).filter(o=>o.orderLineId===l.id&&o.status==='open'))await db.put(key('offers',o.id),{...o,status:'cancelled',closedAt:stamp,revision:o.revision+1});
       await audit(db,actor,'line-delete','orderLines',l.id,(l.role||'')+' '+l.date+' '+l.start+'–'+l.end);return {};
@@ -1119,6 +1134,7 @@ export function createOfficeApi(storage,env={}){
     if(kind==='workers'&&(await rows(db,'assignments')).some(a=>a.workerId===r.id&&!a.archived))fail('El trabajador conserva asignaciones. Desactívalo en su ficha.',409);
     if(kind==='clients'&&(await rows(db,'services')).some(s=>s.clientId===r.id&&!s.archived))fail('El cliente tiene servicios. Desactívalo en su ficha.',409);
     if(kind==='services'&&(await rows(db,'assignments')).some(a=>a.serviceId===r.id&&!a.archived))fail('Retira primero las asignaciones o cancela el servicio.',409);
+    if(kind==='assignments'&&r.vehicle)await syncAssignmentVehicle(db,actor,{...r,archived:true},'');
     await db.put(key(kind,r.id),{...r,archived:true,revision:r.revision+1,updatedAt:now()});await audit(db,actor,'archive',kind,r.id);return {};
    }
    if(op==='user'){

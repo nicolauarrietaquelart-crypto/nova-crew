@@ -634,7 +634,7 @@ function shiftMonth(m,n){const d=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7)-1
 const VEH_TYPES={furgoneta:'Furgoneta',turismo:'Turismo',camion:'Camión',otro:'Otro'};
 function vehBookingsOn(vehicleId,d){return (data.vehicleBookings||[]).filter(b=>b.vehicleId===vehicleId&&b.date<=d&&b.endDate>=d).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));}
 function vehSpanOn(b,d){return (b.date===d?b.start:'00:00')+'–'+(b.endDate===d?b.end:'24:00');}
-function vehWhat(b){return b.serviceName||b.other||'Reserva';}
+function vehWhat(b){return (b.driver?b.driver+' · ':'')+(b.serviceName||b.other||'Reserva');}
 function vehiclesPage(){
  const vs=(data.vehicles||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));if(!vs.some(v=>v.id===vehSel))vehSel=vs[0]?.id||'';
  $('#page-actions').innerHTML=button('veh-new','Añadir vehículo','plus');
@@ -660,8 +660,8 @@ function vehicleModal(id){const v=(data.vehicles||[]).find(x=>x.id===id);
  formHandler(async b=>{const r=await api('vehicle-save',{record:{...b,...(v?{id:v.id,revision:v.revision}:{})}});vehSel=r.record.id;return r;});
 }
 function vehicleDayModal(vehicleId,d){const v=(data.vehicles||[]).find(x=>x.id===vehicleId);if(!v)return;const bs=vehBookingsOn(vehicleId,d);
- const svcs=list('services').filter(x=>x.status!=='cancelled'&&!x.archived&&(x.endDate||x.date)>=d&&x.date<=d).concat(list('services').filter(x=>x.status!=='cancelled'&&!x.archived&&!((x.endDate||x.date)>=d&&x.date<=d)&&Math.abs(Date.parse(x.date)-Date.parse(d))<45*86400000)).filter((x,i,a)=>a.indexOf(x)===i);
- const label=x=>(x.ref?x.ref+' · ':'')+x.name+' · '+fmt(x.date);
+ const svcs=list('services').filter(x=>x.status!=='cancelled'&&!x.archived&&(x.endDate||x.date)>=d&&x.date<=d).sort((a,b)=>String(a.ref||'').localeCompare(String(b.ref||''),undefined,{numeric:true}));
+ const label=x=>(x.ref?x.ref+' · ':'')+x.name;
  modal(v.name+' · '+fmt(d),`<div class="vb-list">${bs.length?bs.map(b=>`<div class="vb-item"><span class="vb-time">${esc(vehSpanOn(b,d))}</span><div><strong>${esc(vehWhat(b))}</strong><small>${b.date!==b.endDate?esc(fmt(b.date)+' '+b.start+' → '+fmt(b.endDate)+' '+b.end):''}${b.driver?' · Conductor: '+esc(b.driver):''}${b.notes?' · '+esc(b.notes):''}</small></div><button class="btn small" data-action="veh-unbook" data-id="${esc(b.id)}" data-date="${d}">Liberar</button></div>`).join(''):'<p class="vb-free">✓ Libre todo el día</p>'}</div>
  <h3 class="vb-title">Reservar</h3>`+formWrap(field('date','Desde',d,'date','required')+field('start','Hora inicio','08:00','time','required')+field('endDate','Hasta',d,'date','required')+field('end','Hora fin','20:00','time','required')+`<label class="wide">Para<select name="serviceId" id="vb-svc">${svcs.map(x=>`<option value="${esc(x.id)}">${esc(label(x))}</option>`).join('')}<option value="other">Otro (escribir)…</option></select></label><label class="wide" id="vb-other" ${svcs.length?'hidden':''}>Otro<input name="other" maxlength="200" placeholder="Ej.: recogida de material, taller, bolo de conductor…"></label>`+field('driver','Conductor (opcional)','')+field('notes','Notas (opcional)',''),'Reservar '+v.name));
  const f=$('#editor');if(!svcs.length)f.elements.serviceId.value='other';f.elements.serviceId.onchange=()=>{$('#vb-other').hidden=f.elements.serviceId.value!=='other';};
@@ -841,6 +841,14 @@ async function toggleWorkerCategory(id,cat){
  const next=has?cats.filter(c=>normCat(c)!==normCat(cat)):[...cats,cat];
  busy=true;try{await api('save',{kind:'workers',record:{...w,categories:next,createAccess:false}});await load();toast((has?'Categoría cerrada: ':'Categoría abierta: ')+cat);}catch(e){toast(e.message,true);}finally{busy=false;}
 }
+const isRunnerCat=n=>/runner|driver|conductor|chofer|ch[oó]fer/i.test(String(n||''));
+let pickerVehicle='';
+function vehicleChoiceHTML(name,l,current,excludeAssignment=''){
+ const from=Date.parse(l.date+'T'+l.start+':00Z'),to=Date.parse((l.endDate||l.date)+'T'+l.end+':00Z');
+ const busyBy=v=>(data.vehicleBookings||[]).find(b=>b.vehicleId===v.id&&b.assignmentId!==excludeAssignment&&from<Date.parse(b.endDate+'T'+b.end+':00Z')&&to>Date.parse(b.date+'T'+b.start+':00Z'));
+ const vs=(data.vehicles||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ return `<label class="veh-pick">Vehículo del runner<select name="${name}" id="${name}"><option value="" ${!current?'selected':''}>Sin vehículo</option>${vs.map(v=>{const bb=busyBy(v);return `<option value="${esc(v.id)}" ${current===v.id?'selected':''} ${bb?'disabled':''}>${esc(v.name)}${v.plate?' · '+esc(v.plate):''}${bb?' — ocupada '+esc(bb.start+'–'+bb.end+(bb.driver?' ('+bb.driver+')':'')):' — libre'}</option>`;}).join('')}<option value="external" ${current==='external'?'selected':''}>Otro · vehículo externo (no de la empresa)</option></select><small>Si eliges una furgoneta propia, queda reservada en Vehículos a nombre del runner.</small></label>`;
+}
 function assignPicker(slotId){
  const l=find('orderLines',slotId);if(!l)return;pickerSlot=slotId;
  const category=find('tariffs',l.categoryId)?.name||l.role||'';
@@ -849,7 +857,8 @@ function assignPicker(slotId){
  const q=normCat(pickerQuery);
  const rows=eligible.filter(w=>!q||normCat([w.name,w.specialty,w.phone].join(' ')).includes(q)).map(w=>({w,av:workerAvailability(w,l)})).filter(x=>pickerShowAll||x.av.ok).sort((a,b)=>Number(b.av.ok)-Number(a.av.ok)||workerSince(a.w).localeCompare(workerSince(b.w))||a.w.name.localeCompare(b.w.name));
  const available=eligible.filter(w=>workerAvailability(w,l).ok).length,unconfigured=all.filter(w=>!workerCategories(w).length).length;
- const html=`${offerBlock(slotId)}<div class="picker-slot"><div><span class="eyebrow">${esc(category||'Puesto')}</span><strong>${esc(name('services',l.serviceId))}</strong><small>${fmt(l.date)} · ${l.start}–${l.end}${l.serviceType?' · '+esc(l.serviceType):''}${l.team?' · '+esc(l.team):''}</small></div><div class="picker-count"><b>${available}</b><small>disponibles de ${eligible.length} con la categoría</small></div></div>
+ const runner=isRunnerCat(category);
+ const html=`${offerBlock(slotId)}${runner?`<div class="picker-vehicle">${vehicleChoiceHTML('picker-veh',l,pickerVehicle)}</div>`:''}<div class="picker-slot"><div><span class="eyebrow">${esc(category||'Puesto')}</span><strong>${esc(name('services',l.serviceId))}</strong><small>${fmt(l.date)} · ${l.start}–${l.end}${l.serviceType?' · '+esc(l.serviceType):''}${l.team?' · '+esc(l.team):''}</small></div><div class="picker-count"><b>${available}</b><small>disponibles de ${eligible.length} con la categoría</small></div></div>
  <div class="picker-tools"><div class="searchbox">${icon('search')}<input id="picker-search" placeholder="Buscar trabajador…" value="${esc(pickerQuery)}" autocomplete="off"></div><label class="checkbox-label"><input type="checkbox" id="picker-all" ${pickerShowAll?'checked':''}>Ver también no disponibles</label></div>
  <div class="picker-list">${rows.map(({w,av})=>`<div class="picker-row ${av.ok?'':'off'}">${avatar(w,46)}<div class="grow"><strong>${esc(w.name)}</strong><small>${esc(w.specialty||'—')} · ${contractLabel(w)} · ${esc(seniorityText(w).split(' · ')[0])} de antigüedad</small><span class="av-tag ${av.kind}">${esc(av.label)}</span>${w.internalNotes?`<span class="pk-note">📝 ${esc(w.internalNotes.slice(0,180))}</span>`:''}</div><div class="row-actions"><button class="icon-btn" data-action="picker-profile" data-id="${esc(w.id)}" title="Ver ficha" aria-label="Ver ficha de ${esc(w.name)}">${icon('eye')}</button>${av.kind==='busy'?'':button('picker-assign','Asignar','check',`data-id="${esc(w.id)}"`,av.ok?'primary small':' small')}</div></div>`).join('')||`<div class="empty"><h3>Nadie disponible</h3><p>Ningún trabajador con la categoría ${esc(category)} abierta tiene disponibilidad en este tramo.${pickerShowAll?'':' Marca «Ver también no disponibles» para ver al resto.'}</p></div>`}</div>
  ${unconfigured?`<p class="footnote">${unconfigured} trabajador(es) aún no tienen categorías abiertas; para ellos se usa su especialidad. Ábrelas desde su ficha.</p>`:''}<p class="footnote">Orden: disponibles primero y por antigüedad (fecha de alta). Los trabajadores fijos se consideran disponibles salvo que hayan indicado lo contrario.</p>
@@ -857,11 +866,12 @@ function assignPicker(slotId){
  modal('Asignar trabajador',html);$('#modal').classList.add('wide-modal');
  const s=$('#picker-search');s.oninput=()=>{pickerQuery=s.value;const p=s.selectionStart;assignPicker(slotId);const n=$('#picker-search');n.focus();n.setSelectionRange(p,p);};
  $('#picker-all').onchange=e=>{pickerShowAll=e.target.checked;assignPicker(slotId);};
+ const pv=$('#picker-veh');if(pv)pv.onchange=()=>{pickerVehicle=pv.value;};
 }
 async function pickerAssign(workerId){
  const l=find('orderLines',pickerSlot),w=find('workers',workerId);if(!l||!w||busy)return;
  const av=workerAvailability(w,l);if(!av.ok&&!confirm(w.name+': '+av.label+'. ¿Asignar igualmente?'))return;
- busy=true;try{await api('save',{kind:'assignments',record:{serviceId:l.serviceId,orderLineId:l.id,workerId:w.id,categoryId:l.categoryId,date:l.date,endDate:l.endDate||l.date,start:l.start,end:l.end,pause:l.pause||0,team:l.team||''}});$('#modal').close();await load();toast('Puesto asignado a '+w.name);}catch(e){toast(e.message,true);}finally{busy=false;}
+ busy=true;try{await api('save',{kind:'assignments',record:{serviceId:l.serviceId,orderLineId:l.id,workerId:w.id,categoryId:l.categoryId,date:l.date,endDate:l.endDate||l.date,start:l.start,end:l.end,pause:l.pause||0,team:l.team||'',...(isRunnerCat(find('tariffs',l.categoryId)?.name||l.role)?{vehicleId:pickerVehicle}:{})}});pickerVehicle='';$('#modal').close();await load();toast('Puesto asignado a '+w.name);}catch(e){toast(e.message,true);}finally{busy=false;}
 }
 
 /* ---------- Ciclo de vida del servicio: fase, progreso y siguiente paso ---------- */
@@ -1112,10 +1122,11 @@ function lineModal(lineId){
  <div class="line-worker">${w?`${avatar(w,44)}<div class="grow"><b>${esc(w.name)}</b><small>${badge(a.status)}</small></div><button type="button" class="btn small" data-action="line-change" data-id="${esc(p.id)}">Cambiar trabajador</button><button type="button" class="btn small" data-action="line-unassign" data-id="${esc(p.id)}">Quitar</button>`:`<div class="grow"><b>Sin trabajador</b><small>Este puesto está sin cubrir.</small></div><button type="button" class="btn primary small" data-action="assign-slot" data-id="${esc(p.id)}">Asignar</button>`}</div>
  ${a?`<div class="line-clock">${clockChips(p,a)}</div>`:''}
  <div class="form-grid">${select('categoryId','Categoría',list('tariffs').filter(t=>t.active!==false&&(t.schedule||'Tarifa estándar 2026')===(find('services',p.serviceId)?.tariffSchedule||'Tarifa estándar 2026')).sort((x,y)=>x.name.localeCompare(y.name)).map(t=>({id:t.id,name:t.name})),p.categoryId)}${field('start','Inicio',a?.start||p.start,'time','required')}${field('end','Fin',a?.end||p.end,'time','required')}${field('pause','Pausa (horas)',a?.pause??p.pause??0,'number','min="0" max="8" step="0.25"')}<label>Dietas<select name="dietCount">${[[0,'Sin dietas'],[1,'1 dieta'],[2,'2 dietas'],[3,'3 dietas']].map(([n,l])=>`<option value="${n}" ${Number(a?a.dietCount||0:(p.diets?1:0))===n?'selected':''}>${l}</option>`).join('')}</select></label></div>
- <p class="footnote">${a?.checkIn?'Este turno ya tiene fichaje: el horario previsto no cambia las horas fichadas.':'Cambia la categoría, el horario y las dietas solo de este puesto.'}${a?' Si cambias la categoría se aplican los precios de la nueva categoría.':''}</p>
+ ${a&&isRunnerCat(find('tariffs',p.categoryId)?.name||p.role)?vehicleChoiceHTML('vehicleId',a,a.vehicle||'',a.id):''}<p class="footnote">${a?.checkIn?'Este turno ya tiene fichaje: el horario previsto no cambia las horas fichadas.':'Cambia la categoría, el horario y las dietas solo de este puesto.'}${a?' Si cambias la categoría se aplican los precios de la nueva categoría.':''}</p>
  <div class="form-error" hidden></div><div class="form-footer line-foot"><button type="button" class="btn danger" data-action="line-delete" data-id="${esc(p.id)}">${icon('trash')}Eliminar puesto</button><span class="grow"></span><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div></form>`);
  const f=$('#editor');f.onsubmit=async e=>{e.preventDefault();const err=f.querySelector('.form-error');err.hidden=true;try{const d=Object.fromEntries(new FormData(f));
   await api('line-update',{id:p.id,categoryId:d.categoryId,start:d.start,end:d.end,pause:d.pause,diets:Number(d.dietCount)>0,dietCount:a?d.dietCount:''});
+  if(a&&'vehicleId' in d&&(d.vehicleId||'')!==(a.vehicle||''))await api('assignment-vehicle',{id:a.id,vehicleId:d.vehicleId});
   $('#modal').close();await load();toast('Puesto actualizado');}catch(ex){err.className='form-error error';err.textContent=ex.message;err.hidden=false;}};
 }
 async function lineUnassign(lineId,thenPick){
@@ -1427,7 +1438,7 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
   if(a==='wizard-add-day'){captureWizardPositions();const last=wizardPositions.at(-1)||{};const source=last.date||$('#service-wizard-form [name=date]')?.value||day();const next=new Date(source+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);const date=next.toISOString().slice(0,10);wizardPositions.push({...last,date,endDate:date,workerId:''});return wizardRows()}
   if(a==='wizard-remove-position'){captureWizardPositions();wizardPositions.splice(Number(el.dataset.index),1);return wizardRows()}
   if(a==='add-slot')return editor('orderLines','',{serviceId:id});
-  if(a==='assign-slot'){pickerQuery='';pickerShowAll=false;return assignPicker(id);}
+  if(a==='assign-slot'){pickerQuery='';pickerShowAll=false;pickerVehicle='';return assignPicker(id);}
   if(a==='assign-service')return editor('assignments','',{serviceId:id});
  if(a==='worker-user'){const existing=list('users').find(u=>u.workerId===id);return existing?editor('users',existing.id):editor('users','',{workerId:id,name:name('workers',id)});}
  if(a==='worker-document')return editor('documents','',{workerId:id});
