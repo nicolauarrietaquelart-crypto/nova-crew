@@ -480,13 +480,25 @@ export function createOfficeApi(storage,env={}){
      await audit(db,actor,'availability-weekly','workers',targetId);return {record:value};
     }
     if(op==='employee-profile'){
-     if(!actor.workerId)fail('No tienes ficha de trabajador.',403);
-     const allowed=['nationality','postalCode','city','province','country','shirtSize','drivingLicense','ownVehicle','languages','skills','education','contactNotes','preferredPhone'];
-     const input=b.record||{},old=await db.get(key('employeeProfiles',actor.workerId))||{};
+     const isMgr=actor.role==='manager',wid=isMgr?required(b.workerId,'el trabajador'):actor.workerId;
+     if(!wid)fail('No tienes ficha de trabajador.',403);
+     const allowed=['nationality','postalCode','city','province','country','shirtSize','drivingLicense','ownVehicle','languages','skills','education','contactNotes','preferredPhone',
+      'firstName','lastName1','lastName2','docId','sex','birthDate','disability','streetType','streetName','number','stair','floor','door','district','phone2','mobile','email','ssn',
+      'unemployment','availabilityKind','pantsSize','shoeSize','licenses','skillsTech','skillsPro','skillsGeneral'];
+     const LOCKED=['firstName','lastName1','lastName2','docId','birthDate','ssn'];
+     const input=b.record||{},old=await db.get(key('employeeProfiles',wid))||{};
      revision(old.revision?old:null,input);
-     const update={};for(const field of allowed)if(Object.hasOwn(input,field))update[field]=Array.isArray(input[field])?input[field].slice(0,30).map(x=>text(x,100)):text(input[field],250);
-     const value={...old,...update,workerId:actor.workerId,revision:(old.revision||0)+1,updatedAt:now()};
-     await db.put(key('employeeProfiles',actor.workerId),value);await audit(db,actor,'employee-profile','workers',actor.workerId);return {record:value};
+     const update={};for(const field of allowed)if(Object.hasOwn(input,field)){if(!isMgr&&LOCKED.includes(field)&&old[field])continue;update[field]=Array.isArray(input[field])?input[field].slice(0,30).map(x=>text(x,100)).filter(Boolean):text(input[field],250);}
+     if(Array.isArray(input.vehicles))update.vehicles=input.vehicles.slice(0,10).map(v=>({type:text(v?.type,40),seats:text(v?.seats,4),model:text(v?.model,80),plate:text(v?.plate,20).toUpperCase()})).filter(v=>v.type||v.model||v.plate);
+     if(Array.isArray(input.langLevels))update.langLevels=input.langLevels.slice(0,20).map(v=>({lang:text(v?.lang,40),level:text(v?.level,20)})).filter(v=>v.lang);
+     if(update.docId)update.docId=update.docId.toUpperCase().replace(/\s+/g,'');
+     if(update.langLevels)update.languages=update.langLevels.map(l=>l.lang);
+     const value={...old,...update,workerId:wid,revision:(old.revision||0)+1,updatedAt:now()};
+     await db.put(key('employeeProfiles',wid),value);
+     const w=await db.get(key('workers',wid));if(w){const patch={};if(update.mobile&&update.mobile!==w.phone)patch.phone=update.mobile;if(update.email&&update.email!==w.email)patch.email=update.email;if(update.docId&&!w.taxId)patch.taxId=update.docId;
+      if(update.streetName){const adr=[value.streetType,value.streetName,value.number,value.floor&&value.floor+'º',value.door].filter(Boolean).join(' ')+(value.postalCode||value.city?', '+[value.postalCode,value.city].filter(Boolean).join(' '):'');if(adr!==w.address)patch.address=adr;}
+      if(Object.keys(patch).length)await db.put(key('workers',wid),{...w,...patch,revision:(w.revision||0)+1,updatedAt:now()});}
+     await audit(db,actor,'employee-profile','workers',wid);return {record:value};
     }
     if(op==='message-send'){
      const recipientId=text(b.recipientId),content=required(b.content,'el mensaje');

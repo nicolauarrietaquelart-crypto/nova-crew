@@ -414,3 +414,13 @@ test('v53 · a manager deletes a service without clock-ins; with clock-ins it is
  const s1=(await f.call('state',null,f.g)).body.services.find(s=>s.id===f.svc.id);
  assert.equal((await f.call('service-delete',{id:s1.id,revision:s1.revision},f.g)).status,409);
 });
+
+test('v54 · the worker fills their ficha; locked fields stay; the manager sees it all',async()=>{
+ const f=await setup();
+ const r=await f.call('employee-profile',{record:{firstName:'Hand',lastName1:'Uno',docId:'12345678z',mobile:'611222333',email:'h@x.es',vehicles:[{type:'Coche',seats:'5',model:'VW Polo',plate:'0969mlf'},{}],langLevels:[{lang:'Inglés',level:'Alto'}],skillsTech:['Rigging'],availabilityKind:['Total']}},f.h);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.record.docId,'12345678Z');assert.equal(r.body.record.vehicles.length,1);assert.equal(r.body.record.vehicles[0].plate,'0969MLF');
+ const r2=await f.call('employee-profile',{record:{docId:'00000000T',city:'Barcelona',revision:r.body.record.revision}},f.h);
+ assert.equal(r2.status,200);assert.equal(r2.body.record.docId,'12345678Z','locked once set');assert.equal(r2.body.record.city,'Barcelona');
+ const st=(await f.call('state',null,f.g)).body;const p=st.employeeProfiles.find(x=>x.workerId===f.aHand.workerId);
+ assert.deepEqual(p.langLevels,[{lang:'Inglés',level:'Alto'}]);assert.equal(st.workers.find(w=>w.id===f.aHand.workerId).phone,'611222333');
+});

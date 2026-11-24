@@ -5,7 +5,7 @@ const euro=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).f
 const today=()=>new Date().toLocaleDateString('en-CA');
 const human=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'short'}):'—';
 const stamp=d=>d?new Date(d).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-const names={dashboard:'Inicio',clock:'Fichaje',availability:'Disponibilidad',services:'Mis servicios',calendar:'Mi agenda',coordination:'Coordinación',crewControl:'Crew Control',company:'Datos empresa',training:'Formación',documents:'Documentación',tutorials:'Tutoriales',settlements:'Liquidaciones',contracts:'Contratos',messages:'Mensajes',profile:'Mi perfil',service:'Servicio'};
+const names={dashboard:'Inicio',clock:'Fichaje',availability:'Disponibilidad',services:'Mis servicios',calendar:'Mi agenda',coordination:'Coordinación',crewControl:'Crew Control',company:'Datos empresa',training:'Formación',documents:'Documentación',tutorials:'Tutoriales',settlements:'Liquidaciones',contracts:'Contratos',messages:'Mensajes',profile:'Mi ficha',service:'Servicio'};
 const navPaths={
  crewControl:'M3 4h18v16H3z M8 9h8 M8 13h8 M8 17h5',
  dashboard:'m3 10 9-7 9 7v10H4V10 M9 20v-7h6v7',
@@ -147,15 +147,20 @@ function dashboard(){
  if(focus&&!isLive){nextServiceCountdown();if(nextCountTimer)clearInterval(nextCountTimer);nextCountTimer=setInterval(()=>{if($('#next-countdown'))nextServiceCountdown();else{clearInterval(nextCountTimer);nextCountTimer=null}},1000)}
 }
 let servicesTab='upcoming';
+function coordServiceCard(e){const s=service(e.serviceId),b=(state.coordinatorBlocks||[]).find(x=>x.id===e.blockId)||{},d=new Date(e.date+'T12:00:00'),rs=e.rows.length?e.rows:(state.coordinatorRoster||[]).filter(a=>a.blockId===e.blockId&&a.date===e.date),hrs=rs.length?rs.map(r=>r.start).sort()[0]+'–'+rs.map(r=>r.end).sort().slice(-1)[0]:'';
+ return '<button class="coord-card coord-svc" data-action="coord-enter" data-id="'+esc(e.key)+'"><div class="date-tile '+(e.date===today()?'today':'')+'"><strong>'+d.getDate()+'</strong><small>'+d.toLocaleDateString('es-ES',{month:'short'})+'</small></div><div class="coord-card-main"><strong>'+esc(s.name||'Servicio')+'</strong><small>'+esc((e.date===today()?'Hoy':human(e.date))+(hrs?' · '+hrs:'')+' · '+(s.venue||''))+'</small><span class="coord-role">COORDINADOR'+(b.serviceType?' · '+esc(b.serviceType):'')+'</span></div><span class="coord-go">›</span></button>';}
 function servicesPage(){
  const all=myAssignments();
  const groups={upcoming:all.filter(a=>!shiftClosed(a)&&['upcoming','live'].includes(shiftState(a))&&a.status!=='rejected').sort((a,b)=>startMs(a)-startMs(b)),pending:all.filter(a=>!shiftClosed(a)&&a.status==='pending'&&endMs(a)>Date.now()).sort((a,b)=>startMs(a)-startMs(b)),history:all.filter(a=>shiftClosed(a)||['past','done'].includes(shiftState(a))||a.status==='rejected').sort((a,b)=>startMs(b)-startMs(a))};
  if(servicesTab==='history')servicesTab='upcoming';
+ /* Servicios que coordino sin turno propio visible ese día: también son «mis servicios». */
+ let coordOnly=[];try{coordOnly=coordEntries().filter(e=>!groups.upcoming.some(a=>a.serviceId===e.serviceId&&a.date===e.date));}catch(e){}
+ const upCount=groups.upcoming.length+coordOnly.length;
  const tabs=[['upcoming','Próximos'],['pending','Por confirmar']];
  const rows=groups[servicesTab]||[];
  $('#employee-content').innerHTML='<div class="section-title"><h2>Mis servicios</h2><p class="muted">Confirma tus turnos, consulta los detalles y ficha desde aquí.</p></div>'+
- '<div class="seg">'+tabs.map(([k,l])=>'<button class="'+(servicesTab===k?'active':'')+'" data-action="services-tab" data-tab="'+k+'">'+l+'<b>'+groups[k].length+'</b></button>').join('')+'</div>'+
- (rows.length?'<div class="service-list">'+rows.map(a=>serviceCard(a)).join('')+'</div>':'<div class="panel empty">'+({upcoming:'No tienes servicios próximos.',pending:'No tienes asignaciones pendientes de respuesta.',history:'Todavía no hay servicios en tu historial.'})[servicesTab]+'</div>');
+ '<div class="seg">'+tabs.map(([k,l])=>'<button class="'+(servicesTab===k?'active':'')+'" data-action="services-tab" data-tab="'+k+'">'+l+'<b>'+(k==='upcoming'?upCount:groups[k].length)+'</b></button>').join('')+'</div>'+
+ (rows.length||(servicesTab==='upcoming'&&coordOnly.length)?'<div class="service-list">'+(servicesTab==='upcoming'?coordOnly.map(coordServiceCard).join(''):'')+rows.map(a=>serviceCard(a)).join('')+'</div>':'<div class="panel empty">'+({upcoming:'No tienes servicios próximos.',pending:'No tienes asignaciones pendientes de respuesta.',history:'Todavía no hay servicios en tu historial.'})[servicesTab]+'</div>');
 }
 function calendarPage(){
  const [y,m]=month.split('-').map(Number),first=new Date(y,m-1,1),last=new Date(y,m,0).getDate(),offset=(first.getDay()+6)%7;
@@ -520,19 +525,50 @@ function downloadPayroll(){
 }
 
 let profileTab='personal';
+/* v54 · Ficha del trabajador por pasos (Datos personales → Datos perfil → Idiomas y conocimientos → Fotografía) */
+const PF=()=>window.NOVA_PROFILE;
+function pfField(f,p){const [k,label,o={}]=f,v=p[k],id='pf-'+k,req=o.req?'<i class="pf-req">*</i>':'';
+ const lab='<span class="pf-lab">'+esc(label)+req+'</span>';
+ if(o.type==='multi'){const set=new Set(Array.isArray(v)?v:[]);return '<div class="pf-f wide" data-k="'+k+'">'+lab+'<div class="pf-chips">'+o.opts.map(x=>'<label class="pf-chip"><input type="checkbox" name="'+k+'" value="'+esc(x)+'" '+(set.has(x)?'checked':'')+'><span>'+esc(x)+'</span></label>').join('')+'</div></div>';}
+ if(o.type==='radio')return '<div class="pf-f" data-k="'+k+'">'+lab+'<div class="pf-chips">'+o.opts.map(x=>'<label class="pf-chip"><input type="radio" name="'+k+'" value="'+esc(x)+'" '+(v===x?'checked':'')+'><span>'+esc(x)+'</span></label>').join('')+'</div></div>';
+ if(o.type==='check')return '<div class="pf-f wide" data-k="'+k+'"><label class="pf-chip pf-single"><input type="checkbox" name="'+k+'" value="'+esc(o.on)+'" '+(v===o.on?'checked':'')+'><span>'+esc(label)+'</span></label></div>';
+ if(o.type==='rows'){const rs=(Array.isArray(v)?v:[]).concat([{}]);return '<div class="pf-f wide" data-k="'+k+'">'+lab+'<div class="pf-rows" data-cols="'+o.cols.length+'"><div class="pf-row pf-row-h">'+o.cols.map(c=>'<span>'+esc(c[1])+'</span>').join('')+'<span></span></div>'+rs.map(r=>pfRow(o.cols,r)).join('')+'</div><button type="button" class="pf-add" data-action="pf-row-add" data-id="'+k+'">＋ '+esc(o.add)+'</button></div>';}
+ if(o.type==='tags'){const t=Array.isArray(v)?v:[];return '<div class="pf-f wide" data-k="'+k+'">'+lab+'<div class="pf-tags">'+t.map(x=>'<span class="pf-tag" data-v="'+esc(x)+'">'+esc(x)+'<button type="button" data-action="pf-tag-del" aria-label="Quitar">×</button></span>').join('')+'<input class="pf-tag-in" placeholder="'+esc(o.ph||'Añadir conocimiento')+'"><button type="button" class="pf-tag-add" data-action="pf-tag-add">＋</button></div></div>';}
+ const locked=o.lock&&v;const cls='pf-f'+(o.wide?' wide':'')+(o.sm?' sm':'');
+ const ctl=o.opts?'<select id="'+id+'" name="'+k+'" '+(locked?'disabled':'')+'><option value="">Seleccionar…</option>'+o.opts.map(x=>'<option '+(v===x?'selected':'')+'>'+esc(x)+'</option>').join('')+(v&&!o.opts.includes(v)?'<option selected>'+esc(v)+'</option>':'')+'</select>':
+  '<input id="'+id+'" name="'+k+'" type="'+(o.type||'text')+'" value="'+esc(v??'')+'" '+(o.min!=null?'min="'+o.min+'" max="'+o.max+'" ':'')+(o.ph?'placeholder="'+esc(o.ph)+'" ':'')+(locked?'readonly class="locked" title="Para cambiarlo, contacta con la oficina"':'')+'>';
+ return '<label class="'+cls+'" data-k="'+k+'">'+lab+ctl+(o.hint?'<small class="pf-hint">'+esc(o.hint)+'</small>':'')+'</label>';}
+function pfRow(cols,r){return '<div class="pf-row">'+cols.map(([c,l,o={}])=>o.opts?'<select data-c="'+c+'" aria-label="'+esc(l)+'"><option value="">'+esc(l)+'</option>'+o.opts.map(x=>'<option '+(r[c]===x?'selected':'')+'>'+esc(x)+'</option>').join('')+'</select>':'<input data-c="'+c+'" type="'+(o.type||'text')+'" value="'+esc(r[c]??'')+'" placeholder="'+esc(o.ph||l)+'" aria-label="'+esc(l)+'">').join('')+'<button type="button" class="pf-del" data-action="pf-row-del" title="Eliminar" aria-label="Eliminar">'+CI_TRASH+'</button></div>';}
+const CI_TRASH='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
+function pfCollect(step){const form=$('#pf-form'),out={};for(const g of step.groups)if(Array.isArray(g))for(const [k,,o={}] of g){const box=form.querySelector('[data-k="'+k+'"]');if(!box)continue;
+ if(o.type==='multi')out[k]=[...box.querySelectorAll('input:checked')].map(i=>i.value);
+ else if(o.type==='radio'){const c=box.querySelector('input:checked');out[k]=c?c.value:'';}
+ else if(o.type==='check')out[k]=box.querySelector('input').checked?o.on:'No';
+ else if(o.type==='rows')out[k]=[...box.querySelectorAll('.pf-row:not(.pf-row-h)')].map(r=>Object.fromEntries([...r.querySelectorAll('[data-c]')].map(i=>[i.dataset.c,i.value.trim()]))).filter(r=>Object.values(r).some(Boolean));
+ else if(o.type==='tags')out[k]=[...box.querySelectorAll('.pf-tag')].map(t=>t.dataset.v).concat(box.querySelector('.pf-tag-in').value.trim()?[box.querySelector('.pf-tag-in').value.trim()]:[]);
+ else{const i=box.querySelector('input,select');if(i&&!i.readOnly&&!i.disabled)out[k]=i.value.trim();}}
+ return out;}
 function profilePage(){
- const w=worker(),p=state.profile||{},type=({eventual:'Eventual / por servicio',indefinite:'Indefinido',fixed_discontinuous:'Fijo discontinuo'})[w.contractType]||'Eventual / por servicio';
- const tabs=[['personal','Datos personales'],['work','Datos laborales'],['skills','Idiomas y conocimientos']];
- const line=(a,b)=>'<div class="line"><span>'+esc(a)+'</span><strong>'+esc(Array.isArray(b)?b.join(', '):b||'—')+'</strong></div>';
- const content=profileTab==='personal'?
- line('Nombre',w.name||state.user.name)+line('Correo',w.email)+line('Móvil',w.phone)+line('Nacionalidad',p.nationality)+line('Ciudad',p.city)+line('Código postal',p.postalCode)+line('Provincia',p.province)+line('País',p.country):
- profileTab==='work'?line('Especialidad',w.specialty)+line('Tipo de contrato',type)+line('Alta',w.startDate)+line('Fin de contrato',w.endDate)+line('Talla',p.shirtSize)+line('Carnet de conducir',p.drivingLicense)+line('Vehículo',p.ownVehicle):
- line('Idiomas',p.languages)+line('Carnets / conocimientos',p.skills)+line('Formación académica',p.education);
- $('#employee-content').innerHTML='<div class="actions-row" style="margin-bottom:15px">'+btn('upload-photo','Actualizar fotografía','','primary')+btn('edit-profile','Editar datos')+'</div>'+
- '<div class="profile-tabs">'+tabs.map(([k,l])=>'<button type="button" class="'+(k===profileTab?'active':'')+'" data-action="profile-tab" data-tab="'+k+'">'+esc(l)+'</button>').join('')+'</div>'+
- box(tabs.find(([k])=>k===profileTab)?.[1]||'Mi perfil',content)+
- box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Para modificar tus datos de contratación, contacta con la oficina.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+'</div>');
+ const P=PF();if(!P){$('#employee-content').innerHTML='<div class="panel empty">Cargando…</div>';return;}
+ const p=P.normalize(state.profile),steps=P.steps;if(!steps.some(s=>s.key===profileTab))profileTab='personal';
+ const i=steps.findIndex(s=>s.key===profileTab),step=steps[i],c=P.completion(p);
+ const body=step.key==='photo'?'<div class="pf-photo"><div class="pf-photo-pic">'+(state.user.hasPhoto||photoVer?'<img src="'+photoUrl()+'" alt="" onerror="this.remove()">':'')+'<span>'+esc((state.user.name||'?').split(' ').map(x=>x[0]).slice(0,2).join(''))+'</span></div><div><b>Tu fotografía</b><p class="muted">Una foto de frente, con fondo claro. La verá tu coordinador para identificarte en el servicio.</p><div class="actions-row">'+btn('upload-photo','Subir / cambiar fotografía','','primary')+'</div></div></div>':
+  step.groups.map(g=>g==='—'?'<hr class="pf-sep">':'<div class="pf-grid">'+g.map(f=>pfField(f,p)).join('')+'</div>').join('');
+ $('#employee-content').innerHTML='<div class="section-title"><h2>Mi ficha</h2><p class="muted">Cumplimenta con atención todos los campos. Los marcados con <i class="pf-req">*</i> son obligatorios.</p></div>'+
+ '<div class="pf-progress"><div><b>Ficha completada al '+c.pct+'%</b><small>'+c.done+' de '+c.total+' campos obligatorios</small></div><span><i style="width:'+c.pct+'%"></i></span></div>'+
+ '<nav class="pf-steps">'+steps.map((s,j)=>'<button type="button" class="'+(j===i?'active':j<i?'done':'')+'" data-action="profile-tab" data-tab="'+s.key+'"><b>'+(j+1)+'</b>'+esc(s.label)+'</button>').join('')+'</nav>'+
+ '<form id="pf-form" class="panel pf-form" novalidate>'+body+'<div class="pf-foot">'+(i>0?'<button type="button" class="secondary" data-action="profile-tab" data-tab="'+steps[i-1].key+'">Anterior</button>':'<span></span>')+(step.key==='photo'?'<button type="button" class="primary" data-page="dashboard">Terminar</button>':'<button type="submit" class="primary">Guardar y siguiente</button>')+'</div></form>'+
+ box('Seguridad','<p class="muted">Puedes cambiar tu contraseña. Los campos en gris (nombre, DNI/NIE, fecha de nacimiento y Nº SS) solo los puede cambiar la oficina una vez guardados.</p><div class="actions-row" style="margin-top:12px">'+btn('password','Cambiar contraseña')+'</div>');
+ const form=$('#pf-form');
+ form.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('pf-tag-in')){e.preventDefault();pfAddTag(e.target.closest('.pf-tags'));}});
+ form.onsubmit=async e=>{e.preventDefault();const data=pfCollect(step);form.querySelectorAll('.pf-bad').forEach(x=>x.classList.remove('pf-bad'));
+  const missing=[];for(const g of step.groups)if(Array.isArray(g))for(const [k,l,o={}] of g){if(!o.req)continue;const cur=Object.hasOwn(data,k)?data[k]:p[k];if(Array.isArray(cur)?!cur.length:!String(cur??'').trim()){missing.push(l);form.querySelector('[data-k="'+k+'"]')?.classList.add('pf-bad');}}
+  if(data.drivingLicense==='Sí'&&Array.isArray(data.licenses)&&!data.licenses.length){missing.push('Permisos de conducir');form.querySelector('[data-k="licenses"]')?.classList.add('pf-bad');}
+  if(missing.length){error(new Error('Faltan campos obligatorios: '+missing.join(', ')));form.querySelector('.pf-bad')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(data.docId&&!/^([0-9]{8}[A-Z]|[XYZ][0-9]{7}[A-Z])$/i.test(data.docId.replace(/\s|-/g,''))){form.querySelector('[data-k="docId"]').classList.add('pf-bad');return error(new Error('El DNI/NIE no tiene un formato válido (12345678A o X1234567A).'));}
+  try{const sb=form.querySelector('[type=submit]');sb.disabled=true;await api('employee-profile',{record:{...data,revision:state.profile?.revision}});formDirty=false;await load();profileTab=steps[i+1].key;profilePage();window.scrollTo({top:0,behavior:'smooth'});notice('Datos guardados');}catch(err){error(err);form.querySelector('[type=submit]').disabled=false;}};
 }
+function pfAddTag(box){const inp=box.querySelector('.pf-tag-in'),v=inp.value.trim();if(!v)return;if(![...box.querySelectorAll('.pf-tag')].some(t=>t.dataset.v.toLowerCase()===v.toLowerCase())){const t=document.createElement('span');t.className='pf-tag';t.dataset.v=v;t.innerHTML=esc(v)+'<button type="button" data-action="pf-tag-del" aria-label="Quitar">×</button>';box.insertBefore(t,inp);}inp.value='';inp.focus();formDirty=true;}
 /* Original v15 clock opens as a modal, without replacing the current page. */
 let clockSelection='',clockCountdown=null;
 function clockAssignments(){
@@ -972,7 +1008,7 @@ function initialsOf(n){return esc(String(n||'').split(' ').slice(0,2).map(x=>x.c
 function renderTopAvatar(){
  const head=document.querySelector('header.top');if(!head)return;head.querySelector('.session-pill')?.remove();
  let b=$('#emp-top-avatar');if(!b){b=document.createElement('button');b.id='emp-top-avatar';b.type='button';b.className='emp-top-avatar';b.dataset.page='profile';head.appendChild(b);}
- b.title=state.user.name+' · Mi perfil';b.setAttribute('aria-label','Mi perfil');
+ b.title=state.user.name+' · Mi ficha';b.setAttribute('aria-label','Mi ficha');
  b.innerHTML=state.hasProfilePhoto?'<img alt="" src="'+photoUrl()+'">':'<span>'+initialsOf(state.user.name)+'</span>';
 }
 function extendedProfile(){
@@ -1216,7 +1252,11 @@ document.addEventListener('click',async ev=>{
  if(action==='offer-answer')return answerOffer(id,el.dataset.answer);
  if(action==='bell-close')return toggleBellPanel(false);
  if(action==='edit-profile')return extendedProfile();
- if(action==='profile-tab'){profileTab=el.dataset.tab;return profilePage()}
+ if(action==='profile-tab'){profileTab=el.dataset.tab;formDirty=false;return profilePage()}
+ if(action==='pf-row-add'){const k=el.dataset.id,f=PF().fields().find(x=>x[0]===k);el.previousElementSibling.insertAdjacentHTML('beforeend',pfRow(f[2].cols,{}));return;}
+ if(action==='pf-row-del'){const r=el.closest('.pf-row'),wrap=r.parentElement;r.remove();if(!wrap.querySelector('.pf-row:not(.pf-row-h)')){const k=wrap.closest('[data-k]').dataset.k;wrap.insertAdjacentHTML('beforeend',pfRow(PF().fields().find(x=>x[0]===k)[2].cols,{}));}formDirty=true;return;}
+ if(action==='pf-tag-add')return pfAddTag(el.closest('.pf-tags'));
+ if(action==='pf-tag-del'){el.closest('.pf-tag').remove();formDirty=true;return;}
  if(action==='upload-photo')return employeePhotoModal();
  if(action==='document-upload')return uploadPersonalDocument();
  if(action==='payroll-month'){selectedPayrollMonth=el.dataset.month;return settlementsPage()}

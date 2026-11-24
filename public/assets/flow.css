@@ -859,3 +859,72 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 @keyframes pwPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
 .modal-card,.modal>div{animation:pwRise .22s ease}
 @media (prefers-reduced-motion:reduce){#content>*,.modal-card,.qrc-ok,.live-dot{animation:none!important}}
+
+/* ===== v54 · Mi ficha por pasos ===== */
+.pf-progress{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid var(--line,#e8e8ec);border-radius:14px;padding:12px 16px;margin-bottom:14px}
+.pf-progress>div{flex:none}.pf-progress small{display:block;color:#8a8f98;font-size:12px}
+.pf-progress>span{flex:1;height:8px;border-radius:99px;background:#f1f1f4;overflow:hidden}
+.pf-progress>span i{display:block;height:100%;background:linear-gradient(90deg,#ff8a1f,#ff6a00);border-radius:99px;transition:width .5s ease}
+.pf-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-bottom:14px;border-radius:12px;overflow:hidden;background:#f1f1f4}
+.pf-steps button{position:relative;border:0;background:transparent;padding:13px 10px 13px 22px;font:600 13.5px/1.2 inherit;color:#3b3f46;text-align:left;display:flex;align-items:center;gap:8px;cursor:pointer;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.pf-steps button:first-child{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%);padding-left:14px}
+.pf-steps button b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:12px;flex:none}
+.pf-steps button.active{background:#ff7a00;color:#fff}.pf-steps button.active b{color:#ff7a00}
+.pf-steps button.done{background:#ffe7d1;color:#a04a00}
+.pf-form{padding:18px 18px 14px}
+.pf-grid{display:flex;flex-wrap:wrap;gap:12px 14px;margin-bottom:12px}
+.pf-f{display:flex;flex-direction:column;gap:5px;flex:1 1 190px;min-width:0}
+.pf-f.sm{flex:0 1 96px}.pf-f.wide{flex:1 1 100%}
+.pf-lab{font-size:12.5px;font-weight:700;color:#3b3f46}
+.pf-req{color:#ff6a00;font-style:normal;margin-left:2px}
+.pf-f input,.pf-f select,.pf-row input,.pf-row select,.pf-tag-in{height:42px;border:1px solid #dcdde2;border-radius:10px;padding:0 12px;font:inherit;font-size:14.5px;background:#fff;width:100%;min-width:0;transition:border-color .15s,box-shadow .15s}
+.pf-f input:focus,.pf-f select:focus,.pf-row input:focus,.pf-row select:focus,.pf-tag-in:focus{outline:0;border-color:#ff8a1f;box-shadow:0 0 0 3px rgba(255,138,31,.18)}
+.pf-f input.locked,.pf-f select:disabled{background:#eeeff2;color:#6b7078}
+.pf-hint{font-size:11.5px;color:#8a8f98;font-style:italic}
+.pf-bad input,.pf-bad select,.pf-bad .pf-chips,.pf-bad .pf-rows{border-color:#e5484d!important;box-shadow:0 0 0 3px rgba(229,72,77,.12)}
+.pf-bad .pf-lab{color:#c4282d}
+.pf-sep{border:0;border-top:1px dashed #e2e3e8;margin:6px 0 16px}
+.pf-chips{display:flex;flex-wrap:wrap;gap:8px;border-radius:10px}
+.pf-chip{display:inline-flex;cursor:pointer}.pf-chip input{position:absolute;opacity:0;pointer-events:none}
+.pf-chip span{padding:9px 14px;border:1px solid #dcdde2;border-radius:99px;font-size:13.5px;font-weight:600;background:#fff;transition:all .15s}
+.pf-chip input:checked+span{background:#ff7a00;border-color:#ff7a00;color:#fff}
+.pf-chip input:focus-visible+span{box-shadow:0 0 0 3px rgba(255,138,31,.3)}
+.pf-single span{border-radius:10px}
+.pf-rows{display:flex;flex-direction:column;gap:8px;border-radius:10px}
+.pf-row{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr)) 40px;gap:8px;align-items:center}
+.pf-rows[data-cols="2"] .pf-row{--n:2}.pf-rows[data-cols="4"] .pf-row{grid-template-columns:1.3fr .6fr 1.4fr 1fr 40px}
+.pf-row-h span{font-size:11.5px;font-weight:700;color:#8a8f98;text-transform:uppercase;letter-spacing:.03em}
+.pf-del{width:40px;height:40px;border:1px solid #f1d0d0;border-radius:10px;background:#fff;color:#c4282d;display:grid;place-items:center;cursor:pointer}
+.pf-add{align-self:flex-start;border:0;background:none;color:#ff6a00;font-weight:700;padding:6px 0;cursor:pointer}
+.pf-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border:1px solid #dcdde2;border-radius:10px;padding:6px;background:#fff}
+.pf-tag{display:inline-flex;align-items:center;gap:4px;background:#fff1e3;color:#8a3c00;border-radius:99px;padding:5px 6px 5px 11px;font-size:13px;font-weight:600}
+.pf-tag button{border:0;background:rgba(0,0,0,.08);width:20px;height:20px;border-radius:50%;cursor:pointer;line-height:1}
+.pf-tag-in{flex:1;min-width:160px;border:0!important;box-shadow:none!important;height:34px}
+.pf-tag-add{width:34px;height:34px;border:0;border-radius:8px;background:#f1f1f4;font-weight:800;cursor:pointer}
+.pf-foot{display:flex;justify-content:space-between;gap:10px;padding-top:14px;border-top:1px dashed #e2e3e8;margin-top:6px}
+.pf-photo{display:flex;gap:20px;align-items:center;padding:8px 0 16px}
+.pf-photo-pic{position:relative;width:120px;height:120px;border-radius:50%;background:#ffe7d1;color:#a04a00;display:grid;place-items:center;font-size:36px;font-weight:800;overflow:hidden;flex:none}
+.pf-photo-pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pf-photo p{margin:6px 0 12px}
+@media (max-width:700px){
+ .pf-steps{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .pf-steps button{flex-direction:column;align-items:center;text-align:center;font-size:11px;padding:9px 8px 9px 14px;gap:4px}
+ .pf-steps button:first-child{padding-left:6px}
+ .pf-f{flex:1 1 100%}.pf-f.sm{flex:1 1 calc(50% - 7px)}
+ .pf-row,.pf-rows[data-cols="4"] .pf-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px}
+ .pf-rows[data-cols="4"] .pf-row{padding-bottom:8px;border-bottom:1px dashed #eceef1}
+ .pf-rows[data-cols="4"] .pf-row>:nth-child(1){grid-area:1/1}.pf-rows[data-cols="4"] .pf-row>:nth-child(2){grid-area:1/2}
+ .pf-rows[data-cols="4"] .pf-row>:nth-child(3){grid-area:2/1}.pf-rows[data-cols="4"] .pf-row>:nth-child(4){grid-area:2/2}
+ .pf-rows[data-cols="4"] .pf-row>.pf-del{grid-area:1/3/3/4;height:100%}
+ .pf-steps button{overflow-wrap:normal;word-break:normal;hyphens:auto;font-size:10.5px}
+ .pf-row-h{display:none!important}
+ .pf-photo{flex-direction:column;text-align:center}
+ .pf-progress{flex-direction:column;align-items:stretch;gap:8px}
+}
+/* gestoría: ficha completa del trabajador */
+.wpf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 20px}
+.wpf-grid .line{border-bottom:1px solid #f1f1f4;padding:8px 0;display:flex;flex-direction:column;gap:2px}
+.wpf-grid .line span{font-size:11.5px;color:#8a8f98;text-transform:uppercase;letter-spacing:.03em}
+.wpf-sec{margin-bottom:14px}.wpf-sec h4{margin:0 0 6px;font-size:14px;color:#ff6a00}
+.wpf-chip{display:inline-block;background:#fff1e3;color:#8a3c00;border-radius:99px;padding:3px 10px;margin:2px 4px 2px 0;font-size:12.5px;font-weight:600}
+.wpf-table{width:100%;border-collapse:collapse;font-size:13.5px}.wpf-table th{text-align:left;font-size:11.5px;color:#8a8f98;text-transform:uppercase;padding:6px 8px 6px 0}.wpf-table td{padding:7px 8px 7px 0;border-top:1px solid #f1f1f4}
