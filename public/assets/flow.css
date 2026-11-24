@@ -665,3 +665,12 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .wp-tabs{display:flex !important;flex-direction:row !important;align-items:center}
 .wp-tabs>button{width:auto !important;display:inline-flex !important;flex:0 0 auto;margin:0 !important}
 .wp-cat-cards{align-items:start}
+/* v49 · categorías: un bloque por grupo a lo ancho, en columnas iguales */
+.wp-cat-cards{display:flex !important;flex-direction:column;gap:12px}
+.wp-cat-card header{padding:10px 16px}
+.wp-cat-list{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 10px;padding:8px 10px}
+.wp-cat-item{min-height:44px}
+.wp-summary-grid{grid-template-columns:1fr}
+@media (max-width:1100px){.wp-cat-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){.wp-cat-list{grid-template-columns:1fr}}
+.wp-cat-cards{align-items:stretch !important}.wp-cat-card{width:100%}

@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v49 · Categorías ordenadas
+
+- En la ficha del trabajador, cada grupo de categorías ocupa todo el ancho, con las categorías en orden alfabético y en columnas iguales.
+- La disponibilidad habitual solo aparece en su pestaña (ya no se repite en Resumen).
+
 ## Novedades v48 · Ficha del trabajador por pestañas
 
 - La ficha del trabajador (gestión) se organiza en **subpáginas**: Resumen, Datos, Categorías, Disponibilidad, Valoración y control, Contratos, Turnos y Documentos.
