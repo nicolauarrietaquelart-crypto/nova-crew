@@ -394,3 +394,23 @@ test('v52: geolocation clock only for the block coordinator, or when the block h
  const mine=(await f.call('state',null,f.h)).body.assignments;
  assert.equal(mine.find(x=>x.id===aH1.id).geoClock,false);assert.equal(mine.find(x=>x.id===aH2.id).geoClock,true);
 });
+
+test('v53 · scanning a QR returns the worker card and marks them present',async()=>{
+ const f=await setup();
+ const qr=await f.call('qr-issue',{id:f.aHand.id},f.h);assert.equal(qr.status,200);
+ const r=await f.call('qr-redeem',{token:qr.body.token},f.c);assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.status,'present');assert.equal(r.body.info.name,'Hand');assert.equal(r.body.info.role,'HAND B');assert.equal(r.body.info.start,'08:00');assert.equal(r.body.info.serviceName,'Show');
+ const st=(await f.call('state',null,f.c)).body;const row=st.coordinatorRoster.find(x=>x.id===f.aHand.id);assert.ok(row.checkIn);assert.equal(row.noShow,false);
+});
+
+test('v53 · a manager deletes a service without clock-ins; with clock-ins it is refused',async()=>{
+ const f=await setup();
+ const svc2=await f.save('services',{name:'Borrar',clientId:f.svc.clientId,venue:'X',date:f.svc.date,endDate:f.svc.date,start:'18:00',end:'22:00',required:1});
+ const a=await f.save('assignments',{serviceId:svc2.id,workerId:f.aHand.workerId,role:'HAND B',date:svc2.date,endDate:svc2.date,start:'18:00',end:'22:00',costRate:9.3,chargeRate:18.6});
+ assert.equal((await f.call('service-delete',{id:svc2.id,revision:svc2.revision},f.c)).status,403);
+ const ok=await f.call('service-delete',{id:svc2.id,revision:svc2.revision},f.g);assert.equal(ok.status,200,JSON.stringify(ok.body));
+ const st=(await f.call('state',null,f.g)).body;assert.ok(!st.services.some(s=>s.id===svc2.id&&!s.archived));assert.ok(!st.assignments.some(x=>x.id===a.id&&!x.archived));
+ const qr=await f.call('qr-issue',{id:f.aHand.id},f.h);await f.call('qr-redeem',{token:qr.body.token},f.c);
+ const s1=(await f.call('state',null,f.g)).body.services.find(s=>s.id===f.svc.id);
+ assert.equal((await f.call('service-delete',{id:s1.id,revision:s1.revision},f.g)).status,409);
+});

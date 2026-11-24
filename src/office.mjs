@@ -616,6 +616,17 @@ export function createOfficeApi(storage,env={}){
     }
     if(op==='assignment-vehicle'){managerOnly(actor);const a=await record(db,'assignments',required(b.id,'la asignación'));if(a.archived)fail('Asignación retirada.',409);const value={...a,revision:a.revision+1,updatedAt:now()};await syncAssignmentVehicle(db,actor,value,String(b.vehicleId||''));await db.put(key('assignments',a.id),value);await audit(db,actor,'assignment-vehicle','assignments',a.id,value.vehicle==='external'?'Vehículo externo':value.vehicle?'Vehículo propio':'Sin vehículo');return {record:value};}
     if(op==='vehicle-unbook'){managerOnly(actor);const x=await record(db,'vehicleBookings',required(b.id,'la reserva'));const value={...x,archived:true,revision:x.revision+1,updatedAt:now()};await db.put(key('vehicleBookings',x.id),value);await audit(db,actor,'vehicle-unbook','vehicles',x.vehicleId,dmy(x.date)+' '+x.start+'–'+x.end);return {record:value};}
+    if(op==='service-delete'){
+     managerOnly(actor);const s=await record(db,'services',required(b.id,'el servicio'));revision(s,b);
+     const as=(await rows(db,'assignments')).filter(a=>a.serviceId===s.id&&!a.archived);
+     if(as.some(a=>a.checkIn))fail('Este servicio ya tiene fichajes: no se puede eliminar. Cancélalo o ciérralo.',409);
+     if(s.settlementStatus==='confirmed'||(await rows(db,'invoices')).some(i=>i.serviceId===s.id&&!i.archived))fail('Este servicio ya está liquidado o facturado: no se puede eliminar.',409);
+     const stamp=now(),arch=async(kind,r)=>db.put(key(kind,r.id),{...r,archived:true,revision:(r.revision||0)+1,updatedAt:stamp});
+     for(const a of as){if(a.vehicle)await syncAssignmentVehicle(db,actor,{...a,archived:true},'');await arch('assignments',a);}
+     for(const kind of ['orderLines','serviceBlocks','serviceDays','servicePlaces','serviceBlockOperators','offers'])for(const r of (await rows(db,kind)).filter(r=>r.serviceId===s.id&&!r.archived))await arch(kind,r);
+     for(const r of (await rows(db,'vehicleBookings')).filter(r=>r.serviceId===s.id&&!r.archived))await arch('vehicleBookings',r);
+     await arch('services',s);await audit(db,actor,'service-delete','services',s.id,(s.ref?s.ref+' · ':'')+s.name);return {};
+    }
     if(op==='diet-rate-set'){
      managerOnly(actor);const schedule=required(b.schedule,'la tarifa').slice(0,100);
      if(!(await tariffCatalog(db)).some(t=>(t.schedule||'Tarifa estándar 2026')===schedule))fail('Tarifa no encontrada.');
@@ -1188,8 +1199,10 @@ export function createOfficeApi(storage,env={}){
     const effectivePlace=a.placeId?await db.get(key('servicePlaces',a.placeId)):null;
     validateGeofence(effectivePlace?.lat!=null?{venueLat:effectivePlace.lat,venueLng:effectivePlace.lng,radiusMeters:effectivePlace.radiusMeters}:service,b);
      const stamp=now();if(ticket.action==='in'&&a.checkIn||ticket.action==='out'&&(!a.checkIn||a.checkOut))fail('El estado del fichaje ha cambiado. Genera otro QR.',409);
-    await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed'}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
-    await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);return {workerId:a.workerId,action:ticket.action,time:stamp};
+    await db.put(key('assignments',a.id),{...a,...(ticket.action==='in'?{checkIn:stamp,status:'confirmed',noShow:false,present:true}:{checkOut:stamp}),revision:a.revision+1,updatedAt:stamp});
+    await db.delete('office/qr/'+b.qrHash);await db.delete('office/qr-active/'+a.id);await audit(db,actor,'qr-'+ticket.action,'assignments',a.id);
+    const w=await db.get(key('workers',a.workerId)),ln=a.orderLineId?await db.get(key('orderLines',a.orderLineId)):null,bk=ln?.blockId?await db.get(key('serviceBlocks',ln.blockId)):null;
+    return {workerId:a.workerId,action:ticket.action,time:stamp,status:ticket.action==='in'?'present':'done',info:{name:w?.name||'',phone:w?.phone||'',role:a.role||ln?.role||'',serviceType:bk?.serviceType||ln?.serviceType||'',team:a.team||bk?.team||'',start:a.start,end:a.end,date:a.date,serviceName:service.name}};
    }
    
     if(op==='crew-attendance'){

@@ -16,6 +16,7 @@ const css=`.nqr{position:fixed;inset:0;z-index:2147483000;background:#0d0f12;col
 .nqr-bottom{padding:12px 16px max(16px,env(safe-area-inset-bottom));display:grid;gap:10px;background:#0d0f12}
 .nqr-manual{display:flex;gap:8px}.nqr-manual input{flex:1;min-width:0;border-radius:12px;border:1px solid #3a3e45;background:#17191d;color:#fff;padding:12px;font-size:14px}
 .nqr-manual button{border:0;border-radius:12px;background:#ff7f1f;color:#111;font-weight:800;padding:0 16px}
+.nqr-card{position:absolute;left:12px;right:12px;top:12px;z-index:3;animation:nqrIn .25s ease}.nqr-card[hidden]{display:none}@keyframes nqrIn{from{transform:translateY(-12px);opacity:0}to{transform:none;opacity:1}}
 .nqr-log{display:flex;gap:6px;overflow:auto;font-size:12px}.nqr-log span{white-space:nowrap;background:#1d2025;border-radius:99px;padding:6px 10px}.nqr-log span.ok{color:#7ee2a8}.nqr-log span.ko{color:#ff9a90}`;
 function open({title='Escanear QR',subtitle='',onToken}){
  if(!document.getElementById('nqr-style')){const st=document.createElement('style');st.id='nqr-style';st.textContent=css;document.head.append(st);}
@@ -31,7 +32,7 @@ function open({title='Escanear QR',subtitle='',onToken}){
   token=String(token||'').trim();if(!token||busy)return;
   if(token===last&&Date.now()-lastAt<6000)return;
   last=token;lastAt=Date.now();busy=true;say('Validando…');
-  try{const r=await onToken(token);say(r?.label||'Fichaje registrado','ok');log.insertAdjacentHTML('afterbegin','<span class="ok">✓ '+String(r?.short||r?.label||'Fichaje').replace(/[<>&]/g,'')+'</span>');navigator.vibrate?.(80);}
+  try{const r=await onToken(token);say(r?.label||'Fichaje registrado','ok');if(r?.card){let c=root.querySelector('.nqr-card');if(!c){c=document.createElement('div');c.className='nqr-card';root.querySelector('.nqr-stage').append(c);}c.innerHTML=r.card;c.hidden=false;clearTimeout(c._t);c._t=setTimeout(()=>{c.hidden=true},4500);c.onclick=()=>{c.hidden=true};}log.insertAdjacentHTML('afterbegin','<span class="ok">✓ '+String(r?.short||r?.label||'Fichaje').replace(/[<>&]/g,'')+'</span>');navigator.vibrate?.(80);}
   catch(e){say(e.message||'QR no válido','ko');log.insertAdjacentHTML('afterbegin','<span class="ko">✕ '+String(e.message||'Error').slice(0,60).replace(/[<>&]/g,'')+'</span>');navigator.vibrate?.([60,60,60]);}
   finally{busy=false;setTimeout(()=>{if(!closed&&!busy)say('Listo para el siguiente QR');},2200);}
  }
