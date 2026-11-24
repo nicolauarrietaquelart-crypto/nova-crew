@@ -330,3 +330,18 @@ test('v43: catering/pause/uniform/EPI/notes live on each service type and worker
  const e=await f.call('save',{kind:'services',record:{id:svc.id,revision:svc.revision,clientId:svc.clientId,name:'Renombrado',venue:svc.venue,date:svc.date,endDate:svc.endDate,tariffSchedule:svc.tariffSchedule}},f.g);
  assert.equal(e.status,200,JSON.stringify(e.body));assert.equal(e.body.record.name,'Renombrado');assert.equal(e.body.record.start,svc.start);assert.equal(e.body.record.status,svc.status);
 });
+
+test('v44: N/YYYY references shared by quotes and services, vehicles with clash-free bookings',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body;
+ assert.ok(st.services.every(s=>/^\d+\/\d{4}$/.test(s.ref)),'existing services get a reference');
+ const s1=await f.save('services',{...f.svc,id:undefined,revision:undefined,ref:undefined,name:'Nuevo A',date:'2027-01-10',endDate:'2027-01-10'});
+ const s2=await f.save('services',{...f.svc,id:undefined,revision:undefined,ref:undefined,name:'Nuevo B',date:'2027-01-11',endDate:'2027-01-11'});
+ assert.equal(s1.ref,'1/2027');assert.equal(s2.ref,'2/2027');
+ let r=await f.call('vehicle-save',{record:{name:'Furgo 1',plate:'1234abc'}},f.g);assert.equal(r.status,200,JSON.stringify(r.body));const v=r.body.record;assert.equal(v.plate,'1234ABC');
+ r=await f.call('vehicle-book',{record:{vehicleId:v.id,date:'2027-01-10',start:'08:00',end:'14:00',serviceId:s1.id}},f.g);assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.record.serviceName,'1/2027 · Nuevo A');
+ r=await f.call('vehicle-book',{record:{vehicleId:v.id,date:'2027-01-10',start:'13:00',end:'18:00',other:'Taller'}},f.g);assert.equal(r.status,409);
+ r=await f.call('vehicle-book',{record:{vehicleId:v.id,date:'2027-01-10',start:'14:00',end:'18:00',serviceId:'other',other:'Taller'}},f.g);assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.record.other,'Taller');
+ const hs=(await f.call('state',null,f.h)).body;assert.equal(hs.vehicles,undefined,'workers do not see vehicles');
+ const gs=(await f.call('state',null,f.g)).body;assert.equal(gs.vehicleBookings.length,2);
+});
