@@ -1,5 +1,13 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v55
+
+- Fichaje / escanear QR: solo salen los días que coordinas de verdad (tu bloque, tu día de Crew Head o, si coordinas el servicio entero, los días en que tienes turno) y solo desde 2 h antes del inicio hasta 1 h después del final. Se acabó que un servicio de varios días salga «Hoy» por sus fechas generales.
+- Coordinación y «Mis servicios» siguen la misma regla por día de bloque.
+- «Mostrar mi QR» no aparece para un turno que fichas por geolocalización (eres su coordinador).
+- **Plus de coordinación**: quien coordina (excepto Crew Head) cobra 0,63 €/h extra. Va a la liquidación del trabajador y al coste del servicio; no se cobra al cliente ni sale en la factura.
+- Gestoría: la pestaña «Ficha» ya no muestra el % en el menú de subpáginas.
+
 ## Novedades v54
 
 - **Mi ficha** en el área de empleado, por pasos como el portal de Penny Wise: Datos personales (nombre, apellidos, DNI/NIE, nacionalidad, sexo, nacimiento, discapacidad, dirección completa, teléfonos, email, Nº SS) → Datos perfil (desempleo, disponibilidad, tallas, nivel formativo, permisos de conducir y vehículos) → Idiomas y conocimientos (idiomas con nivel; conocimientos técnicos, profesionales y generales) → Fotografía. Campos obligatorios marcados, validación de DNI/NIE y barra de progreso. Nombre, DNI/NIE, nacimiento y Nº SS quedan bloqueados una vez guardados (solo la oficina los cambia).

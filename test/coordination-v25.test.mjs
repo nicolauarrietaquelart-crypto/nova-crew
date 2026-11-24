@@ -424,3 +424,17 @@ test('v54 · the worker fills their ficha; locked fields stay; the manager sees 
  const st=(await f.call('state',null,f.g)).body;const p=st.employeeProfiles.find(x=>x.workerId===f.aHand.workerId);
  assert.deepEqual(p.langLevels,[{lang:'Inglés',level:'Alto'}]);assert.equal(st.workers.find(w=>w.id===f.aHand.workerId).phone,'611222333');
 });
+
+test('v55 · the coordinator (not Crew Head) earns 0,63 €/h extra, not charged to the client',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body;
+ assert.equal(st.assignments.find(a=>a.id===f.aCoord.id).coordPlusRate,0.63);
+ assert.equal(st.assignments.find(a=>a.id===f.aHand.id).coordPlusRate,0);
+ const s=st.services.find(x=>x.id===f.svc.id);
+ const done=await f.call('save',{kind:'services',record:{...s,status:'completed'}},f.g);assert.equal(done.status,200,JSON.stringify(done.body));
+ const ok=await f.call('settlement-confirm',{serviceId:s.id,revision:done.body.record.revision},f.g);assert.equal(ok.status,200,JSON.stringify(ok.body));
+ const after=(await f.call('state',null,f.g)).body,sv=after.services.find(x=>x.id===s.id),as=after.assignments.filter(a=>a.serviceId===s.id);
+ const base=as.reduce((n,a)=>n+(a.workerUnits??a.workerHours??a.hours)*a.costRate+(a.dietCount||0)*(a.dietWorkerRate??10),0),hrs=f.aCoord.workerHours??f.aCoord.hours;
+ assert.equal(Math.round((sv.settlementCost-base)*100)/100,Math.round(hrs*0.63*100)/100);
+ const mine=(await f.call('state',null,f.c)).body.assignments.find(a=>a.id===f.aCoord.id);assert.equal(mine.coordPlus,Math.round(hrs*0.63*100)/100);
+});
