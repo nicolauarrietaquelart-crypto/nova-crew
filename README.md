@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v48 · Ficha del trabajador por pestañas
+
+- La ficha del trabajador (gestión) se organiza en **subpáginas**: Resumen, Datos, Categorías, Disponibilidad, Valoración y control, Contratos, Turnos y Documentos.
+- **Categorías** ordenadas en tarjetas por grupo, con interruptores, recuento por grupo y botones «Todas / Ninguna».
+- Disponibilidad habitual del empleado: el tramo se marca al instante al pulsarlo y, si el servidor no lo guarda, avisa y vuelve al estado real.
+
 ## Novedades v47 · Noches y disponibilidad habitual
 
 - La disponibilidad habitual tiene tres tramos: **mañana 08–16 h**, **tarde 16–24 h** y **noche 00–08 h** (madrugada de ese día).
