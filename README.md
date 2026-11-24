@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v51 · Documentos profesionales y presupuestos por mes
+
+- **Presupuestos y facturas** con formato de documento profesional: cabecera con datos fiscales de la empresa, número y referencia, fecha y validez/vencimiento, bloques de cliente y servicio, tabla de conceptos, totales con IVA, condiciones y forma de pago (IBAN), firma de aceptación en presupuestos y pie legal. Se imprime en A4.
+- **Presupuestos**: pestañas Todos / Borradores / Enviados / Aceptados / Rechazados, agrupados en **contenedores por mes y año** con número de presupuestos e importe.
+- **Eliminar presupuesto** con el botón de papelera (pide confirmación; no se puede si ya está facturado).
+
 ## Novedades v50 · Versión móvil
 
 - **Gestor en móvil**: indicadores del inicio compactos en 2 columnas, fases del servicio en cuadrícula sin cortes, «Hoy» y guardia ordenados, accesos rápidos en 2 columnas, pestañas deslizables, **tablas convertidas en tarjetas** con su etiqueta en cada dato, calendario mensual que cabe en pantalla, ventanas a pantalla completa con botones fijos abajo y campos de 16 px (sin zoom al escribir).
