@@ -847,7 +847,7 @@ function vehicleChoiceHTML(name,l,current,excludeAssignment=''){
  const from=Date.parse(l.date+'T'+l.start+':00Z'),to=Date.parse((l.endDate||l.date)+'T'+l.end+':00Z');
  const busyBy=v=>(data.vehicleBookings||[]).find(b=>b.vehicleId===v.id&&b.assignmentId!==excludeAssignment&&from<Date.parse(b.endDate+'T'+b.end+':00Z')&&to>Date.parse(b.date+'T'+b.start+':00Z'));
  const vs=(data.vehicles||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
- return `<label class="veh-pick">Vehículo del runner<select name="${name}" id="${name}"><option value="" ${!current?'selected':''}>Sin vehículo</option>${vs.map(v=>{const bb=busyBy(v);return `<option value="${esc(v.id)}" ${current===v.id?'selected':''} ${bb?'disabled':''}>${esc(v.name)}${v.plate?' · '+esc(v.plate):''}${bb?' — ocupada '+esc(bb.start+'–'+bb.end+(bb.driver?' ('+bb.driver+')':'')):' — libre'}</option>`;}).join('')}<option value="external" ${current==='external'?'selected':''}>Otro · vehículo externo (no de la empresa)</option></select><small>Si eliges una furgoneta propia, queda reservada en Vehículos a nombre del runner.</small></label>`;
+ return `<label class="veh-pick">Vehículo del runner<select name="${name}" id="${name}" required><option value="" ${!current?'selected':''} disabled>Elige el vehículo…</option>${vs.map(v=>{const bb=busyBy(v);return `<option value="${esc(v.id)}" ${current===v.id?'selected':''} ${bb?'disabled':''}>${esc(v.name)}${v.plate?' · '+esc(v.plate):''}${bb?' — ocupada '+esc(bb.start+'–'+bb.end+(bb.driver?' ('+bb.driver+')':'')):' — libre'}</option>`;}).join('')}<option value="external" ${current==='external'?'selected':''}>Otro · vehículo externo (no de la empresa)</option></select><small>Obligatorio para runners. «Runner sin vehículo» significa sin vehículo propio: se le asigna una furgoneta de la empresa (queda reservada a su nombre) u otro externo.</small></label>`;
 }
 function assignPicker(slotId){
  const l=find('orderLines',slotId);if(!l)return;pickerSlot=slotId;
@@ -870,6 +870,7 @@ function assignPicker(slotId){
 }
 async function pickerAssign(workerId){
  const l=find('orderLines',pickerSlot),w=find('workers',workerId);if(!l||!w||busy)return;
+ if(isRunnerCat(find('tariffs',l.categoryId)?.name||l.role)&&!pickerVehicle){toast('Elige primero el vehículo del runner.',true);$('#picker-veh')?.focus();return;}
  const av=workerAvailability(w,l);if(!av.ok&&!confirm(w.name+': '+av.label+'. ¿Asignar igualmente?'))return;
  busy=true;try{await api('save',{kind:'assignments',record:{serviceId:l.serviceId,orderLineId:l.id,workerId:w.id,categoryId:l.categoryId,date:l.date,endDate:l.endDate||l.date,start:l.start,end:l.end,pause:l.pause||0,team:l.team||'',...(isRunnerCat(find('tariffs',l.categoryId)?.name||l.role)?{vehicleId:pickerVehicle}:{})}});pickerVehicle='';$('#modal').close();await load();toast('Puesto asignado a '+w.name);}catch(e){toast(e.message,true);}finally{busy=false;}
 }
