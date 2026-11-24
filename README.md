@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v45 · Vehículo del runner
+
+- Al asignar un **runner** (o conductor) se elige su vehículo: una furgoneta de la empresa (se ve si está libre u ocupada a esa hora), **Otro · vehículo externo** o sin vehículo. También se cambia desde «Gestionar».
+- Si es una furgoneta propia queda **reservada automáticamente** en Vehículos a nombre del runner, con el servicio y el horario del turno; si cambia el horario, la reserva se mueve, y si se retira el runner o se cambia a externo, la furgo se libera. No deja usar la misma furgo para dos turnos solapados.
+- El calendario de vehículos muestra el **nombre del runner** en cada reserva.
+- Al reservar desde el calendario de vehículos, solo salen los **servicios de ese día**.
+
 ## Novedades v44 · Referencias, históricos y vehículos
 
 - **Referencia N/AAAA** para presupuestos y servicios (1/2026, 2/2026…), con una única numeración por año. El servicio creado desde un presupuesto conserva su número. Los registros existentes se numeran automáticamente por orden de creación.

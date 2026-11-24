@@ -345,3 +345,29 @@ test('v44: N/YYYY references shared by quotes and services, vehicles with clash-
  const hs=(await f.call('state',null,f.h)).body;assert.equal(hs.vehicles,undefined,'workers do not see vehicles');
  const gs=(await f.call('state',null,f.g)).body;assert.equal(gs.vehicleBookings.length,2);
 });
+
+test('v45: runner assignments reserve a company vehicle under the runner name, external vehicles book nothing, clashes refused',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand');
+ const svc=await f.save('services',{...f.svc,id:undefined,revision:undefined,ref:undefined,name:'Runner test',date:'2027-04-01',endDate:'2027-04-01'});
+ const v=(await f.call('vehicle-save',{record:{name:'Furgo 1'}},f.g)).body.record;
+ const blk=(await f.call('service-block-save',{record:{serviceId:svc.id,serviceType:'RUNNERS',date:'2027-04-01'},categories:[{categoryId:'runner-sin-vehiculo',quantity:2,start:'08:00',end:'14:00'}]},f.g)).body;
+ const [l1,l2]=blk.positions;
+ const a=await f.save('assignments',{serviceId:svc.id,orderLineId:l1.id,workerId:hand.id,categoryId:l1.categoryId,date:l1.date,endDate:l1.endDate,start:l1.start,end:l1.end,vehicleId:v.id});
+ assert.equal(a.vehicle,v.id);
+ let bk=(await f.call('state',null,f.g)).body.vehicleBookings.filter(x=>x.vehicleId===v.id);
+ assert.equal(bk.length,1);assert.equal(bk[0].driver,'Hand');assert.equal(bk[0].assignmentId,a.id);assert.equal(bk[0].start,'08:00');
+ // the same van can't go to another runner at the same time
+ const w2=await f.save('workers',{name:'Runner Dos',costRate:10,createAccess:false});
+ const r=await f.call('save',{kind:'assignments',record:{serviceId:svc.id,orderLineId:l2.id,workerId:w2.id,categoryId:l2.categoryId,date:l2.date,endDate:l2.endDate,start:l2.start,end:l2.end,vehicleId:v.id}},f.g);
+ assert.equal(r.status,409,JSON.stringify(r.body));
+ // external vehicle: no booking
+ const a2=await f.save('assignments',{serviceId:svc.id,orderLineId:l2.id,workerId:w2.id,categoryId:l2.categoryId,date:l2.date,endDate:l2.endDate,start:l2.start,end:l2.end,vehicleId:'external'});
+ assert.equal(a2.vehicle,'external');
+ // moving the shift moves the booking; switching to external frees the van
+ await f.call('line-update',{id:l1.id,start:'09:00',end:'15:00'},f.g);
+ bk=(await f.call('state',null,f.g)).body.vehicleBookings.filter(x=>x.vehicleId===v.id);assert.equal(bk[0].start,'09:00');
+ const cur=(await f.call('state',null,f.g)).body.assignments.find(x=>x.id===a.id);
+ assert.equal((await f.call('assignment-vehicle',{id:a.id,vehicleId:'external'},f.g)).status,200);
+ assert.equal((await f.call('state',null,f.g)).body.vehicleBookings.filter(x=>x.vehicleId===v.id).length,0);
+});
