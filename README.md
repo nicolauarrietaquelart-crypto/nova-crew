@@ -1,5 +1,9 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v46 · Vehículo obligatorio para runners
+
+- Todos los runners (también «Runner sin vehículo», que significa sin vehículo propio) deben llevar vehículo asignado: una furgoneta de la empresa o «Otro · vehículo externo». No se puede asignar ni guardar en «Gestionar» sin elegirlo.
+
 ## Novedades v45 · Vehículo del runner
 
 - Al asignar un **runner** (o conductor) se elige su vehículo: una furgoneta de la empresa (se ve si está libre u ocupada a esa hora), **Otro · vehículo externo** o sin vehículo. También se cambia desde «Gestionar».
