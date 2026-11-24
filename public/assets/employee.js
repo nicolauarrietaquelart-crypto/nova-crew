@@ -187,7 +187,7 @@ function availabilityPage(){
  }
  const hasWeekly=Object.values(weekly).some(d=>d?.slots?.length||d?.available);
  $('#employee-content').innerHTML='<div class="section-title"><h2>Disponibilidad</h2><p class="muted">Indica cuándo puedes trabajar. La oficina lo verá al planificar.</p></div>'+
- '<div class="panel avail-habit"><div class="emp-todo-head"><h3>Disponibilidad habitual</h3><small class="muted">'+(hasWeekly?'Se aplica sola cada semana':'Sin configurar')+'</small></div>'+weekGridHTML(weekly)+'<p class="muted compact">Mañana 06–15 h · Tarde 15–24 h. Para un día concreto, tócalo en el calendario.</p></div>'+
+ '<div class="panel avail-habit"><div class="emp-todo-head"><h3>Disponibilidad habitual</h3><small class="muted">'+(hasWeekly?'Se aplica sola cada semana':'Sin configurar')+'</small></div>'+weekGridHTML(weekly)+'<p class="muted compact">Mañana 08–16 h · Tarde 16–24 h · Noche 00–08 h (madrugada de ese día). Para un día concreto, tócalo en el calendario.</p></div>'+
  '<div class="panel"><div class="cal-head"><button class="secondary" data-action="prev-month" aria-label="Mes anterior">‹</button><h2>'+esc(monthLabel(month))+'</h2><button class="secondary" data-action="next-month" aria-label="Mes siguiente">›</button></div>'+
  '<div class="availability-grid">'+html+'</div><div class="cal-legend"><span class="lg available">Disponible</span><span class="lg habit">Semana habitual</span><span class="lg unavail">No disponible</span><span class="lg shift">Con turno</span></div><p class="muted compact">Pulsa un día para elegir horas concretas o marcarlo como no disponible. Los días pasados no se pueden modificar.</p></div>';
 }
@@ -1002,9 +1002,9 @@ function bindHourDrag(container,selected,paint){
  container.addEventListener('click',e=>{if(e.detail!==0)return;const cell=e.target.closest('[data-hour]');if(!cell)return;const key=cell.dataset.weekday||'date',set=selected[key];if(set.has(Number(cell.dataset.hour)))set.delete(Number(cell.dataset.hour));else set.add(Number(cell.dataset.hour));paint()});
 }
 const WEEK_DAYS=[['mon','Lunes'],['tue','Martes'],['wed','Miércoles'],['thu','Jueves'],['fri','Viernes'],['sat','Sábado'],['sun','Domingo']];
-function weekShiftOf(d){if(!d)return {morning:false,afternoon:false};if(d.morning!=null||d.afternoon!=null)return {morning:!!d.morning,afternoon:!!d.afternoon};const s=Array.isArray(d.slots)?d.slots.map(Number):d.available?[8,16]:[];return {morning:s.some(h=>h<15),afternoon:s.some(h=>h>=15)};}
-function weekShiftLabel(d){const x=weekShiftOf(d);return x.morning&&x.afternoon?'Mañana y tarde':x.morning?'Mañana':x.afternoon?'Tarde':'';}
-function weekGridHTML(days){const D=[['mon','L'],['tue','M'],['wed','X'],['thu','J'],['fri','V'],['sat','S'],['sun','D']];return '<div class="wk-mini"><span></span>'+D.map(([,l])=>'<b>'+l+'</b>').join('')+[['morning','Mañana'],['afternoon','Tarde']].map(([sl,lab])=>'<span>'+lab+'</span>'+D.map(([k])=>{const on=weekShiftOf(days[k])[sl];return '<button type="button" class="wk-dot '+(on?'on':'')+'" data-action="emp-week" data-id="'+k+'|'+sl+'" aria-pressed="'+on+'" aria-label="'+lab+' '+k+'">'+(on?'✓':'')+'</button>'}).join('')).join('')+'</div>'}
+function weekShiftOf(d){if(!d)return {morning:false,afternoon:false,night:false};if(d.morning!=null||d.afternoon!=null||d.night!=null)return {morning:!!d.morning,afternoon:!!d.afternoon,night:!!d.night};const s=Array.isArray(d.slots)?d.slots.map(Number):d.available?[8,16]:[];return {morning:s.some(h=>h>=8&&h<16),afternoon:s.some(h=>h>=16),night:s.some(h=>h<8)};}
+function weekShiftLabel(d){const x=weekShiftOf(d),p=[x.morning&&'Mañana',x.afternoon&&'Tarde',x.night&&'Noche'].filter(Boolean);return p.length===3?'Todo el día':p.join(' y ').replace(/ y (?=.* y )/,', ');}
+function weekGridHTML(days){const D=[['mon','L'],['tue','M'],['wed','X'],['thu','J'],['fri','V'],['sat','S'],['sun','D']];return '<div class="wk-mini"><span></span>'+D.map(([,l])=>'<b>'+l+'</b>').join('')+[['morning','Mañana'],['afternoon','Tarde'],['night','Noche']].map(([sl,lab])=>'<span>'+lab+'</span>'+D.map(([k])=>{const on=weekShiftOf(days[k])[sl];return '<button type="button" class="wk-dot '+(on?'on':'')+'" data-action="emp-week" data-id="'+k+'|'+sl+'" aria-pressed="'+on+'" aria-label="'+lab+' '+k+'">'+(on?'✓':'')+'</button>'}).join('')).join('')+'</div>'}
 async function toggleEmpWeek(cell){const [k,sl]=cell.split('|'),days={};for(const [d] of WEEK_DAYS)days[d]=weekShiftOf(state.weeklyAvailability?.days?.[d]);days[k][sl]=!days[k][sl];try{await api('availability-weekly',{days});await load();notice('Disponibilidad habitual guardada')}catch(e){error(e)}}
 function weeklyAvailabilityModal(){
  const current=state.weeklyAvailability?.days||{};
@@ -1123,7 +1123,7 @@ function availabilityModal(date){
  const old=list('availability').find(a=>a.date===date);
  let pre=hoursFromLegacy(old);
  if(!pre.size&&old?.status!=='unavailable'){const habit=(state.weeklyAvailability?.days||{})[['sun','mon','tue','wed','thu','fri','sat'][new Date(date+'T12:00:00').getDay()]];
-  if(habit){if(Array.isArray(habit.slots)&&habit.slots.length&&habit.morning==null&&habit.afternoon==null)pre=new Set(habit.slots.map(Number));else{const w=weekShiftOf(habit);if(w.morning)for(let h=6;h<15;h++)pre.add(h);if(w.afternoon)for(let h=15;h<24;h++)pre.add(h);}}
+  if(habit){if(Array.isArray(habit.slots)&&habit.slots.length&&habit.morning==null&&habit.afternoon==null&&habit.night==null)pre=new Set(habit.slots.map(Number));else{const w=weekShiftOf(habit);if(w.night)for(let h=0;h<8;h++)pre.add(h);if(w.morning)for(let h=8;h<16;h++)pre.add(h);if(w.afternoon)for(let h=16;h<24;h++)pre.add(h);}}
   else if(old?.status==='available')for(let h=6;h<24;h++)pre.add(h);}
  selectedAvailabilitySlots={date:pre};
  const grid=Array.from({length:24},(_,h)=>'<button type="button" class="availability-hour" data-hour="'+h+'" aria-pressed="false">'+String(h).padStart(2,'0')+':00</button>').join('');

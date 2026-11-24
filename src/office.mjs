@@ -447,19 +447,20 @@ export function createOfficeApi(storage,env={}){
      return {record:saved,access:{username,password:b.onboardingPassword,existing:false}};
     }
     if(op==='availability-weekly'){
-     const targetId=actor.role==='manager'?required(b.workerId,'el trabajador'):actor.workerId;
+     if(actor.role==='manager')fail('La disponibilidad habitual solo la puede cambiar el propio trabajador.',403);
+     const targetId=actor.workerId;
      if(!targetId)fail('No tienes ficha de trabajador.',403);await record(db,'workers',targetId);
      const input=b.days||{};const days={};
      for(const d of ['mon','tue','wed','thu','fri','sat','sun']){
-      const raw=input[d]||{},shift=raw.morning!=null||raw.afternoon!=null;
-      // Mañana = 06:00–15:00, tarde = 15:00–24:00. Se guardan también como horas para el buscador de turnos.
-      const a=shift?{slots:[...(raw.morning?Array.from({length:9},(_,i)=>6+i):[]),...(raw.afternoon?Array.from({length:9},(_,i)=>15+i):[])]}:raw,slots=Array.isArray(a.slots)?[...new Set(a.slots.map(Number))].sort((x,y)=>x-y):null;
+      const raw=input[d]||{},shift=raw.morning!=null||raw.afternoon!=null||raw.night!=null;
+      // Mañana = 08:00–16:00, tarde = 16:00–24:00, noche = 00:00–08:00 (madrugada de ese día). Se guardan también como horas.
+      const a=shift?{slots:[...(raw.night?Array.from({length:8},(_,i)=>i):[]),...(raw.morning?Array.from({length:8},(_,i)=>8+i):[]),...(raw.afternoon?Array.from({length:8},(_,i)=>16+i):[])]}:raw,slots=Array.isArray(a.slots)?[...new Set(a.slots.map(Number))].sort((x,y)=>x-y):null;
       if(slots&&slots.some(h=>!Number.isInteger(h)||h<0||h>23))fail('La hora seleccionada debe ser válida.');
       const available=slots?slots.length>0:a.available===true;
       const start=slots?.length?String(slots[0]).padStart(2,'0')+':00':a.start?time(a.start):'08:00';
       const end=slots?.length?String(slots.at(-1)+1).padStart(2,'0')+':00':a.end?time(a.end):'23:00';
       if(start>=end)fail('Horario semanal incorrecto en '+d);
-      days[d]={available,start,end,...(slots?{slots}:{}),...(shift?{morning:raw.morning===true,afternoon:raw.afternoon===true}:{})};
+      days[d]={available,start,end,...(slots?{slots}:{}),...(shift?{morning:raw.morning===true,afternoon:raw.afternoon===true,night:raw.night===true}:{})};
      }
      const value={workerId:targetId,days,updatedAt:now(),updatedBy:actor.id};
      await db.put(key('weeklyAvailability',targetId),value);
