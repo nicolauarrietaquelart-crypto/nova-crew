@@ -372,3 +372,25 @@ test('v45: runner assignments reserve a company vehicle under the runner name, e
  assert.equal((await f.call('assignment-vehicle',{id:a.id,vehicleId:'external'},f.g)).status,200);
  assert.equal((await f.call('state',null,f.g)).body.vehicleBookings.filter(x=>x.vehicleId===v.id).length,0);
 });
+
+test('v52: geolocation clock only for the block coordinator, or when the block has no coordinator even if there is a Crew Head',async()=>{
+ const f=await setup();
+ const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand'),coordW=st.workers.find(w=>w.name==='Coord'),coordUser=st.users.find(u=>u.workerId===coordW.id);
+ const d=f.svc.date;
+ const svc2=await f.save('services',{...f.svc,id:undefined,revision:undefined,ref:undefined,coordinatorId:'',name:'Bloques'});
+ const withC=(await f.call('service-block-save',{record:{serviceId:svc2.id,serviceType:'LOAD IN',date:d},categories:[{categoryId:'steelhand',quantity:2,start:'17:00',end:'18:00'}]},f.g)).body;
+ const noC=(await f.call('service-block-save',{record:{serviceId:svc2.id,serviceType:'SHOW CALL',date:d},categories:[{categoryId:'steelhand',quantity:1,start:'19:00',end:'20:00'}]},f.g)).body;
+ const aH1=await f.save('assignments',{serviceId:svc2.id,orderLineId:withC.positions[0].id,workerId:hand.id,categoryId:'steelhand',date:d,endDate:d,start:'17:00',end:'18:00'});
+ const aC=await f.save('assignments',{serviceId:svc2.id,orderLineId:withC.positions[1].id,workerId:coordW.id,categoryId:'steelhand',date:d,endDate:d,start:'17:00',end:'18:00'});
+ const aH2=await f.save('assignments',{serviceId:svc2.id,orderLineId:noC.positions[0].id,workerId:hand.id,categoryId:'steelhand',date:d,endDate:d,start:'19:00',end:'20:00'});
+ assert.equal((await f.call('block-coordinator-set',{blockId:withC.record.id,userId:coordUser.id},f.g)).status,200);
+ // a Crew Head on that service day does not count as the block coordinator
+ const crew=await f.save('workers',{name:'Crew',costRate:10,createAccess:false});
+ await f.save('assignments',{serviceId:svc2.id,workerId:crew.id,categoryId:'CREW HEAD',date:d,endDate:d,start:'06:00',end:'07:00'});
+ const geo=(a,c)=>f.call('clock',{id:a.id,revision:a.revision,action:'in',mode:'geo',latitude:41.36,longitude:2.15},c);
+ assert.equal((await geo(aH1,f.h)).status,403,'block with coordinator: worker must show QR');
+ assert.equal((await geo(aC,f.c)).status,200,'the block coordinator clocks by geolocation');
+ const r=await geo(aH2,f.h);assert.equal(r.status,200,JSON.stringify(r.body));
+ const mine=(await f.call('state',null,f.h)).body.assignments;
+ assert.equal(mine.find(x=>x.id===aH1.id).geoClock,false);assert.equal(mine.find(x=>x.id===aH2.id).geoClock,true);
+});

@@ -179,6 +179,7 @@ test('a worker can coordinate one service and validate QR without a third global
  assert.equal(workerUser.status,200);
  const service=await f.save('services',{...f.service,coordinatorId:coordinatorUser.body.record.id});
  const a=await f.save('assignments',{serviceId:service.id,workerId:f.worker.id,role:'HAND B',costRate:9.3,chargeRate:18.6});
+ await f.save('assignments',{serviceId:service.id,workerId:coordinator.id,role:'Coordinador',costRate:14.4,chargeRate:20});
  const api=createOfficeApi(f.db,{});
  const auth=async(username,password)=>{
   const r=await api(new Request('https://nova.test/api/office/login',{method:'POST',headers:{origin:'https://nova.test','content-type':'application/json'},body:JSON.stringify({username,password})}));
@@ -188,9 +189,9 @@ test('a worker can coordinate one service and validate QR without a third global
  const call=async(op,b,cookie)=>{const response=await api(new Request('https://nova.test/api/office/'+op,{method:b?'POST':'GET',headers:{cookie,...(b?{origin:'https://nova.test','content-type':'application/json'}:{})},body:b?JSON.stringify(b):undefined}));return{status:response.status,body:await response.json()}};
  const state=(await call('state',null,coordCookie)).body;
  assert.equal(state.user.role,'worker');
- assert.equal(state.coordinatorRoster.length,1);
+ assert.equal(state.coordinatorRoster.filter(r=>r.id===a.id).length,1);
  assert.equal(state.clients,undefined);
- assert.equal(state.coordinatorRoster[0].chargeRate,undefined);
+ assert.ok(state.coordinatorRoster.every(r=>r.chargeRate===undefined));
  const qr=await call('qr-issue',{id:a.id},handCookie);
  assert.equal(qr.status,200);
  const redeem=await call('qr-redeem',{token:qr.body.token},coordCookie);

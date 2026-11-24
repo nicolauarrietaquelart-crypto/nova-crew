@@ -22,12 +22,13 @@ test('coordinator QR redemption is scoped, atomic and single use; another coordi
  const f=await fixture(),s=await seed(f);
  const w1=await save(f,'workers',{name:'Coordinator 1',costRate:14.4,createAccess:false}),w2=await save(f,'workers',{name:'Coordinator 2',costRate:14.4,createAccess:false});const c1=await f.call('user',{record:{name:'Coordinator 1',username:'coord1',role:'worker',workerId:w1.id,password:'coordinator-one-pass'}}),c2=await f.call('user',{record:{name:'Coordinator 2',username:'coord2',role:'worker',workerId:w2.id,password:'coordinator-two-pass'}});
  await save(f,'services',{...s.service,coordinatorId:c1.data.record.id});
+ await save(f,'assignments',{serviceId:s.service.id,workerId:w1.id,role:'Coordinador',costRate:14.4,chargeRate:20});
  await f.call('user',{record:{name:'Employee',username:'employee',role:'worker',workerId:s.worker.id,password:'employee-long-pass'}});
  const emp=(await f.call('login',{username:'employee',password:'employee-long-pass'})).cookie,coord1=(await f.call('login',{username:'coord1',password:'coordinator-one-pass'})).cookie,coord2=(await f.call('login',{username:'coord2',password:'coordinator-two-pass'})).cookie;
  const qr=await f.call('qr-issue',{id:s.assignment.id},emp);assert.equal(qr.status,200);assert.equal((await f.call('qr-redeem',{token:qr.data.token},coord2)).status,403);
  const redeemed=await Promise.all([f.call('qr-redeem',{token:qr.data.token},coord1),f.call('qr-redeem',{token:qr.data.token},coord1)]);assert.deepEqual(redeemed.map(r=>r.status).sort(),[200,409]);
  const qr2=await f.call('qr-issue',{id:s.assignment.id},emp);assert.equal(qr2.data.action,'out');assert.equal((await f.call('qr-redeem',{token:qr2.data.token},coord1)).status,200);
- const state=(await f.call('state',undefined,coord1)).data;assert.equal(state.clients,undefined);assert.equal(state.coordinatorWorkers[0].costRate,undefined);assert.ok(state.coordinatorRoster[0].checkOut);
+ const state=(await f.call('state',undefined,coord1)).data;assert.equal(state.clients,undefined);assert.equal(state.coordinatorWorkers[0].costRate,undefined);assert.ok(state.coordinatorRoster.find(r=>r.id===s.assignment.id).checkOut);
 });
 test('attendance corrections retain before/after audit and unavailable workers cannot be assigned',async()=>{
  const f=await fixture(),s=await seed(f);assert.equal((await f.call('attendance-adjust',{id:s.assignment.id,revision:1,checkIn:'2027-01-20T08:00:00Z',checkOut:'2027-01-20T18:00:00Z',reason:'Verified timesheet'})).status,200);
