@@ -1,5 +1,9 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v56
+
+- El número del menú «Coordinación» muestra cuántas coordinaciones tienes (antes contaba personas sin fichar hoy, y no cuadraba con la lista).
+
 ## Novedades v55
 
 - Fichaje / escanear QR: solo salen los días que coordinas de verdad (tu bloque, tu día de Crew Head o, si coordinas el servicio entero, los días en que tienes turno) y solo desde 2 h antes del inicio hasta 1 h después del final. Se acabó que un servicio de varios días salga «Hoy» por sus fechas generales.
