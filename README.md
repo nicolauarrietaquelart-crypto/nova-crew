@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v52 · Geolocalización y coordinaciones
+
+- **Fichar por geolocalización** solo aparece (y solo lo acepta el servidor) si eres el **coordinador de tu bloque** o si **tu bloque no tiene coordinador**, aunque haya Crew Head ese día. Si tu turno tiene coordinador, fichas mostrándole tu QR.
+- **Coordinación**: un turno que acaba de madrugada ya no crea una segunda coordinación al día siguiente; y solo aparecen coordinaciones de servicios en los que estás asignado (se ignoran coordinadores antiguos a nivel de servicio).
+
 ## Novedades v51 · Documentos profesionales y presupuestos por mes
 
 - **Presupuestos y facturas** con formato de documento profesional: cabecera con datos fiscales de la empresa, número y referencia, fecha y validez/vencimiento, bloques de cliente y servicio, tabla de conceptos, totales con IVA, condiciones y forma de pago (IBAN), firma de aceptación en presupuestos y pie legal. Se imprime en A4.

@@ -265,12 +265,13 @@ function coordEntries(){
  const map=new Map(),t=today(),blocks=state.coordinatorBlocks||[];
  const add=(serviceId,date,blockId)=>{const k=serviceId+'|'+date+'|'+(blockId||'-');if(!map.has(k))map.set(k,{key:k,serviceId,date,blockId,rows:[]});return map.get(k);};
  for(const a of coordRoster()){if(a.crew||isCrewHeadDay(a.serviceId,a.date)||a.closed||['completed','cancelled'].includes(service(a.serviceId).status))continue;add(a.serviceId,a.date,a.blockId).rows.push(a);}
- for(const b of blocks){if(b.lead||['completed','cancelled'].includes(service(b.serviceId).status))continue;let d=b.date;for(let n=0;d&&d<=(b.endDate||b.date)&&n<14;n++){if(d>=t&&!isCrewHeadDay(b.serviceId,d)&&!(state.coordinatorRoster||[]).some(a=>a.blockId===b.id&&a.date===d&&a.closed))add(b.serviceId,d,b.id);d=new Date(Date.parse(d+'T12:00:00Z')+864e5).toISOString().slice(0,10);}}
+ /* Un bloque es una jornada: aunque algún turno acabe de madrugada al día siguiente, sale una sola vez (su fecha). */
+ for(const b of blocks){if(b.lead||['completed','cancelled'].includes(service(b.serviceId).status))continue;const d=b.date;if(d&&d>=t&&!isCrewHeadDay(b.serviceId,d)&&!(state.coordinatorRoster||[]).some(a=>a.blockId===b.id&&a.date===d&&a.closed))add(b.serviceId,d,b.id);}
  return [...map.values()].sort((a,b)=>{const ga=a.date===t?0:a.date>t?1:2,gb=b.date===t?0:b.date>t?1:2;const ba=blocks.find(x=>x.id===a.blockId),bb=blocks.find(x=>x.id===b.blockId);return ga-gb||(ga===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||String(ba?.start||'').localeCompare(String(bb?.start||''));});
 }
 function coordRole(e){
  const b=(state.coordinatorBlocks||[]).find(x=>x.id===e.blockId);
- if(b)return (b.serviceType||'Turno')+' · '+b.start+'–'+b.end;
+ if(b){const rs=e.rows.length?e.rows:(state.coordinatorRoster||[]).filter(a=>a.blockId===b.id),hs=[...new Set(rs.map(a=>a.start+'–'+a.end))];return (b.serviceType||'Turno')+(hs.length===1?' · '+hs[0]:hs.length>1?' · '+hs.length+' horarios':'');}
  const r=e.rows[0];return r?(r.serviceType||'Turno')+' · '+r.start+'–'+r.end:'Coordinación';
 }
 const hmOf=iso=>iso?new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso)):'';
@@ -544,7 +545,7 @@ function scanServices(){
 }
 function coordinatesMyService(a){return (state.coordinatorServiceIds||[]).includes(a.serviceId)||crewDayList().some(d=>d.serviceId===a.serviceId)}
 function clockableShifts(){return clockAssignments().filter(a=>canClock(a))}
-function geoShifts(){return clockableShifts().filter(a=>coordinatesMyService(a)||!service(a.serviceId).coordinatorId)}
+function geoShifts(){return clockableShifts().filter(a=>a.geoClock!==undefined?(a.geoClock||crewDayList().some(d=>d.serviceId===a.serviceId&&d.date===a.date)):!service(a.serviceId).coordinatorId)}
 function stopQrRefresh(){if(qrRefreshTimer){clearInterval(qrRefreshTimer);qrRefreshTimer=null}}
 function closeClock(){
  stopQrRefresh();
@@ -555,7 +556,7 @@ function openClockModal(preferredId=''){
  stopQrCamera();stopQrRefresh();
  const coord=isCoordinatorAnywhere(),geo=geoShifts();
  if(preferredId){clockSelection=preferredId;const a=clockAssignments().find(x=>x.id===preferredId);if(a)clockMode=geo.some(x=>x.id===a.id)?'geo':'qr';}
- if(!clockMode||(clockMode==='scan'&&!coord)||(clockMode==='geo'&&!geo.length&&!coord))clockMode=coord&&scanServices().length?'scan':'qr';
+ if(!clockMode||(clockMode==='scan'&&!coord)||(clockMode==='geo'&&!geo.length))clockMode=coord&&scanServices().length?'scan':'qr';
  const opt=(k,title,sub,ic,show=true)=>show?'<button type="button" class="clock-opt '+(clockMode===k?'active':'')+'" data-action="clock-mode" data-id="'+k+'"><span class="clock-opt-icon">'+ic+'</span><span><b>'+title+'</b><small>'+sub+'</small></span></button>':'';
  const qrIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>';
  const scanIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10"/></svg>';
@@ -563,7 +564,7 @@ function openClockModal(preferredId=''){
  modal('Fichaje','<div class="clock-popup clock-v2"><div class="clock-opts">'+
   opt('scan','Escanear QRs','Ficha a tu personal escaneando su QR',scanIc,coord)+
   opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc)+
-  opt('geo','Fichar por geolocalización',coord?'Tu propio fichaje como coordinador':'Este turno no tiene coordinador',geoIc,coord||geo.length>0)+
+  opt('geo','Fichar por geolocalización',geo.some(a=>a.coordinator)?'Tu propio fichaje como coordinador':'Tu turno no tiene coordinador',geoIc,geo.length>0)+
   '</div><div id="clock-mode-body"></div></div>');
  $('#employee-modal').classList.add('clock-dialog');
  renderClockMode();
@@ -1220,7 +1221,7 @@ document.addEventListener('click',async ev=>{
  if(action==='clock-scan'){closeClock();return scanQr(id)}
  if(action==='clock-qr-new')return renderMyQr();
  if(action==='self-clock'){const a=myAssignments().find(x=>x.id===id);if(a){const kind=a.checkIn?'Salida':'Entrada';const btnEl=el;btnEl.disabled=true;clockResult={id,ok:null,text:'Registrando '+kind.toLowerCase()+'…',at:Date.now()};if($('#clock-service-summary'))renderClockModal();
-  try{const geoMode=coordinatesMyService(a);const location=geoMode?await forcedLocation():await attendanceLocation(a.serviceId,a.id);await api('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location,...(geoMode?{mode:'geo'}:{})});
+  try{const geoMode=geoShifts().some(x=>x.id===a.id);const location=geoMode?await forcedLocation():await attendanceLocation(a.serviceId,a.id);await api('clock',{id,revision:a.revision,action:a.checkIn?'out':'in',...location,...(geoMode?{mode:'geo'}:{})});
    clockResult={id,ok:true,text:kind+' aceptada · registrada a las '+hmNow(),at:Date.now()};await load();notice(kind+' registrada');}
   catch(e){clockResult={id,ok:false,text:kind+' denegada · '+(e.message||'No se pudo fichar'),at:Date.now()};error(e)}
   if($('#employee-modal').open&&$('#employee-modal').classList.contains('clock-dialog'))renderClockModal();return}}
