@@ -206,7 +206,7 @@ function settlementsPage(){
  '<div class="actions-row" style="margin-bottom:16px"><label class="month-pick">Periodo<select class="field" id="payroll-month">'+months.map(m=>'<option value="'+esc(m)+'" '+(m===current?'selected':'')+'>'+esc(monthLabel(m))+'</option>').join('')+'</select></label>'+btn('download-payroll','Descargar CSV','','secondary')+'</div>'+
  '<div class="stats"><div class="stat orange"><span class="muted">Bruto certificado</span><strong>'+euro(sum(confirmed))+'</strong><small>'+confirmed.length+' servicio(s) certificados</small></div><div class="stat"><span class="muted">Pendientes de certificar</span><strong>'+pend.length+'</strong><small>Sin importe hasta su certificación</small></div><div class="stat"><span class="muted">Servicios del periodo</span><strong>'+rows.length+'</strong><small>'+esc(monthLabel(current))+'</small></div><div class="stat"><span class="muted">Horas previstas</span><strong>'+hours.toLocaleString('es-ES')+' h</strong><small>Según turnos asignados</small></div></div>'+
  box('Detalle del periodo',rows.length?'<div style="overflow-x:auto"><table class="pay-table"><thead><tr><th>Fecha</th><th>Servicio</th><th>Categoría</th><th>Horario</th><th>Horas</th><th>Bruto</th><th>Estado</th></tr></thead><tbody>'+
- rows.map(a=>'<tr><td>'+human(a.date)+'</td><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+esc(a.role||'—')+'</td><td>'+esc(a.start+'–'+a.end)+'</td><td>'+Number(a.hours||0).toLocaleString('es-ES')+' h</td><td>'+(a.payStatus==='confirmed'?'<strong>'+euro(a.grossPay)+'</strong>':'<span class="muted">—</span>')+'</td><td>'+(a.payStatus==='confirmed'?'<span class="badge confirmed">Certificada</span>':'<span class="badge pending">Pendiente de certificar</span>')+'</td></tr>').join('')+'</tbody>'+(confirmed.length?'<tfoot><tr><td colspan="5"><strong>Total certificado</strong></td><td><strong>'+euro(sum(confirmed))+'</strong></td><td></td></tr></tfoot>':'')+'</table></div>':'<div class="empty">Sin servicios durante este periodo.</div>');
+ rows.map(a=>'<tr><td>'+human(a.date)+'</td><td>'+esc(service(a.serviceId).name||'Servicio')+'</td><td>'+esc(a.role||'—')+'</td><td>'+esc(a.start+'–'+a.end)+'</td><td>'+Number(a.hours||0).toLocaleString('es-ES')+' h</td><td>'+(a.payStatus==='confirmed'?'<strong>'+euro(a.grossPay)+'</strong>'+(a.coordPlus?'<small class="coord-plus">Incl. plus coordinación '+euro(a.coordPlus)+'</small>':''):'<span class="muted">—</span>')+'</td><td>'+(a.payStatus==='confirmed'?'<span class="badge confirmed">Certificada</span>':'<span class="badge pending">Pendiente de certificar</span>')+'</td></tr>').join('')+'</tbody>'+(confirmed.length?'<tfoot><tr><td colspan="5"><strong>Total certificado</strong></td><td><strong>'+euro(sum(confirmed))+'</strong></td><td></td></tr></tfoot>':'')+'</table></div>':'<div class="empty">Sin servicios durante este periodo.</div>');
 }
 function tutorialsPage(){
  $('#employee-content').innerHTML='<div class="section-title"><h2>Guías rápidas</h2><p class="muted">Todo lo que necesitas para usar tu área de empleado.</p></div><div class="guide-list">'+guides.map(([title,body],i)=>'<details class="panel guide" '+(i===0?'open':'')+'><summary>'+esc(title)+'</summary><p class="muted">'+esc(body)+'</p></details>').join('')+'</div>';
@@ -269,9 +269,9 @@ const crewControlUrl=(serviceId,date)=>'/crew-control/?service='+encodeURICompon
 function coordEntries(){
  const map=new Map(),t=today(),blocks=state.coordinatorBlocks||[];
  const add=(serviceId,date,blockId)=>{const k=serviceId+'|'+date+'|'+(blockId||'-');if(!map.has(k))map.set(k,{key:k,serviceId,date,blockId,rows:[]});return map.get(k);};
- for(const a of coordRoster()){if(a.crew||isCrewHeadDay(a.serviceId,a.date)||a.closed||['completed','cancelled'].includes(service(a.serviceId).status))continue;add(a.serviceId,a.date,a.blockId).rows.push(a);}
+ for(const a of coordRoster()){if(!coordDayOk(a.serviceId,a.blockId,a.date))continue;if(a.crew||isCrewHeadDay(a.serviceId,a.date)||a.closed||['completed','cancelled'].includes(service(a.serviceId).status))continue;add(a.serviceId,a.date,a.blockId).rows.push(a);}
  /* Un bloque es una jornada: aunque algún turno acabe de madrugada al día siguiente, sale una sola vez (su fecha). */
- for(const b of blocks){if(b.lead||['completed','cancelled'].includes(service(b.serviceId).status))continue;const d=b.date;if(d&&d>=t&&!isCrewHeadDay(b.serviceId,d)&&!(state.coordinatorRoster||[]).some(a=>a.blockId===b.id&&a.date===d&&a.closed))add(b.serviceId,d,b.id);}
+ for(const b of blocks){if(b.lead||['completed','cancelled'].includes(service(b.serviceId).status))continue;const d=b.date;if(!coordDayOk(b.serviceId,b.id,d))continue;if(d&&d>=t&&!isCrewHeadDay(b.serviceId,d)&&!(state.coordinatorRoster||[]).some(a=>a.blockId===b.id&&a.date===d&&a.closed))add(b.serviceId,d,b.id);}
  const nowMs=Date.now();for(const [k,e] of map){const rs=e.rows.length?e.rows:(state.coordinatorRoster||[]).filter(a=>e.blockId&&a.blockId===e.blockId&&a.date===e.date);if(rs.length?rs.every(r=>endMs(r)<nowMs&&(!r.checkIn||r.checkOut||endMs(r)+4*3600000<nowMs)):e.date<t)map.delete(k);}
  return [...map.values()].sort((a,b)=>{const ga=a.date===t?0:a.date>t?1:2,gb=b.date===t?0:b.date>t?1:2;const ba=blocks.find(x=>x.id===a.blockId),bb=blocks.find(x=>x.id===b.blockId);return ga-gb||(ga===2?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||String(ba?.start||'').localeCompare(String(bb?.start||''));});
 }
@@ -576,14 +576,16 @@ function clockAssignments(){
 }
 /* Fichaje en ventana: mostrar mi QR · escanear QRs (coordinación) · fichar por geolocalización (coordinación) */
 let clockMode='',qrRefreshTimer=null;
-/* Coordinador «ahora»: tiene alguna coordinación con turnos entre 2 h antes del inicio y el final. */
-function isCoordinatorAnywhere(){const now=Date.now(),ids=new Set([...(state.coordinatorServiceIds||[]),...crewDayList().map(d=>d.serviceId)]);return (state.coordinatorRoster||[]).some(r=>ids.has(r.serviceId)&&!r.closed&&now>=startMs(r)-2*3600000&&now<=endMs(r)+3600000);}
-function scanServices(){
- const ids=new Set([...(state.coordinatorServiceIds||[]),...crewDayList().map(d=>d.serviceId)]);
- const t=today();
- return list('services').filter(s=>ids.has(s.id)&&!['completed','cancelled'].includes(s.status)&&(s.endDate||s.date)>=t).sort((a,b)=>a.date.localeCompare(b.date));
-}
-function coordinatesMyService(a){return (state.coordinatorServiceIds||[]).includes(a.serviceId)||crewDayList().some(d=>d.serviceId===a.serviceId)}
+/* v55 · Coordino un día concreto solo si: soy coordinador de ese bloque, soy Crew Head ese día,
+   o (coordinador del servicio entero) tengo turno propio ese día. Nada de «todas las fechas del servicio». */
+function coordDayOk(serviceId,blockId,date){const b=(state.coordinatorBlocks||[]).find(x=>x.id===blockId);if(b&&b.own)return true;if(isCrewHeadDay(serviceId,date))return true;return myAssignments().some(a=>a.serviceId===serviceId&&a.date===date&&a.status!=='rejected');}
+function coordWindows(){const m=new Map();for(const r of (state.coordinatorRoster||[])){if(r.closed||r.status==='rejected'||!coordDayOk(r.serviceId,r.blockId,r.date))continue;const k=r.serviceId+'|'+r.date;const w=m.get(k)||{serviceId:r.serviceId,date:r.date,from:Infinity,to:0,start:'99:99',end:''};w.from=Math.min(w.from,startMs(r)-2*3600000);w.to=Math.max(w.to,endMs(r)+3600000);if(r.start<w.start)w.start=r.start;if(!w.end||endMs(r)>=w.lastEnd){w.end=r.end;w.lastEnd=endMs(r);}m.set(k,w);}
+ return [...m.values()].filter(w=>!['completed','cancelled'].includes(service(w.serviceId).status));}
+/* Coordinador «ahora»: tiene un día coordinado cuyo horario va de 2 h antes del inicio hasta 1 h tras el final. */
+function isCoordinatorAnywhere(){const now=Date.now();return coordWindows().some(w=>now>=w.from&&now<=w.to);}
+function scanServices(){const now=Date.now();return coordWindows().filter(w=>now>=w.from&&now<=w.to).sort((a,b)=>a.from-b.from).map(w=>({...service(w.serviceId),id:w.serviceId,scanDate:w.date,scanHours:w.start+'–'+w.end}));}
+/* Si un turno se ficha por geolocalización (soy su coordinador), no tiene sentido enseñar mi QR para ese turno. */
+function qrShifts(){const g=new Set(geoShifts().map(a=>a.id));return clockableShifts().filter(a=>!g.has(a.id));}
 function clockableShifts(){return clockAssignments().filter(a=>canClock(a))}
 function geoShifts(){return clockableShifts().filter(a=>a.geoClock!==undefined?(a.geoClock||crewDayList().some(d=>d.serviceId===a.serviceId&&d.date===a.date)):!service(a.serviceId).coordinatorId)}
 function stopQrRefresh(){if(qrRefreshTimer){clearInterval(qrRefreshTimer);qrRefreshTimer=null}}
@@ -596,14 +598,14 @@ function openClockModal(preferredId=''){
  stopQrCamera();stopQrRefresh();
  const coord=isCoordinatorAnywhere(),geo=geoShifts();
  if(preferredId){clockSelection=preferredId;const a=clockAssignments().find(x=>x.id===preferredId);if(a)clockMode=geo.some(x=>x.id===a.id)?'geo':'qr';}
- if(!clockMode||(clockMode==='scan'&&!coord)||(clockMode==='geo'&&!geo.length))clockMode=coord&&scanServices().length?'scan':'qr';
+ if(!clockMode||(clockMode==='scan'&&!coord)||(clockMode==='geo'&&!geo.length)||(clockMode==='qr'&&!qrShifts().length))clockMode=coord&&scanServices().length?'scan':qrShifts().length?'qr':geo.length?'geo':'qr';
  const opt=(k,title,sub,ic,show=true)=>show?'<button type="button" class="clock-opt '+(clockMode===k?'active':'')+'" data-action="clock-mode" data-id="'+k+'"><span class="clock-opt-icon">'+ic+'</span><span><b>'+title+'</b><small>'+sub+'</small></span></button>':'';
  const qrIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>';
  const scanIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 12h10"/></svg>';
  const geoIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
  modal('Fichaje','<div class="clock-popup clock-v2"><div class="clock-opts">'+
   opt('scan','Escanear QRs','Ficha a tu personal escaneando su QR',scanIc,coord)+
-  opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc,clockableShifts().length>0)+
+  opt('qr','Mostrar mi QR','Enséñalo a tu coordinador o Crew Head',qrIc,qrShifts().length>0)+
   opt('geo','Fichar por geolocalización',geo.some(a=>a.coordinator)?'Tu propio fichaje como coordinador':'Tu turno no tiene coordinador',geoIc,geo.length>0)+
   '</div><div id="clock-mode-body"></div></div>');
  $('#employee-modal').classList.add('clock-dialog');
@@ -620,12 +622,12 @@ function renderClockMode(){
  const root=$('#clock-mode-body');if(!root)return;stopQrRefresh();
  if(clockMode==='scan'){
   const svs=scanServices();
-  root.innerHTML='<p class="muted compact">Elige el servicio y escanea los QR de tu personal. Se marcan presentes al instante, aquí y en Crew Control.</p>'+(svs.length?'<div class="clock-scan-list">'+svs.map(s=>{const crew=crewDayList().some(d=>d.serviceId===s.id);return '<button type="button" class="clock-scan-item" data-action="clock-scan" data-id="'+esc(s.id)+'"><span><b>'+esc(s.name)+'</b><small>'+esc((s.date<=today()&&(s.endDate||s.date)>=today()?'Hoy':human(s.date))+' · '+(s.venue||'')+(crew?' · Crew Head':''))+'</small></span><strong>Escanear ›</strong></button>'}).join('')+'</div>':'<div class="empty">No tienes servicios activos que coordinar.</div>');
+  root.innerHTML='<p class="muted compact">Elige el servicio y escanea los QR de tu personal. Se marcan presentes al instante, aquí y en Crew Control.</p>'+(svs.length?'<div class="clock-scan-list">'+svs.map(s=>{const crew=isCrewHeadDay(s.id,s.scanDate);return '<button type="button" class="clock-scan-item" data-action="clock-scan" data-id="'+esc(s.id)+'"><span><b>'+esc(s.name)+'</b><small>'+esc((s.scanDate===today()?'Hoy':human(s.scanDate))+' '+s.scanHours+' · '+(s.venue||'')+(crew?' · Crew Head':''))+'</small></span><strong>Escanear ›</strong></button>'}).join('')+'</div>':'<div class="empty">Ahora no coordinas ningún turno. Podrás escanear desde 2 horas antes del inicio.</div>');
   return;
  }
  if(clockMode==='qr'){
-  const shifts=clockableShifts();
-  if(!shifts.length){root.innerHTML='<div class="empty">No tienes ningún turno para fichar ahora. El QR se activa 4 horas antes del inicio.</div>';return}
+  const shifts=qrShifts();
+  if(!shifts.length){root.innerHTML='<div class="empty">No tienes ningún turno para fichar con QR ahora. El QR se activa 2 horas antes del inicio.</div>';return}
   root.innerHTML=shiftPicker(shifts)+'<div id="clock-qr" class="clock-qr"><p class="muted">Generando tu QR…</p></div>';
   bindShiftPicker();renderMyQr();
   return;
