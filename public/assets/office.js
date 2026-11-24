@@ -48,6 +48,9 @@ function toolbar(rows){return `<div class="toolbar"><div class="searchbox">${ico
 function serviceInScope(r){return serviceScope==='all'||phaseMatches(servicePhase(r),serviceScope);}
 function filtered(kind){return list(kind).filter(r=>kind!=='services'||!manager()||serviceInScope(r)).filter(r=>!filter||r.status===filter||r.type===filter||(['workers','clients','users'].includes(kind)&&(r.active===false?'unavailable':'available')===filter)||(filter==='overdue'&&((kind==='invoices'&&r.status!=='draft'&&r.paid<r.total&&r.dueDate<day())||(kind==='documents'&&r.expires&&r.expires<day())))).filter(r=>!query||[...Object.values(r).filter(v=>typeof v==='string'),name('clients',r.clientId),name('workers',r.workerId),name('services',r.serviceId)].join(' ').toLowerCase().includes(query.toLowerCase()));}
 function rowActions(r,kind){return `<div class="row-actions">${action('view','Ver detalle',r.id,kind)}${manager()&&kind!=='workers'&&(!['invoices','quotes'].includes(kind)||r.status==='draft')?action('edit','Editar',r.id,kind,'edit'):''}</div>`;}
+/* v50 · en móvil las tablas se ven como tarjetas: cada celda lleva su encabezado como etiqueta */
+function labelTables(root=document){root.querySelectorAll('.table-wrap table').forEach(t=>{const hs=[...t.querySelectorAll('thead th')].map(th=>th.textContent.trim());t.querySelectorAll('tbody tr').forEach(tr=>[...tr.children].forEach((td,i)=>{if(hs[i]&&!td.dataset.label)td.dataset.label=hs[i];}));});}
+new MutationObserver(()=>{clearTimeout(labelTables.t);labelTables.t=setTimeout(()=>labelTables(),30);}).observe(document.documentElement,{childList:true,subtree:true});
 function table(headers,rows){return `<div class="panel"><div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div></div>`;}
 
 

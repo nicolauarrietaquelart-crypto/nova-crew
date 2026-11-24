@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v50 · Versión móvil
+
+- **Gestor en móvil**: indicadores del inicio compactos en 2 columnas, fases del servicio en cuadrícula sin cortes, «Hoy» y guardia ordenados, accesos rápidos en 2 columnas, pestañas deslizables, **tablas convertidas en tarjetas** con su etiqueta en cada dato, calendario mensual que cabe en pantalla, ventanas a pantalla completa con botones fijos abajo y campos de 16 px (sin zoom al escribir).
+- **Trabajador en móvil**: barra superior más limpia, botones del turno en cuadrícula, calendario de disponibilidad más legible y espacio para la barra inferior.
+
 ## Novedades v49 · Categorías ordenadas
 
 - En la ficha del trabajador, cada grupo de categorías ocupa todo el ancho, con las categorías en orden alfabético y en columnas iguales.
