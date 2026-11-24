@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v47 · Noches y disponibilidad habitual
+
+- La disponibilidad habitual tiene tres tramos: **mañana 08–16 h**, **tarde 16–24 h** y **noche 00–08 h** (madrugada de ese día).
+- Solo la marca el propio trabajador desde su área; en gestión se consulta en su ficha pero **no se puede modificar**.
+- En las reservas de vehículos de un runner ya no se repite «Conductor» debajo: su nombre sale en la reserva.
+
 ## Novedades v46 · Vehículo obligatorio para runners
 
 - Todos los runners (también «Runner sin vehículo», que significa sin vehículo propio) deben llevar vehículo asignado: una furgoneta de la empresa o «Otro · vehículo externo». No se puede asignar ni guardar en «Gestionar» sin elegirlo.

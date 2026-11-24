@@ -630,3 +630,6 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .picker-vehicle{margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#fff7f0;border:1.5px solid #ffd2b0}
 .veh-pick{display:grid;gap:6px;font-weight:700}.veh-pick small{font-weight:500;color:#6b7280}
 .veh-pick select{width:100%}
+/* v47 · disponibilidad habitual con noche; solo lectura en gestión */
+.wk-grid.wk3{grid-template-columns:minmax(90px,1fr) 1fr 1fr 1fr}
+.wk-grid.readonly .wk-cell{cursor:default;text-align:center}

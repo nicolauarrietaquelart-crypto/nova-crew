@@ -118,10 +118,11 @@ test('a coordinator closes their day: shifts are hidden as closed, frozen, and G
 test('v28: weekly morning/afternoon availability, contracts, on-call, draft quotes and shared tariff categories',async()=>{
  const f=await setup();
  const st=(await f.call('state',null,f.g)).body,hand=st.workers.find(w=>w.name==='Hand'),me=st.users.find(u=>u.role==='manager');
- // weekly availability set by the manager and by the worker
- let r=await f.call('availability-weekly',{workerId:hand.id,days:{mon:{morning:true,afternoon:false},sat:{morning:true,afternoon:true}}},f.g);
- assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.days.mon.slots,[6,7,8,9,10,11,12,13,14]);assert.equal(r.body.record.days.sat.end,'24:00');assert.equal(r.body.record.days.tue.available,false);
- r=await f.call('availability-weekly',{days:{fri:{morning:false,afternoon:true}}},f.h);assert.equal(r.status,200);assert.equal(r.body.record.days.fri.afternoon,true);
+ // weekly availability: only the worker sets it (morning 08–16, afternoon 16–24, night 00–08)
+ let r=await f.call('availability-weekly',{workerId:hand.id,days:{mon:{morning:true}}},f.g);assert.equal(r.status,403);
+ r=await f.call('availability-weekly',{days:{mon:{morning:true,afternoon:false},sat:{morning:true,afternoon:true},sun:{night:true},fri:{morning:false,afternoon:true}}},f.h);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.record.days.mon.slots,[8,9,10,11,12,13,14,15]);assert.equal(r.body.record.days.sat.end,'24:00');assert.equal(r.body.record.days.tue.available,false);
+ assert.deepEqual(r.body.record.days.sun.slots,[0,1,2,3,4,5,6,7]);assert.equal(r.body.record.days.sun.night,true);assert.equal(r.body.record.days.fri.afternoon,true);
  // contract with period
  const pdf=Buffer.from('%PDF-1.4 contrato').toString('base64');
  r=await f.call('document-upload',{workerId:hand.id,type:'contract',contractKind:'Fijo discontinuo',periodStart:'2026-01-01',periodEnd:'2026-12-31',name:'contrato.pdf',content:pdf},f.g);
