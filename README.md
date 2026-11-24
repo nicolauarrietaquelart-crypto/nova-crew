@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v54
+
+- **Mi ficha** en el área de empleado, por pasos como el portal de Penny Wise: Datos personales (nombre, apellidos, DNI/NIE, nacionalidad, sexo, nacimiento, discapacidad, dirección completa, teléfonos, email, Nº SS) → Datos perfil (desempleo, disponibilidad, tallas, nivel formativo, permisos de conducir y vehículos) → Idiomas y conocimientos (idiomas con nivel; conocimientos técnicos, profesionales y generales) → Fotografía. Campos obligatorios marcados, validación de DNI/NIE y barra de progreso. Nombre, DNI/NIE, nacimiento y Nº SS quedan bloqueados una vez guardados (solo la oficina los cambia).
+- El móvil, el email, el DNI y la dirección de la ficha se copian a los datos del trabajador.
+- Gestoría: nueva pestaña **Ficha** en la ficha del trabajador con toda esa información y el % completado.
+- Corregido: los servicios que coordinas aparecen también en «Mis servicios» aunque ese día no tengas turno propio visible.
+
 ## Novedades v53
 
 - Los servicios y las coordinaciones desaparecen del área del trabajador cuando termina su horario.
