@@ -50,6 +50,9 @@ const coordPay=a=>a.noShow?0:Math.round(Number(a.workerHours??a.hours??0)*Number
 const dietCharge=a=>a.noShow?0:Number(a.dietCount||0)*Number(a.dietClientRate??DIET_DEFAULT.clientRate);
 const date = s => {const d=text(s,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||Number.isNaN(Date.parse(d+'T12:00:00Z'))||new Date(d+'T12:00:00Z').toISOString().slice(0,10)!==d)fail('Fecha incorrecta.');return d;};
 const time = s => {if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))fail('Hora incorrecta.');return s;};
+/* «Adrià López González» → «adrialopezgonzalez» */
+const loginName=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ñ/g,'n').replace(/[^a-z0-9]/g,'');
+const titleName=s=>String(s||'').trim().replace(/\s+/g,' ').toLowerCase().split(' ').map((w,i)=>i>0&&['de','del','la','las','los','y','i'].includes(w)?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
 const cleanUser = u => {const {passwordHash,salt,iterations,...safe}=u;return {...safe,role:safe.role==='coordinator'?'worker':safe.role};};
 const cookie = v => `__Host-nova_session=${v}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${v?28800:0}`;
 const reply = (data,status=200,headers={}) => new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...headers}});
@@ -414,8 +417,8 @@ export function createOfficeApi(storage,env={}){
     const u={id:uid(),username,name:required(b.name,'el nombre'),role:'manager',active:true,workerId:'',version:1,revision:1,createdAt:now(),...credentials};
     await storage.transaction(async tx=>{if(await tx.get('office/initialized'))fail('La instalación ya está completada.',409);await tx.put(key('users',u.id),u);await tx.put('office/username/'+username,u.id);await tx.put('office/initialized',now());await audit(tx,u,'setup','users',u.id);});return session(u);
    }
-   const username=text(b.username,100).toLowerCase();await rate('login/'+username,12);
-   const id=await storage.get('office/username/'+username),u=id?await storage.get(key('users',id)):null;
+   const username=text(b.username,100).toLowerCase().trim();await rate('login/'+username,12);
+   const id=await storage.get('office/username/'+username)||await storage.get('office/username/'+loginName(username)),u=id?await storage.get(key('users',id)):null;
    // Derive a hash even for unknown users, avoiding a cheap username timing oracle.
    const hash=await passwordHash(String(b.password||'').slice(0,128),u?.salt||'nova-invalid-user',u?.iterations||100000);
    if(!u?.active||!equal(hash,u.passwordHash))fail('Usuario o contraseña incorrectos.',401);
@@ -452,6 +455,7 @@ export function createOfficeApi(storage,env={}){
   if(op==='qr-issue'){b.qrToken=random();b.qrHash=await digest(b.qrToken);}
   if(op==='qr-redeem'){if(!/^[a-f0-9]{64}$/.test(String(b.token||'')))fail('Código QR no válido.');b.qrHash=await digest(b.token);}
   if(op==='user'&&b.record?.password){managerOnly(actor);b.passwordFields=await passwordFields(b.record.password);}
+   if(op==='workers-import'){managerOnly(actor);const list=Array.isArray(b.rows)?b.rows.slice(0,25):[];if(!list.length)fail('No hay personas para importar.');b.importRows=[];for(const r of list){const name=titleName(text(r.name,120));if(name.length<3)continue;b.importRows.push({name,phone:text(r.phone,30).replace(/[^0-9+]/g,''),username:loginName(name),fields:await passwordFields(String(b.password||''))});}}
    if(op==='save'&&b.kind==='workers'&&b.record?.createAccess!==false){managerOnly(actor);b.onboardingPassword=random().slice(0,32);b.onboardingPasswordFields=await passwordFields(b.onboardingPassword);}
   const result=await storage.transaction(async db=>{
    const currentActor=await record(db,'users',actor.id);if(!currentActor.active||currentActor.version!==actor.version)fail('La sesión ha cambiado. Inicia sesión de nuevo.',401);
@@ -468,6 +472,21 @@ export function createOfficeApi(storage,env={}){
      await db.put(key('users',u.id),u);await db.put('office/username/'+username,u.id);
      await audit(db,actor,'create-access','users',u.id);
      return {record:saved,access:{username,password:b.onboardingPassword,existing:false}};
+    }
+    if(op==='workers-import'){
+     const out=[];const workers=await rows(db,'workers'),users=await rows(db,'users');
+     for(const r of b.importRows){
+      let w=workers.find(x=>!x.archived&&loginName(x.name)===r.username);let created=false;
+      if(!w){w=await saveEntity(db,actor,'workers',{name:r.name,phone:r.phone,active:true});workers.push(w);created=true;}
+      else if(r.phone&&!w.phone){const nw={...w,phone:r.phone,revision:w.revision+1,updatedAt:now()};await db.put(key('workers',w.id),nw);w=nw;}
+      const has=users.find(u=>u.workerId===w.id&&u.active);
+      if(has){out.push({name:r.name,username:has.username,status:'existing'});continue;}
+      const taken=await db.get('office/username/'+r.username);if(taken){out.push({name:r.name,username:r.username,status:'conflict'});continue;}
+      const u={id:uid(),username:r.username,name:w.name,role:'worker',active:true,workerId:w.id,version:1,revision:1,createdAt:now(),...r.fields};
+      await db.put(key('users',u.id),u);await db.put('office/username/'+r.username,u.id);users.push(u);await audit(db,actor,'create-access','users',u.id,'importación');
+      out.push({name:r.name,username:r.username,status:created?'created':'access'});
+     }
+     return {results:out};
     }
     if(op==='availability-weekly'){
      if(actor.role==='manager')fail('La disponibilidad habitual solo la puede cambiar el propio trabajador.',403);
