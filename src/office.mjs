@@ -1198,7 +1198,15 @@ export function createOfficeApi(storage,env={}){
     if(kind==='quotes'&&r.invoiceId)fail('Este presupuesto ya está facturado: no se puede eliminar.',409);
     if(kind==='orderLines'&&(await rows(db,'assignments')).some(a=>a.orderLineId===r.id&&!a.archived))fail('Retira la asignación antes de eliminar la plaza.',409);
      if(kind==='assignments'&&(r.checkIn||(await record(db,'services',r.serviceId)).settlementStatus==='confirmed'))fail('No se puede retirar una asignación fichada o liquidada.',409);
-    if(kind==='workers'&&(await rows(db,'assignments')).some(a=>a.workerId===r.id&&!a.archived))fail('El trabajador conserva asignaciones. Desactívalo en su ficha.',409);
+    if(kind==='workers'){
+     /* v58 · Archivar un trabajador = darlo de baja: pasa a Históricos (conserva su historial) y pierde el acceso. */
+     const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid'}).format(new Date());
+     const future=(await rows(db,'assignments')).filter(a=>a.workerId===r.id&&!a.archived&&a.status!=='rejected'&&!a.checkIn&&(a.endDate||a.date)>=today);
+     if(future.length)fail('Tiene '+future.length+(future.length===1?' turno pendiente':' turnos pendientes')+'. Retíralo de esos servicios antes de archivarlo.',409);
+     const stamp=now();await db.put(key('workers',r.id),{...r,active:false,leftAt:stamp,endDate:r.endDate||today,revision:r.revision+1,updatedAt:stamp});
+     for(const u of (await rows(db,'users')).filter(u=>u.workerId===r.id&&u.active))await db.put(key('users',u.id),{...u,active:false,version:(u.version||1)+1,revision:(u.revision||0)+1,updatedAt:stamp});
+     await audit(db,actor,'archive','workers',r.id,'baja → históricos');return {};
+    }
     if(kind==='clients'&&(await rows(db,'services')).some(s=>s.clientId===r.id&&!s.archived))fail('El cliente tiene servicios. Desactívalo en su ficha.',409);
     if(kind==='services'&&(await rows(db,'assignments')).some(a=>a.serviceId===r.id&&!a.archived))fail('Retira primero las asignaciones o cancela el servicio.',409);
     if(kind==='assignments'&&r.vehicle)await syncAssignmentVehicle(db,actor,{...r,archived:true},'');
