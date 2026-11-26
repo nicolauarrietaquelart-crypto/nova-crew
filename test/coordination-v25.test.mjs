@@ -438,3 +438,14 @@ test('v55 · the coordinator (not Crew Head) earns 0,63 €/h extra, not charged
  assert.equal(Math.round((sv.settlementCost-base)*100)/100,Math.round(hrs*0.63*100)/100);
  const mine=(await f.call('state',null,f.c)).body.assignments.find(a=>a.id===f.aCoord.id);assert.equal(mine.coordPlus,Math.round(hrs*0.63*100)/100);
 });
+
+test('v57 · bulk access: username = full name joined; login accepts spaces/accents',async()=>{
+ const f=await setup();const pw='test-import-pass-1';
+ const r=await f.call('workers-import',{password:pw,rows:[{name:'ÁNGEL PRUEBA RUIZ',phone:'600 000 001'},{name:'NURIA PEÑA SOLER',phone:'600000002'},{name:'JUAN PEREZ DE LA ROSA',phone:'600000003'}]},f.g);
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.deepEqual(r.body.results.map(x=>x.username),['angelpruebaruiz','nurianenasoler'.replace('nena','pena'),'juanperezdelarosa']);
+ assert.ok(r.body.results.every(x=>x.status==='created'));
+ const again=await f.call('workers-import',{password:pw,rows:[{name:'Ángel Prueba Ruiz',phone:''}]},f.g);assert.equal(again.body.results[0].status,'existing');
+ const st=(await f.call('state',null,f.g)).body;const w=st.workers.find(x=>x.name==='Ángel Prueba Ruiz');assert.equal(w.phone,'600000001');
+ const lg=await f.call('login',{username:'Ángel Prueba Ruiz',password:pw});assert.equal(lg.status,200,JSON.stringify(lg.body));
+ assert.equal((await f.call('workers-import',{password:'x',rows:[{name:'Pepe Perez'}]},f.g)).status,400);
+});
