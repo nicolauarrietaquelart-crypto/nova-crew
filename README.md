@@ -1,5 +1,10 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v57
+
+- Gestoría → Trabajadores / Usuarios: **Crear accesos en bloque**. Pegas «NOMBRE APELLIDOS teléfono» por línea y una contraseña inicial; crea el trabajador (si no existe) y su acceso. El usuario es el nombre y apellidos juntos, sin espacios ni acentos (p. ej. `adrialopezgonzalez`).
+- El inicio de sesión acepta el usuario con mayúsculas, espacios o acentos.
+
 ## Novedades v56
 
 - El número del menú «Coordinación» muestra cuántas coordinaciones tienes (antes contaba personas sin fichar hoy, y no cuadraba con la lista).
