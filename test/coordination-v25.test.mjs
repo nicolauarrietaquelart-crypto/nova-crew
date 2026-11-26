@@ -449,3 +449,12 @@ test('v57 · bulk access: username = full name joined; login accepts spaces/acce
  const lg=await f.call('login',{username:'Ángel Prueba Ruiz',password:pw});assert.equal(lg.status,200,JSON.stringify(lg.body));
  assert.equal((await f.call('workers-import',{password:'x',rows:[{name:'Pepe Perez'}]},f.g)).status,400);
 });
+
+test('v58 · archiving a worker sends them to history and removes access; pending shifts block it',async()=>{
+ const f=await setup();
+ const blocked=await f.call('archive',{kind:'workers',id:f.aHand.workerId,revision:(await f.call('state',null,f.g)).body.workers.find(w=>w.id===f.aHand.workerId).revision},f.g);
+ assert.equal(blocked.status,409);
+ const w=await f.save('workers',{name:'Baja Prueba',phone:'600000009',active:true,createAccess:false});
+ const ok=await f.call('archive',{kind:'workers',id:w.id,revision:w.revision},f.g);assert.equal(ok.status,200,JSON.stringify(ok.body));
+ const st=(await f.call('state',null,f.g)).body;const after=st.workers.find(x=>x.id===w.id);assert.equal(after.active,false);assert.ok(!after.archived);
+});

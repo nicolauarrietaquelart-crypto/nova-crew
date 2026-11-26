@@ -1,5 +1,11 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v58
+
+- Archivar un trabajador lo pasa a **Históricos** (baja): conserva su historial, deja de salir al asignar y en ofertas y pierde el acceso a la app. Si tiene turnos pendientes, avisa para retirarlo antes.
+- Botón de archivar también en la lista de trabajadores, junto al de ver.
+- Los trabajadores archivados antes de esta versión también aparecen en Históricos.
+
 ## Novedades v57
 
 - Gestoría → Trabajadores / Usuarios: **Crear accesos en bloque**. Pegas «NOMBRE APELLIDOS teléfono» por línea y una contraseña inicial; crea el trabajador (si no existe) y su acceso. El usuario es el nombre y apellidos juntos, sin espacios ni acentos (p. ej. `adrialopezgonzalez`).
