@@ -393,7 +393,7 @@ async function backfillRefs(db){if(await db.get('office/meta/refsBackfilled'))re
 const crewBridge=createCrewBridge({rows,key,record,fail,uid,now,text,money,crewHeadDays,audit,tariffCatalog,datesBetween});
 const ON_CALL_PHONE='670 514 308';
 const clientArea=createClientArea({rows,key,record,fail,uid,now,text,money,audit,saveEntity,tariffCatalog,settings,date,time,number,required,revision,onCallPhone:ON_CALL_PHONE});
-const READ_ONLY_POST=new Set(['assignment-history','history','activity-by-service','geocode','crew-open']);
+const READ_ONLY_POST=new Set(['client-geocode','assignment-history','history','activity-by-service','geocode','crew-open']);
 export function createOfficeApi(storage,env={}){
  async function rate(name,limit){const k='office/rate/'+await digest(name);await storage.transaction(async db=>{const r=await db.get(k);const t=Date.now();if(r&&r.until>t&&r.count>=limit)fail('Demasiados intentos. Espera 15 minutos.',429);await db.put(k,{until:r&&r.until>t?r.until:t+900000,count:r&&r.until>t?r.count+1:1});});}
  async function auth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-nova_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)fail('Inicia sesión para continuar.',401);const k='office/session/'+await digest(token),s=await storage.get(k);if(!s||s.expires<Date.now()) {if(s)await storage.delete(k);fail('La sesión ha caducado.',401);}const u=await storage.get(key('users',s.userId));if(!u?.active||u.version!==s.version)fail('La cuenta o sesión ya no está activa.',401);if(u.role==='client'){const c=await storage.get(key('clients',u.clientId));if(!c||c.archived||c.active===false)fail('La cuenta de cliente está desactivada.',401);}if(u.role==='worker'){const w=await storage.get(key('workers',u.workerId));if(!w?.active||w.archived)fail('La ficha de trabajador está inactiva.',401);}return {actor:u,sessionKey:k};}
@@ -451,6 +451,7 @@ export function createOfficeApi(storage,env={}){
    if(req.method==='GET'&&op==='state')return reply(await clientArea.view(storage,actor));
    if(req.method==='GET'&&op==='rev')return reply({ok:true,rev:Number(await storage.get('office/meta/rev')||0)});
    if(!(req.method==='POST'&&(op==='logout'||op==='password'||op.startsWith('client-'))))fail('Esta sección no está disponible en el área de cliente.',403);
+   if(op==='client-geocode')await rate('geo/'+actor.id,120);
   }
   if(req.method==='GET'){
    if(op==='state'&&actor.role==='manager'&&!(await storage.get('office/meta/refsBackfilled')))await storage.transaction(db=>backfillRefs(db));
@@ -486,7 +487,7 @@ export function createOfficeApi(storage,env={}){
    if(op==='save'&&b.kind==='workers'&&b.record?.createAccess!==false){managerOnly(actor);b.onboardingPassword=random().slice(0,32);b.onboardingPasswordFields=await passwordFields(b.onboardingPassword);}
   const result=await storage.transaction(async db=>{
    const currentActor=await record(db,'users',actor.id);if(!currentActor.active||currentActor.version!==actor.version)fail('La sesión ha cambiado. Inicia sesión de nuevo.',401);
-   if(actor.role==='client')return await clientArea.op(db,actor,op,b);
+   if(actor.role==='client'&&op!=='client-geocode')return await clientArea.op(db,actor,op,b);
    if(op==='client-user'){
     managerOnly(actor);const c=await record(db,'clients',required(b.clientId,'el cliente'));const users=await rows(db,'users'),cur=users.find(u=>u.role==='client'&&u.clientId===c.id&&!u.archived);
     const username=loginName(required(b.username,'el usuario'));if(username.length<3)fail('Usuario demasiado corto.');
@@ -780,8 +781,8 @@ export function createOfficeApi(storage,env={}){
       const v={id:d,date:d,userId:u.id,name:u.name,phone:text(b.phone,40),notes:text(b.notes,300),updatedBy:actor.id,updatedAt:now(),revision:(old?.revision||0)+1};await db.put(k,v);out.push(v);}
      await audit(db,actor,u?'oncall-set':'oncall-clear','onCall',from,(u?u.name:'Sin guardia')+' · '+from+(to!==from?' → '+to:''));return {records:out};
     }
-    if(op==='geocode'){
-     if(actor.role!=='manager')fail('Solo Gestoría.',403);
+    if(op==='geocode'||op==='client-geocode'){
+     if(actor.role!=='manager'&&!(actor.role==='client'&&op==='client-geocode'))fail('Solo Gestoría.',403);
      const q=required(b.q,'la búsqueda').slice(0,200);if(q.length<3)return {results:[]};
      const gkey=env?.GOOGLE_MAPS_API_KEY;
      try{
@@ -1136,7 +1137,7 @@ export function createOfficeApi(storage,env={}){
       const quoteData={id:old?.id,revision:old?.revision,clientId:client.id,date:input.date||now().slice(0,10),
         dueDate:input.dueDate||input.date||now().slice(0,10),notes:input.notes||'',lines};
       const saved=await saveEntity(db,actor,'quotes',quoteData);
-      const full={...saved,staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),serviceVenueLat:Number.isFinite(Number(input.serviceVenueLat))&&input.serviceVenueLat!==''?Number(input.serviceVenueLat):null,serviceVenueLng:Number.isFinite(Number(input.serviceVenueLng))&&input.serviceVenueLng!==''?Number(input.serviceVenueLng):null,planStartDate:dates[0],planEndDate:dates[dates.length-1]};
+      const full={...saved,contactName:text(input.contactName,120),contactPhone:text(input.contactPhone,40),staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),serviceVenueLat:Number.isFinite(Number(input.serviceVenueLat))&&input.serviceVenueLat!==''?Number(input.serviceVenueLat):null,serviceVenueLng:Number.isFinite(Number(input.serviceVenueLng))&&input.serviceVenueLng!==''?Number(input.serviceVenueLng):null,planStartDate:dates[0],planEndDate:dates[dates.length-1]};
       if(input.requestId){const rq=await db.get(key('clientRequests',text(input.requestId)));if(rq&&rq.clientId===full.clientId){full.requestId=rq.id;await db.put(key('clientRequests',rq.id),{...rq,status:'quoted',quoteId:full.id,handledBy:actor.name,handledAt:now(),revision:rq.revision+1,updatedAt:now()});}}
       await db.put(key('quotes',full.id),full);
       await audit(db,actor,'quote-plan-save','quotes',full.id);return {record:full};

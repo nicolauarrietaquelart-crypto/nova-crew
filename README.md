@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v60
+
+- Inicio de sesión: el botón se llama solo «Área Clientes».
+- Área Clientes · nuevo pedido más guiado: 1) evento con **buscador de ubicación** (rellena recinto y dirección), 2) **persona y teléfono de contacto** de esa petición (puede cambiar en cada una), 3) **calendario para marcar los días**, 4) **turnos de cada día** (perfil, personas con botones −/+, horario, pausa y tipo de trabajo con botones), con «Duplicar», «Copiar turnos del día anterior» y «Usar estos turnos en todos los días». Resumen de turnos, personas, horas y días.
+- El cliente **ya no ve precios ni tarifas** al pedir ni en sus servicios: los importes solo aparecen en el presupuesto emitido.
+- Presupuestos: campos «Persona de contacto» y «Teléfono de contacto» (se rellenan desde la petición) y aparecen en el documento.
+
 ## Novedades v59
 
 - **Área Clientes** en `/cliente` (botón «Área Clientes» en los inicios de sesión). Los clientes pueden registrarse o entrar, y desde ahí:

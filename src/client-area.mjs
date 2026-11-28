@@ -21,7 +21,7 @@ export function createClientArea(h){
  async function view(db,actor){
   const client=await clientOf(db,actor),cfg=await settings(db),card=await rateCard(db,client),vat=Number(cfg.vat??21);
   const requests=(await rows(db,'clientRequests')).filter(r=>r.clientId===client.id&&!r.archived).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  const quotes=(await rows(db,'quotes')).filter(q=>q.clientId===client.id&&!q.archived&&q.status!=='draft').map(q=>({id:q.id,ref:q.ref||'',number:q.number,status:q.status,date:q.date,dueDate:q.dueDate,serviceName:q.serviceName||'',serviceVenue:q.serviceVenue||'',serviceId:q.serviceId||'',lines:q.lines,net:q.net,tax:q.tax,total:q.total,notes:q.notes||'',issuer:q.issuer||null,customer:q.customer||null,respondedAt:q.clientRespondedAt||'',clientComment:q.clientComment||'',revision:q.revision,
+  const quotes=(await rows(db,'quotes')).filter(q=>q.clientId===client.id&&!q.archived&&q.status!=='draft').map(q=>({contactName:q.contactName||'',contactPhone:q.contactPhone||'',id:q.id,ref:q.ref||'',number:q.number,status:q.status,date:q.date,dueDate:q.dueDate,serviceName:q.serviceName||'',serviceVenue:q.serviceVenue||'',serviceId:q.serviceId||'',lines:q.lines,net:q.net,tax:q.tax,total:q.total,notes:q.notes||'',issuer:q.issuer||null,customer:q.customer||null,respondedAt:q.clientRespondedAt||'',clientComment:q.clientComment||'',revision:q.revision,
    staffPlan:(q.staffPlan||[]).map(x=>({quantity:x.quantity,role:x.role,serviceType:x.serviceType,date:x.date,endDate:x.endDate,start:x.start,end:x.end,pause:x.pause,locationName:x.locationName||''}))})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const invoices=(await rows(db,'invoices')).filter(i=>i.clientId===client.id&&!i.archived&&i.status!=='draft').map(i=>({id:i.id,number:i.number,status:i.status,date:i.date,dueDate:i.dueDate,serviceId:i.serviceId||'',lines:i.lines,net:i.net,tax:i.tax,total:i.total,paid:i.paid||0,notes:i.notes||'',issuer:i.issuer||null,customer:i.customer||null})).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const svcs=(await rows(db,'services')).filter(s=>s.clientId===client.id&&!s.archived);
@@ -31,14 +31,15 @@ export function createClientArea(h){
   const asg=(await rows(db,'assignments')).filter(a=>ids.has(a.serviceId)&&!a.archived&&a.status!=='rejected');
   const workers=new Map((await rows(db,'workers')).map(w=>[w.id,w]));
   const services=svcs.map(s=>{
-   const pos=lines.filter(l=>l.serviceId===s.id).map(l=>{const a=asg.find(x=>x.orderLineId===l.id);const bk=blocks.find(b=>b.id===l.blockId);const est=estimateLine({...l,quantity:1,pause:Number(l.pause||0)},card);
-    return {id:l.id,date:l.date,endDate:l.endDate,start:l.start,end:l.end,pause:l.pause||0,role:l.role,serviceType:bk?.serviceType||l.serviceType||'',team:bk?.team||'',location:bk?.locationName||'',covered:!!a,present:!!a?.checkIn,worker:s.showWorkerNames&&a?(workers.get(a.workerId)?.name||''):'',estimate:est?est.net:null};})
+   const pos=lines.filter(l=>l.serviceId===s.id).map(l=>{const a=asg.find(x=>x.orderLineId===l.id);const bk=blocks.find(b=>b.id===l.blockId);
+    return {id:l.id,date:l.date,endDate:l.endDate,start:l.start,end:l.end,pause:l.pause||0,role:l.role,serviceType:bk?.serviceType||l.serviceType||'',team:bk?.team||'',location:bk?.locationName||'',covered:!!a,present:!!a?.checkIn,worker:s.showWorkerNames&&a?(workers.get(a.workerId)?.name||''):''};})
     .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-   const est=money(pos.reduce((n,p)=>n+(p.estimate||0),0));
-   return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status,showWorkerNames:!!s.showWorkerNames,positions:pos,estimateNet:est,estimateTotal:money(est*(1+vat/100)),quoteId:s.quoteId||''};
+   return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status,showWorkerNames:!!s.showWorkerNames,positions:pos,quoteId:s.quoteId||''};
   }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const {passwordHash,salt,iterations,...user}=actor;
-  return {ok:true,user,client:{...client},company:{name:cfg.name,phone:cfg.phone,email:cfg.email,address:cfg.address,iban:cfg.iban||''},onCall:cfg.emergencyPhone||onCallPhone,vat,categories:card,requests,quotes,services,invoices};
+  /* El cliente nunca ve la tarifa aplicada: solo nombres de perfil, sin precios. Los importes llegan en el presupuesto emitido. */
+  const categories=card.map(({price,minHours,...c})=>c);
+  return {ok:true,user,client:{...client},company:{name:cfg.name,phone:cfg.phone,email:cfg.email,address:cfg.address,iban:cfg.iban||''},onCall:cfg.emergencyPhone||onCallPhone,vat,categories,requests,quotes,services,invoices};
  }
 
  function cleanLines(input){
@@ -64,7 +65,7 @@ export function createClientArea(h){
    if(old)revision(old,r);
    const ls=cleanLines(r.lines),card=await rateCard(db,client);for(const l of ls){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;}
    const dates=ls.map(l=>l.date).sort();
-   const value={...(old||{}),id:old?.id||uid(),clientId:client.id,type:'quote',status:'pending',title:required(r.title,'el nombre del evento').slice(0,200),venue:text(r.venue,200),address:text(r.address,400),contactOnSite:text(r.contactOnSite,200),notes:text(r.notes,3000),lines:ls,dateFrom:dates[0],dateTo:ls.map(l=>l.endDate).sort().slice(-1)[0],
+   const value={...(old||{}),id:old?.id||uid(),clientId:client.id,type:'quote',status:'pending',title:required(r.title,'el nombre del evento').slice(0,200),venue:text(r.venue,200),address:text(r.address,400),venueLat:Number.isFinite(Number(r.venueLat))&&r.venueLat!==''&&r.venueLat!==null?Number(r.venueLat):null,venueLng:Number.isFinite(Number(r.venueLng))&&r.venueLng!==''&&r.venueLng!==null?Number(r.venueLng):null,contactName:required(r.contactName,'la persona de contacto').slice(0,120),contactPhone:required(r.contactPhone,'el teléfono de contacto').slice(0,40),contactOnSite:text(r.contactOnSite,200),notes:text(r.notes,3000),lines:ls,dateFrom:dates[0],dateTo:ls.map(l=>l.endDate).sort().slice(-1)[0],
     createdAt:old?.createdAt||now(),createdBy:old?.createdBy||actor.id,updatedAt:now(),revision:(old?.revision||0)+1,changedByClient:!!old};
    await db.put(key('clientRequests',value.id),value);await audit(db,actor,old?'client-request-update':'client-request','clientRequests',value.id,value.title);return {record:value};
   }
