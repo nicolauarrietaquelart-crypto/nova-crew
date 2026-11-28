@@ -931,3 +931,13 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 
 /* v55 · plus de coordinación */
 .coord-plus{display:block;color:#0f8a4a;font-size:11.5px;font-weight:600}
+
+/* ===== v59 · Peticiones del Área Clientes ===== */
+.cr-list{display:grid;gap:14px}
+.cr-card{padding:18px 20px;transition:transform .18s,box-shadow .18s}.cr-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,23,32,.08)}
+.cr-card.cr-new{border-left:4px solid #ff7a00}
+.cr-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}.cr-head h3{margin:2px 0 2px;font-size:17px}.cr-head small{color:#8a8f98}
+.cr-type{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ff6a00}
+.cr-portal{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff7ef;border:1px solid #ffd9b3;border-radius:14px;padding:12px 14px;margin:14px 0}.cr-portal b{display:block}.cr-portal small{display:block;color:#7a5a3a}
+.auth-client{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;height:44px;border-radius:12px;border:1px solid #e3e4e8;font-weight:700;text-decoration:none;color:#15171b;background:#fff;transition:background .15s,border-color .15s}
+.auth-client:hover{border-color:#ff9a3d;background:#fff7ef}

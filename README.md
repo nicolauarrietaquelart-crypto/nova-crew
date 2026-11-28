@@ -1,5 +1,20 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v59
+
+- **Área Clientes** en `/cliente` (botón «Área Clientes» en los inicios de sesión). Los clientes pueden registrarse o entrar, y desde ahí:
+  - pedir presupuestos (evento, recinto y turnos con perfil, personas, fecha, horario y pausa) con estimación de coste con su tarifa;
+  - ver y modificar sus peticiones mientras no estén gestionadas, o anularlas;
+  - ver los presupuestos emitidos con sus líneas y turnos, descargarlos en PDF y aceptarlos o rechazarlos;
+  - seguir sus servicios: turnos por día, puestos cubiertos y presentes, y coste estimado. Los nombres del personal no se muestran salvo que la gestoría lo active (el cliente puede pedirlo);
+  - pedir cambios en un servicio;
+  - descargar sus facturas (pago por transferencia bancaria, sin pagos en la app);
+  - editar sus datos fiscales;
+  - ver siempre el teléfono de guardia para urgencias o ausencias.
+- Gestoría: nueva página **Peticiones** con todo lo que llega del Área Clientes, botón «Preparar presupuesto» que rellena el presupuesto con la petición, y aviso cuando el cliente acepta o rechaza.
+- Gestoría: en la ficha del cliente, «Crear acceso» al Área Clientes; en cada servicio, interruptor «Cliente ve los nombres».
+- Calendario de gestión: cada servicio sale solo los días en que tiene turnos, con su horario; si ese día hay varios horarios, solo el nombre y el número de turnos.
+
 ## Novedades v58
 
 - Archivar un trabajador lo pasa a **Históricos** (baja): conserva su historial, deja de salir al asignar y en ofertas y pierde el acceso a la app. Si tiene turnos pendientes, avisa para retirarlo antes.

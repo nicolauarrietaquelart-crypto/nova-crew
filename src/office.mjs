@@ -1,5 +1,6 @@
 import {STANDARD_TARIFFS, STANDARD_EXCEPTIONS} from './tariffs.mjs';
 import {createCrewBridge} from './crew-bridge.mjs';
+import {createClientArea} from './client-area.mjs';
 /* NOVA Crew operations. Persistent, isolated from legacy demonstration data. */
 const enc = new TextEncoder();
 const now = () => new Date().toISOString();
@@ -252,7 +253,7 @@ async function view(db,actor){
  result.onCall=actor.role==='manager'?await rows(db,'onCall'):[];
  result.onCallPhone=ON_CALL_PHONE;
  if(actor.role==='manager'){result.dietRates=await rows(db,'dietRates');result.vehicles=(await rows(db,'vehicles')).filter(v=>!v.archived);result.vehicleBookings=(await rows(db,'vehicleBookings')).filter(v=>!v.archived);}
- if(actor.role==='manager')Object.assign(result,{coordClosures,employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
+ if(actor.role==='manager')Object.assign(result,{clientRequests:(await rows(db,'clientRequests')).filter(r=>!r.archived),clientUsers:(await rows(db,'users')).filter(u=>u.role==='client'&&!u.archived).map(u=>({id:u.id,username:u.username,name:u.name,clientId:u.clientId,active:u.active,revision:u.revision})),coordClosures,employeeProfiles:await rows(db,'employeeProfiles'),weeklyAvailabilityRows:await rows(db,'weeklyAvailability'),employeePhotoIds:[...(await db.list({prefix:'office/employeePhotos/'})).values()].map(p=>p.workerId).filter(Boolean),tariffs:await tariffCatalog(db),tariffExceptions:STANDARD_EXCEPTIONS,orderLines:await rows(db,'orderLines'),serviceDays:await rows(db,'serviceDays'),serviceBlocks:await rows(db,'serviceBlocks'),serviceBlockOperators:await rows(db,'serviceBlockOperators'),serviceCoordinators:await rows(db,'serviceCoordinators'),clients:await rows(db,'clients'),invoices:await rows(db,'invoices'),quotes:await rows(db,'quotes'),users:(await rows(db,'users')).map(cleanUser),settings:await settings(db),audit:[...(await db.list({prefix:'office/audit/',reverse:true,limit:200})).values()]});
  return result;
 }
 function invoiceLines(input){if(!Array.isArray(input)||input.length<1||input.length>200)fail('Añade entre 1 y 200 líneas.');return input.map(l=>{const quantity=number(l.quantity,0.01,1e5),price=number(l.price,0,1e6),vat=number(l.vat,0,100);const net=money(quantity*price);return {description:required(l.description,'el concepto'),quantity,price,vat,net,tax:money(net*vat/100),...(l.sub===true||l.sub==='true'||l.sub==='1'?{sub:true}:{}),...(['day','diet'].includes(l.unit)?{unit:l.unit}:{})};});}
@@ -391,10 +392,11 @@ async function backfillRefs(db){if(await db.get('office/meta/refsBackfilled'))re
  await db.put('office/meta/refsBackfilled',now());}
 const crewBridge=createCrewBridge({rows,key,record,fail,uid,now,text,money,crewHeadDays,audit,tariffCatalog,datesBetween});
 const ON_CALL_PHONE='670 514 308';
+const clientArea=createClientArea({rows,key,record,fail,uid,now,text,money,audit,saveEntity,tariffCatalog,settings,date,time,number,required,revision,onCallPhone:ON_CALL_PHONE});
 const READ_ONLY_POST=new Set(['assignment-history','history','activity-by-service','geocode','crew-open']);
 export function createOfficeApi(storage,env={}){
  async function rate(name,limit){const k='office/rate/'+await digest(name);await storage.transaction(async db=>{const r=await db.get(k);const t=Date.now();if(r&&r.until>t&&r.count>=limit)fail('Demasiados intentos. Espera 15 minutos.',429);await db.put(k,{until:r&&r.until>t?r.until:t+900000,count:r&&r.until>t?r.count+1:1});});}
- async function auth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-nova_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)fail('Inicia sesión para continuar.',401);const k='office/session/'+await digest(token),s=await storage.get(k);if(!s||s.expires<Date.now()) {if(s)await storage.delete(k);fail('La sesión ha caducado.',401);}const u=await storage.get(key('users',s.userId));if(!u?.active||u.version!==s.version)fail('La cuenta o sesión ya no está activa.',401);if(u.role==='worker'){const w=await storage.get(key('workers',u.workerId));if(!w?.active||w.archived)fail('La ficha de trabajador está inactiva.',401);}return {actor:u,sessionKey:k};}
+ async function auth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-nova_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)fail('Inicia sesión para continuar.',401);const k='office/session/'+await digest(token),s=await storage.get(k);if(!s||s.expires<Date.now()) {if(s)await storage.delete(k);fail('La sesión ha caducado.',401);}const u=await storage.get(key('users',s.userId));if(!u?.active||u.version!==s.version)fail('La cuenta o sesión ya no está activa.',401);if(u.role==='client'){const c=await storage.get(key('clients',u.clientId));if(!c||c.archived||c.active===false)fail('La cuenta de cliente está desactivada.',401);}if(u.role==='worker'){const w=await storage.get(key('workers',u.workerId));if(!w?.active||w.archived)fail('La ficha de trabajador está inactiva.',401);}return {actor:u,sessionKey:k};}
  async function session(u){const token=random();await storage.put('office/session/'+await digest(token),{userId:u.id,version:u.version,expires:Date.now()+28800000});return reply({ok:true,user:cleanUser(u)},200,{'set-cookie':cookie(token)});}
  return async function handle(req){try{
   const url=new URL(req.url),op=url.pathname.slice('/api/office/'.length)||'status';
@@ -407,6 +409,25 @@ export function createOfficeApi(storage,env={}){
   if(op==='status'&&req.method==='GET')return reply({ok:true,configured:Boolean(await storage.get('office/initialized')),setupAvailable:Boolean(env.NOVA_SETUP_TOKEN&&env.NOVA_SETUP_TOKEN.length>=24),setupState:!env.NOVA_SETUP_TOKEN?'missing':env.NOVA_SETUP_TOKEN.length<24?'too_short':'ready'});
   const raw=req.method==='POST'?await req.text():'';if(raw.length>7500000)fail('Petición demasiado grande.',413);let b={};if(raw){try{b=JSON.parse(raw);}catch{fail('JSON incorrecto.');}}
   const ip=req.headers.get('cf-connecting-ip')||'local';
+  if(op==='client-register'){
+   /* v59 · Alta de clientes desde «Área Clientes». Crea la ficha de cliente (origen: web) y su acceso. */
+   if(req.method!=='POST')fail('Método no permitido.',405);await rate('ip/'+ip,30);await rate('register/'+ip,6);
+   const company=required(b.company,'el nombre de la empresa').slice(0,200),taxId=text(b.taxId,40).toUpperCase(),email=text(b.email,200),phone=text(b.phone,40),contact=required(b.contact,'la persona de contacto').slice(0,120);
+   if(!/^\S+@\S+\.\S+$/.test(email))fail('Escribe un correo válido.');if(!phone)fail('Falta el teléfono.');
+   const username=loginName(required(b.username,'el usuario'));if(username.length<3)fail('El usuario debe tener al menos 3 letras o números.');
+   const credentials=await passwordFields(b.password);
+   const u=await storage.transaction(async db=>{
+    if(await db.get('office/username/'+username))fail('Ese usuario ya existe. Elige otro.',409);
+    const c={id:uid(),name:company,legalName:company,taxId,email,billingEmail:email,phone,contact,address:'',notes:'Alta desde el Área Clientes',active:true,source:'portal',paymentDays:30,revision:1,createdAt:now(),updatedAt:now()};
+    await db.put(key('clients',c.id),c);
+    const user={id:uid(),username,name:contact,role:'client',active:true,workerId:'',clientId:c.id,version:1,revision:1,createdAt:now(),...credentials};
+    await db.put(key('users',user.id),user);await db.put('office/username/'+username,user.id);
+    await db.put(key('clientRequests',uid()),{id:uid(),clientId:c.id,type:'signup',status:'pending',title:'Nuevo cliente registrado · '+company,notes:[contact,email,phone,taxId].filter(Boolean).join(' · '),lines:[],createdAt:now(),createdBy:user.id,revision:1});
+    await audit(db,user,'client-register','clients',c.id,company);
+    try{await db.put('office/meta/rev',Number(await db.get('office/meta/rev')||0)+1);}catch{}
+    return user;});
+   return session(u);
+  }
   if(op==='setup'||op==='login'){
    if(req.method!=='POST')fail('Método no permitido.',405);
    await rate('ip/'+ip,30);
@@ -425,6 +446,12 @@ export function createOfficeApi(storage,env={}){
    return session(u);
   }
   const {actor,sessionKey}=await auth(req);
+  /* El cliente solo accede a su área: nada de las operaciones de gestoría ni de trabajadores. */
+  if(actor.role==='client'){
+   if(req.method==='GET'&&op==='state')return reply(await clientArea.view(storage,actor));
+   if(req.method==='GET'&&op==='rev')return reply({ok:true,rev:Number(await storage.get('office/meta/rev')||0)});
+   if(!(req.method==='POST'&&(op==='logout'||op==='password'||op.startsWith('client-'))))fail('Esta sección no está disponible en el área de cliente.',403);
+  }
   if(req.method==='GET'){
    if(op==='state'&&actor.role==='manager'&&!(await storage.get('office/meta/refsBackfilled')))await storage.transaction(db=>backfillRefs(db));
    if(op==='rev')return reply({ok:true,rev:Number(await storage.get('office/meta/rev')||0)});
@@ -459,6 +486,29 @@ export function createOfficeApi(storage,env={}){
    if(op==='save'&&b.kind==='workers'&&b.record?.createAccess!==false){managerOnly(actor);b.onboardingPassword=random().slice(0,32);b.onboardingPasswordFields=await passwordFields(b.onboardingPassword);}
   const result=await storage.transaction(async db=>{
    const currentActor=await record(db,'users',actor.id);if(!currentActor.active||currentActor.version!==actor.version)fail('La sesión ha cambiado. Inicia sesión de nuevo.',401);
+   if(actor.role==='client')return await clientArea.op(db,actor,op,b);
+   if(op==='client-user'){
+    managerOnly(actor);const c=await record(db,'clients',required(b.clientId,'el cliente'));const users=await rows(db,'users'),cur=users.find(u=>u.role==='client'&&u.clientId===c.id&&!u.archived);
+    const username=loginName(required(b.username,'el usuario'));if(username.length<3)fail('Usuario demasiado corto.');
+    const taken=await db.get('office/username/'+username);if(taken&&taken!==cur?.id)fail('Ese usuario ya existe.',409);
+    const fields=b.password?await passwordFields(b.password):null;if(!cur&&!fields)fail('Escribe una contraseña inicial.');
+    const value={...(cur||{id:uid(),role:'client',workerId:'',clientId:c.id,version:0,revision:0,createdAt:now()}),username,name:text(b.name,120)||c.contact||c.name,active:b.active!==false,...(fields||{}),version:(cur?.version||0)+1,revision:(cur?.revision||0)+1,updatedAt:now()};
+    if(cur&&cur.username!==username)await db.delete('office/username/'+cur.username);
+    await db.put(key('users',value.id),value);await db.put('office/username/'+username,value.id);await audit(db,actor,cur?'client-user-update':'client-user-create','users',value.id,c.name);
+    const {passwordHash,salt,iterations,...safe}=value;return {record:safe};
+   }
+   if(op==='client-request-update'){
+    managerOnly(actor);const r=await record(db,'clientRequests',required(b.id,'la petición'));revision(r,b);
+    if(!['pending','in_review','quoted','done','rejected','accepted','cancelled'].includes(b.status))fail('Estado no válido.');
+    const value={...r,status:b.status,managerNote:text(b.managerNote??r.managerNote,2000),handledBy:actor.name,handledAt:now(),revision:r.revision+1,updatedAt:now()};
+    await db.put(key('clientRequests',r.id),value);await audit(db,actor,'client-request-'+b.status,'clientRequests',r.id,r.title);return {record:value};
+   }
+   if(op==='client-names-toggle'){
+    managerOnly(actor);const s=await record(db,'services',required(b.serviceId,'el servicio'));
+    const value={...s,showWorkerNames:!!b.show,revision:s.revision+1,updatedAt:now()};await db.put(key('services',s.id),value);
+    for(const r of (await rows(db,'clientRequests')).filter(r=>r.serviceId===s.id&&r.type==='names'&&['pending','in_review'].includes(r.status)))await db.put(key('clientRequests',r.id),{...r,status:'done',handledBy:actor.name,handledAt:now(),revision:r.revision+1});
+    await audit(db,actor,b.show?'client-names-on':'client-names-off','services',s.id);return {record:value};
+   }
    if(op==='save'){
      const kind=text(b.kind),input=b.record||{},saved=await saveEntity(db,actor,kind,input);
      if(kind==='assignments'&&saved.orderLineId&&saved.status!=='rejected')for(const o of (await rows(db,'offers')).filter(o=>o.orderLineId===saved.orderLineId&&o.status==='open'))await db.put(key('offers',o.id),{...o,status:'filled',filledBy:saved.workerId,closedAt:now(),closedBy:actor.id,revision:o.revision+1});
@@ -1087,6 +1137,7 @@ export function createOfficeApi(storage,env={}){
         dueDate:input.dueDate||input.date||now().slice(0,10),notes:input.notes||'',lines};
       const saved=await saveEntity(db,actor,'quotes',quoteData);
       const full={...saved,staffPlan:validated,schedule:chosenSchedule,serviceName:text(input.serviceName,200),serviceVenue:text(input.serviceVenue,200),serviceVenueLat:Number.isFinite(Number(input.serviceVenueLat))&&input.serviceVenueLat!==''?Number(input.serviceVenueLat):null,serviceVenueLng:Number.isFinite(Number(input.serviceVenueLng))&&input.serviceVenueLng!==''?Number(input.serviceVenueLng):null,planStartDate:dates[0],planEndDate:dates[dates.length-1]};
+      if(input.requestId){const rq=await db.get(key('clientRequests',text(input.requestId)));if(rq&&rq.clientId===full.clientId){full.requestId=rq.id;await db.put(key('clientRequests',rq.id),{...rq,status:'quoted',quoteId:full.id,handledBy:actor.name,handledAt:now(),revision:rq.revision+1,updatedAt:now()});}}
       await db.put(key('quotes',full.id),full);
       await audit(db,actor,'quote-plan-save','quotes',full.id);return {record:full};
     }
