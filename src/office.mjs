@@ -392,8 +392,87 @@ async function backfillRefs(db){if(await db.get('office/meta/refsBackfilled'))re
  await db.put('office/meta/refsBackfilled',now());}
 const crewBridge=createCrewBridge({rows,key,record,fail,uid,now,text,money,crewHeadDays,audit,tariffCatalog,datesBetween});
 const ON_CALL_PHONE='670 514 308';
-const clientArea=createClientArea({rows,key,record,fail,uid,now,text,money,audit,saveEntity,tariffCatalog,settings,date,time,number,required,revision,onCallPhone:ON_CALL_PHONE});
+const clientArea=createClientArea({serviceFromQuote:(db,actor,b)=>serviceCreateCore(db,actor,b),rows,key,record,fail,uid,now,text,money,audit,saveEntity,tariffCatalog,settings,date,time,number,required,revision,onCallPhone:ON_CALL_PHONE});
 const READ_ONLY_POST=new Set(['client-geocode','assignment-history','history','activity-by-service','geocode','crew-open']);
+/* v61 · creación de servicio (también desde la aceptación del cliente en su área) */
+async function serviceCreateCore(db,actor,b){
+      const info=b.service||{},quoteId=text(b.quoteId),quote=quoteId?await record(db,'quotes',quoteId):null;
+      if(quote){
+        if(quote.archived||!['draft','issued','accepted'].includes(quote.status))fail('Este presupuesto está rechazado o anulado.',409);
+        if(quote.serviceId)fail('Este presupuesto ya tiene un servicio.',409);
+        if(info.clientId&&info.clientId!==quote.clientId)fail('El cliente no coincide con el presupuesto.');
+      }
+      let items=Array.isArray(b.positions)?b.positions:[];
+      const fromQuote=!!(quote?.staffPlan?.length&&items.length===0);
+      if(fromQuote)items=quote.staffPlan.flatMap(x=>Array.from({length:x.quantity},()=>({...x})));
+      if(items.length>300)fail('Máximo 300 puestos por servicio. Divide la planificación en varios servicios.');
+      const allDates=items.flatMap(x=>[x.date,x.endDate||x.date]).filter(Boolean).map(date).sort();
+      const startDate=info.date||allDates[0],endDate=info.endDate&&info.endDate>=(allDates.at(-1)||'')?info.endDate:allDates.at(-1)||info.endDate;
+      const firstStart=items.filter(x=>x.date===startDate).map(x=>x.start).filter(Boolean).sort()[0];
+      const lastEnd=items.filter(x=>(x.endDate||x.date)===endDate).map(x=>x.end).filter(Boolean).sort().at(-1);
+      const service=await saveEntity(db,actor,'services',{
+        fromQuoteRef:quote?.ref||'',name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
+        clientCatering:info.clientCatering,hasPause:info.hasPause,uniform:info.uniform,epi:info.epi,
+        venue:info.venue||quote?.serviceVenue||items[0]?.locationName||'Ubicación por asignar',
+        venueLat:info.venueLat!==''&&info.venueLat!=null?info.venueLat:(quote?.serviceVenueLat??null),venueLng:info.venueLng!==''&&info.venueLng!=null?info.venueLng:(quote?.serviceVenueLng??null),
+        date:startDate,start:info.start||firstStart||'08:00',
+        endDate:endDate||startDate,end:info.end||lastEnd||'23:59',
+        coordinatorId:info.coordinatorId||'',required:items.length,status:'planned',notes:info.notes||''
+      });
+      const allPlaceNames=[...(Array.isArray(b.places)?b.places:[])];
+      for(const item of items)if(item.locationName&&!allPlaceNames.some(p=>p.name===item.locationName&&p.address===item.locationAddress))
+        allPlaceNames.push({name:item.locationName,address:item.locationAddress,mapsUrl:item.placeMapsUrl,lat:item.placeLat,lng:item.placeLng});
+      const createdPlaces=[],placeMap=new Map();
+      for(const place of allPlaceNames){
+        const name=required(place.name,'el nombre de ubicación'),lat=place.lat===''||place.lat==null?null:number(place.lat,-90,90),lng=place.lng===''||place.lng==null?null:number(place.lng,-180,180);
+        if((lat==null)!==(lng==null))fail('Coordenadas incompletas de '+name);
+        const mapsUrl=text(place.mapsUrl,700);if(mapsUrl){let url;try{url=new URL(mapsUrl)}catch{fail('Enlace de Google Maps inválido.');}if(url.protocol!=='https:'||!['www.google.com','google.com','maps.google.com','maps.app.goo.gl','www.google.es','google.es','www.google.co.uk','google.co.uk','www.google.fr','google.fr'].includes(url.hostname))fail('Enlace de Maps no permitido.');}
+        const recordPlace={id:uid(),serviceId:service.id,name,address:text(place.address,500),mapsUrl,lat,lng,radiusMeters:number(place.radiusMeters??500,100,5000),revision:1,createdAt:now()};
+        await db.put(key('servicePlaces',recordPlace.id),recordPlace);createdPlaces.push(recordPlace);
+        placeMap.set(name+'|'+(place.address||''),recordPlace.id);
+      }
+      const dates=[...new Set(items.flatMap(x=>[x.date,x.endDate||x.date]).concat([service.date,service.endDate]).filter(Boolean))].sort();
+      const days=[];
+      for(const d of dates){
+        const value={id:uid(),serviceId:service.id,date:date(d),name:'Jornada',notes:'',revision:1};
+        await db.put(key('serviceDays',value.id),value);days.push(value);
+      }
+      const positions=[],assigned=[],createdBlocks=[],blockIds=new Map();
+      for(const item of items){
+        const placeId=item.placeId||(item.locationName?placeMap.get(item.locationName+'|'+(item.locationAddress||''))||'':'');
+        if(placeId&&!createdPlaces.some(p=>p.id===placeId))fail('La ubicación del puesto no pertenece al servicio.');
+        const d=item.date||service.date,last=item.endDate||d,start=item.start||service.start,end=item.end||service.end;
+        const serviceType=text(item.serviceType)||'Servicio',team=text(item.team),coordinatorId=text(item.coordinatorId);
+        if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador debe tener una ficha de trabajador.',403);}
+        const blockKey=JSON.stringify([d,last,start,end,serviceType,team,placeId,coordinatorId]);
+        if(!blockIds.has(blockKey)){
+          const value={id:uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(item.notes,1000),revision:1,createdAt:now()};
+          await db.put(key('serviceBlocks',value.id),value);createdBlocks.push(value);blockIds.set(blockKey,value.id);
+        }
+        const slot=await saveEntity(db,actor,'orderLines',{
+          serviceId:service.id,categoryId:item.categoryId,serviceType:item.serviceType||'Servicio',
+          team:item.team||'',placeId,coordinatorId:item.coordinatorId||'',
+          date:item.date||service.date,start:item.start||service.start,
+          endDate:item.endDate||item.date||service.endDate,end:item.end||service.end,
+          pause:item.pause??0,diets:item.diets===true||item.diets==='true',notes:item.notes||''
+        });
+        const linked={...slot,blockId:blockIds.get(blockKey)};await db.put(key('orderLines',linked.id),linked);positions.push(linked);
+        if(item.workerId){
+          const assignment=await saveEntity(db,actor,'assignments',{
+            serviceId:service.id,orderLineId:slot.id,categoryId:slot.categoryId,
+            workerId:item.workerId,role:slot.role,team:slot.team,
+            date:slot.date,start:slot.start,endDate:slot.endDate,end:slot.end,pause:slot.pause,
+            costRate:item.costRate??'',chargeRate:item.chargeRate??''
+          });
+          assigned.push(assignment);
+        }
+      }
+      if(quote){
+        await db.put(key('quotes',quote.id),{...quote,status:'accepted',serviceId:service.id,revision:quote.revision+1,updatedAt:now()});
+        await audit(db,actor,'quote-to-service','quotes',quote.id);
+      }
+      return {record:service,positions,assigned,places:createdPlaces,days,blocks:createdBlocks,fromQuote};
+}
 export function createOfficeApi(storage,env={}){
  async function rate(name,limit){const k='office/rate/'+await digest(name);await storage.transaction(async db=>{const r=await db.get(k);const t=Date.now();if(r&&r.until>t&&r.count>=limit)fail('Demasiados intentos. Espera 15 minutos.',429);await db.put(k,{until:r&&r.until>t?r.until:t+900000,count:r&&r.until>t?r.count+1:1});});}
  async function auth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)__Host-nova_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)fail('Inicia sesión para continuar.',401);const k='office/session/'+await digest(token),s=await storage.get(k);if(!s||s.expires<Date.now()) {if(s)await storage.delete(k);fail('La sesión ha caducado.',401);}const u=await storage.get(key('users',s.userId));if(!u?.active||u.version!==s.version)fail('La cuenta o sesión ya no está activa.',401);if(u.role==='client'){const c=await storage.get(key('clients',u.clientId));if(!c||c.archived||c.active===false)fail('La cuenta de cliente está desactivada.',401);}if(u.role==='worker'){const w=await storage.get(key('workers',u.workerId));if(!w?.active||w.archived)fail('La ficha de trabajador está inactiva.',401);}return {actor:u,sessionKey:k};}
@@ -1161,83 +1240,7 @@ export function createOfficeApi(storage,env={}){
     }
     
     if(op==='service-create'){
-      managerOnly(actor);
-      const info=b.service||{},quoteId=text(b.quoteId),quote=quoteId?await record(db,'quotes',quoteId):null;
-      if(quote){
-        if(quote.archived||!['draft','issued','accepted'].includes(quote.status))fail('Este presupuesto está rechazado o anulado.',409);
-        if(quote.serviceId)fail('Este presupuesto ya tiene un servicio.',409);
-        if(info.clientId&&info.clientId!==quote.clientId)fail('El cliente no coincide con el presupuesto.');
-      }
-      let items=Array.isArray(b.positions)?b.positions:[];
-      const fromQuote=!!(quote?.staffPlan?.length&&items.length===0);
-      if(fromQuote)items=quote.staffPlan.flatMap(x=>Array.from({length:x.quantity},()=>({...x})));
-      if(items.length>300)fail('Máximo 300 puestos por servicio. Divide la planificación en varios servicios.');
-      const allDates=items.flatMap(x=>[x.date,x.endDate||x.date]).filter(Boolean).map(date).sort();
-      const startDate=info.date||allDates[0],endDate=info.endDate&&info.endDate>=(allDates.at(-1)||'')?info.endDate:allDates.at(-1)||info.endDate;
-      const firstStart=items.filter(x=>x.date===startDate).map(x=>x.start).filter(Boolean).sort()[0];
-      const lastEnd=items.filter(x=>(x.endDate||x.date)===endDate).map(x=>x.end).filter(Boolean).sort().at(-1);
-      const service=await saveEntity(db,actor,'services',{
-        fromQuoteRef:quote?.ref||'',name:info.name||quote?.serviceName,clientId:quote?.clientId||info.clientId,tariffSchedule:quote?.schedule||info.tariffSchedule||'Tarifa estándar 2026',
-        clientCatering:info.clientCatering,hasPause:info.hasPause,uniform:info.uniform,epi:info.epi,
-        venue:info.venue||quote?.serviceVenue||items[0]?.locationName||'Ubicación por asignar',
-        venueLat:info.venueLat!==''&&info.venueLat!=null?info.venueLat:(quote?.serviceVenueLat??null),venueLng:info.venueLng!==''&&info.venueLng!=null?info.venueLng:(quote?.serviceVenueLng??null),
-        date:startDate,start:info.start||firstStart||'08:00',
-        endDate:endDate||startDate,end:info.end||lastEnd||'23:59',
-        coordinatorId:info.coordinatorId||'',required:items.length,status:'planned',notes:info.notes||''
-      });
-      const allPlaceNames=[...(Array.isArray(b.places)?b.places:[])];
-      for(const item of items)if(item.locationName&&!allPlaceNames.some(p=>p.name===item.locationName&&p.address===item.locationAddress))
-        allPlaceNames.push({name:item.locationName,address:item.locationAddress,mapsUrl:item.placeMapsUrl,lat:item.placeLat,lng:item.placeLng});
-      const createdPlaces=[],placeMap=new Map();
-      for(const place of allPlaceNames){
-        const name=required(place.name,'el nombre de ubicación'),lat=place.lat===''||place.lat==null?null:number(place.lat,-90,90),lng=place.lng===''||place.lng==null?null:number(place.lng,-180,180);
-        if((lat==null)!==(lng==null))fail('Coordenadas incompletas de '+name);
-        const mapsUrl=text(place.mapsUrl,700);if(mapsUrl){let url;try{url=new URL(mapsUrl)}catch{fail('Enlace de Google Maps inválido.');}if(url.protocol!=='https:'||!['www.google.com','google.com','maps.google.com','maps.app.goo.gl','www.google.es','google.es','www.google.co.uk','google.co.uk','www.google.fr','google.fr'].includes(url.hostname))fail('Enlace de Maps no permitido.');}
-        const recordPlace={id:uid(),serviceId:service.id,name,address:text(place.address,500),mapsUrl,lat,lng,radiusMeters:number(place.radiusMeters??500,100,5000),revision:1,createdAt:now()};
-        await db.put(key('servicePlaces',recordPlace.id),recordPlace);createdPlaces.push(recordPlace);
-        placeMap.set(name+'|'+(place.address||''),recordPlace.id);
-      }
-      const dates=[...new Set(items.flatMap(x=>[x.date,x.endDate||x.date]).concat([service.date,service.endDate]).filter(Boolean))].sort();
-      const days=[];
-      for(const d of dates){
-        const value={id:uid(),serviceId:service.id,date:date(d),name:'Jornada',notes:'',revision:1};
-        await db.put(key('serviceDays',value.id),value);days.push(value);
-      }
-      const positions=[],assigned=[],createdBlocks=[],blockIds=new Map();
-      for(const item of items){
-        const placeId=item.placeId||(item.locationName?placeMap.get(item.locationName+'|'+(item.locationAddress||''))||'':'');
-        if(placeId&&!createdPlaces.some(p=>p.id===placeId))fail('La ubicación del puesto no pertenece al servicio.');
-        const d=item.date||service.date,last=item.endDate||d,start=item.start||service.start,end=item.end||service.end;
-        const serviceType=text(item.serviceType)||'Servicio',team=text(item.team),coordinatorId=text(item.coordinatorId);
-        if(coordinatorId){const u=await record(db,'users',coordinatorId);if(!u.active||u.role!=='worker'||!u.workerId)fail('El coordinador debe tener una ficha de trabajador.',403);}
-        const blockKey=JSON.stringify([d,last,start,end,serviceType,team,placeId,coordinatorId]);
-        if(!blockIds.has(blockKey)){
-          const value={id:uid(),serviceId:service.id,date:d,endDate:last,start,end,serviceType,team,placeId,coordinatorId,notes:text(item.notes,1000),revision:1,createdAt:now()};
-          await db.put(key('serviceBlocks',value.id),value);createdBlocks.push(value);blockIds.set(blockKey,value.id);
-        }
-        const slot=await saveEntity(db,actor,'orderLines',{
-          serviceId:service.id,categoryId:item.categoryId,serviceType:item.serviceType||'Servicio',
-          team:item.team||'',placeId,coordinatorId:item.coordinatorId||'',
-          date:item.date||service.date,start:item.start||service.start,
-          endDate:item.endDate||item.date||service.endDate,end:item.end||service.end,
-          pause:item.pause??0,diets:item.diets===true||item.diets==='true',notes:item.notes||''
-        });
-        const linked={...slot,blockId:blockIds.get(blockKey)};await db.put(key('orderLines',linked.id),linked);positions.push(linked);
-        if(item.workerId){
-          const assignment=await saveEntity(db,actor,'assignments',{
-            serviceId:service.id,orderLineId:slot.id,categoryId:slot.categoryId,
-            workerId:item.workerId,role:slot.role,team:slot.team,
-            date:slot.date,start:slot.start,endDate:slot.endDate,end:slot.end,pause:slot.pause,
-            costRate:item.costRate??'',chargeRate:item.chargeRate??''
-          });
-          assigned.push(assignment);
-        }
-      }
-      if(quote){
-        await db.put(key('quotes',quote.id),{...quote,status:'accepted',serviceId:service.id,revision:quote.revision+1,updatedAt:now()});
-        await audit(db,actor,'quote-to-service','quotes',quote.id);
-      }
-      return {record:service,positions,assigned,places:createdPlaces,days,blocks:createdBlocks,fromQuote};
+      return await serviceCreateCore(db,actor,b);
     }
     if(op==='order-line-bulk'){
      managerOnly(actor);const count=number(b.quantity,1,100),created=[];
