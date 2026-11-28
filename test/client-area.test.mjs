@@ -45,7 +45,7 @@ test('v59 · client registers, fills fiscal data, requests a quote, accepts it; 
  assert.ok(!gs3.clientRequests.some(r=>r.type!=='signup'&&['pending','in_review'].includes(r.status)),'nothing left to attend');
  const w=(await call('save',{kind:'workers',record:{name:'Persona Secreta',costRate:10,createAccess:false}},g)).body.record;
  const pos=gs3.orderLines.find(l=>l.serviceId===svc.id);const sc={body:{record:svc}};const a=await call('save',{kind:'assignments',record:{serviceId:svc.id,orderLineId:pos.id,workerId:w.id,categoryId:cat,costRate:9,chargeRate:18}},g);assert.equal(a.status,200,JSON.stringify(a.body));
- st=(await call('state',null,c)).body;const sv=st.services[0];assert.ok(sv.positions.some(p=>p.covered));assert.ok(!JSON.stringify(st).includes('Persona Secreta'));
+ st=(await call('state',null,c)).body;const sv=st.services[0];assert.ok(!sv.positions.some(p=>'covered' in p),'client never sees coverage');assert.equal(sv.positions[0].quantity,4);assert.ok(!JSON.stringify(st).includes('Persona Secreta'));
  await call('client-service-request',{serviceId:sv.id,type:'names'},c);
  assert.equal((await call('client-names-toggle',{serviceId:sv.id,show:true},g)).status,200);
  st=(await call('state',null,c)).body;assert.ok(JSON.stringify(st.services).includes('Persona Secreta'));
@@ -58,4 +58,12 @@ test('v59 · gestor creates a client access',async()=>{
  const r=await call('client-user',{clientId:cl.id,username:'livetest',password:'client-pass-9999'},g);assert.equal(r.status,200,JSON.stringify(r.body));
  const l=await call('login',{username:'LiveTest',password:'client-pass-9999'});assert.equal(l.status,200);assert.equal(l.body.user.role,'client');
  const st=(await call('state',null,l.cookie)).body;assert.equal(st.client.name,'Live Test');
+});
+test('v62 · quote: one line per worker with hours; diets charged per turno at the bottom; service lines carry diets',async()=>{
+ const {call,g}=await base();const cl=(await call('save',{kind:'clients',record:{name:'Diet Test',taxId:'B1',address:'X'}},g)).body.record;
+ const q=await call('quote-plan-save',{record:{clientId:cl.id,serviceName:'Gira',date:'2026-12-01',dueDate:'2026-12-31',staffPlan:[{categoryId:'FORKLIFTER',quantity:2,date:'2027-02-06',endDate:'2027-02-06',start:'08:00',end:'16:00',pause:0,serviceType:'MONTAJE',dietCount:1}]}},g);
+ assert.equal(q.status,200,JSON.stringify(q.body));const ls=q.body.record.lines;
+ assert.equal(ls.filter(l=>/Trabajador/.test(l.description)).length,2);assert.equal(ls[0].quantity,8);assert.match(ls[0].description,/06\/02\/2027.*con dieta/);
+ const d=ls.find(l=>l.unit==='diet');assert.equal(d.quantity,2);assert.equal(d.price,16.5);assert.equal(ls.indexOf(d),ls.length-1);
+ const sc=await call('service-create',{quoteId:q.body.record.id,service:{}},g);assert.equal(sc.status,200,JSON.stringify(sc.body));assert.ok(sc.body.positions.every(p=>p.dietCount===1));
 });

@@ -1,5 +1,13 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v62
+
+- Presupuestos: **una línea por trabajador** con sus horas (y si lleva dieta o no). Al final, las **dietas agrupadas por turno** y, si toca, el **extra de vehículo**. La gestoría marca en cada bloque las dietas a cobrar por trabajador y el extra de vehículo; al crear el servicio, los puestos heredan las dietas.
+- Área Clientes: el cliente solo elige **HAND** (la gestoría decide A, B, C1 o M al presupuestar) y **Runner**, marcando si necesita vehículo de la empresa. No elige pausa ni dietas: lo decide la gestoría y aparece en el presupuesto y la factura.
+- Área Clientes: el cliente ya **no ve si el personal está asignado o cubierto** ni los cambios internos de la gestoría; ve lo que pidió y aceptó (y sus propios cambios). Tras aceptar, el presupuesto pasa a ser el **servicio nº N/AAAA**.
+- Gestoría · Presupuestos: se marca «Área Clientes» en los presupuestos que vienen de una petición.
+- Si en el mismo navegador se entra como gestor en otra pestaña, el Área Clientes lo avisa con claridad (antes salía «Operación desconocida»).
+
 ## Novedades v61
 
 - Cuando el cliente **acepta un presupuesto** en su área, se crea solo el **servicio** en Gestoría → Servicios, con todos los puestos de la petición (días, horarios, perfiles y personas) listos para asignar personal. La respuesta pasa a «Atendidas» y ya no queda pendiente en Peticiones. El contacto del cliente queda en las notas del servicio.

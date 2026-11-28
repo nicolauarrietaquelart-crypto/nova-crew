@@ -12,10 +12,15 @@ export function createClientArea(h){
 
  async function rateCard(db,client){
   const schedule=client.tariffSchedule||'Tarifa estándar 2026';
-  const all=(await tariffCatalog(db)).filter(t=>t.active&&t.clientRate!=null);
+  const all=(await tariffCatalog(db)).filter(t=>t.active);
   let list=all.filter(t=>(t.schedule||'Tarifa estándar 2026')===schedule);if(!list.length)list=all.filter(t=>(t.schedule||'Tarifa estándar 2026')==='Tarifa estándar 2026');
-  return list.map(t=>({id:t.id,name:t.name,group:t.group||'',unit:t.unit||'hour',minHours:t.minHours||0,price:money(t.clientRate*(1+(t.incrementPercent||0)/100))})).sort((a,b)=>(a.group+a.name).localeCompare(b.group+b.name));
+  return list.map(t=>({id:t.id,name:t.name,group:t.group||'',unit:t.unit||'hour',minHours:t.minHours||0,price:t.clientRate==null?null:money(t.clientRate*(1+(t.incrementPercent||0)/100))})).sort((a,b)=>(a.group+a.name).localeCompare(b.group+b.name));
  }
+ /* El cliente elige perfiles genéricos: «HAND» (la gestoría decide A, B, C1 o M) y «Runner» (marca si necesita vehículo). */
+ const isHand=n=>/^HAND (A|B|C1|M)$/i.test(String(n||''));
+ const isRunner=n=>/runner/i.test(String(n||''));
+ const clientRole=(n,veh)=>isHand(n)?'HAND':isRunner(n)?'Runner'+(veh?' · con vehículo':''):n;
+ function clientCards(card){const out=[];let hand=false;for(const c of card){if(isHand(c.name)){if(!hand){out.push({id:'HAND',name:'HAND',group:c.group,unit:'hour'});hand=true;}continue;}out.push(isRunner(c.name)?{...c,name:'Runner',runner:true}:c);}return out;}
  function estimateLine(l,card){const t=card.find(x=>x.id===l.categoryId);if(!t)return null;const hrs=span(l.date,l.endDate||overnightEnd(l.date,l.start,l.end),l.start,l.end)-(l.pause||0);const billable=t.unit==='day'?1:Math.max(hrs,t.minHours);return {billable:money(billable),price:t.price,net:money(billable*t.price*l.quantity)};}
 
  async function view(db,actor){
@@ -30,22 +35,28 @@ export function createClientArea(h){
   const blocks=(await rows(db,'serviceBlocks')).filter(b=>ids.has(b.serviceId)&&!b.archived);
   const asg=(await rows(db,'assignments')).filter(a=>ids.has(a.serviceId)&&!a.archived&&a.status!=='rejected');
   const workers=new Map((await rows(db,'workers')).map(w=>[w.id,w]));
+  /* v62 · El cliente ve lo que él pidió/aceptó (y sus propios cambios), no el estado interno: ni coberturas,
+     ni asignaciones, ni los cambios que haga la gestoría. */
+  const quotesById=new Map((await rows(db,'quotes')).map(q=>[q.id,q]));
   const services=svcs.map(s=>{
-   const pos=lines.filter(l=>l.serviceId===s.id).map(l=>{const a=asg.find(x=>x.orderLineId===l.id);const bk=blocks.find(b=>b.id===l.blockId);
-    return {id:l.id,categoryId:l.categoryId||'',date:l.date,endDate:l.endDate,start:l.start,end:l.end,pause:l.pause||0,role:l.role,serviceType:bk?.serviceType||l.serviceType||'',team:bk?.team||'',location:bk?.locationName||'',covered:!!a,present:!!a?.checkIn,worker:s.showWorkerNames&&a?(workers.get(a.workerId)?.name||''):''};})
-    .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-   return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status,showWorkerNames:!!s.showWorkerNames,positions:pos,quoteId:s.quoteId||''};
+   const q=quotesById.get(s.quoteId)||[...quotesById.values()].find(x=>x.serviceId===s.id);
+   let plan=s.clientPlan||(q?.staffPlan||[]).map(x=>({needsVehicle:!!x.needsVehicle||Number(x.vehicleExtra||0)>0,categoryId:x.categoryId,role:x.role,date:x.date,start:x.start,end:x.end,pause:x.pause||0,serviceType:x.serviceType,quantity:x.quantity,location:x.locationName||''}));
+   if(!plan.length){const m=new Map();for(const l of lines.filter(l=>l.serviceId===s.id)){const bk=blocks.find(b=>b.id===l.blockId);const k=[l.date,l.start,l.end,l.categoryId,bk?.serviceType||l.serviceType].join('|');const x=m.get(k)||{categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:Number(l.pause||0),serviceType:bk?.serviceType||l.serviceType||'',quantity:0,location:bk?.locationName||''};x.quantity++;m.set(k,x);}plan=[...m.values()];}
+   plan=plan.map(p=>{const hand=isHand(p.role);return {...p,categoryId:hand?'HAND':p.categoryId,role:clientRole(p.role,p.needsVehicle)};});
+   plan=plan.slice().sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+   const names=s.showWorkerNames?asg.filter(a=>a.serviceId===s.id).map(a=>workers.get(a.workerId)?.name).filter(Boolean).sort():[];
+   return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status==='cancelled'?'cancelled':'active',showWorkerNames:!!s.showWorkerNames,workerNames:names,positions:plan,quoteId:q?.id||''};
   }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const {passwordHash,salt,iterations,...user}=actor;
   /* El cliente nunca ve la tarifa aplicada: solo nombres de perfil, sin precios. Los importes llegan en el presupuesto emitido. */
-  const categories=card.map(({price,minHours,...c})=>c);
+  const categories=clientCards(card).map(({price,minHours,...c})=>c);
   return {ok:true,user,client:{...client},company:{name:cfg.name,phone:cfg.phone,email:cfg.email,address:cfg.address,iban:cfg.iban||''},onCall:cfg.emergencyPhone||onCallPhone,vat,categories,requests,quotes,services,invoices};
  }
 
  function cleanLines(input){
   if(!Array.isArray(input)||!input.length)fail('Añade al menos una línea de personal.');if(input.length>60)fail('Máximo 60 líneas por petición.');
   return input.map(l=>{const quantity=number(l.quantity??1,1,200);if(!Number.isInteger(quantity))fail('Número de personas no válido.');const d=date(l.date),from=time(l.start),to=time(l.end);
-   return {categoryId:required(l.categoryId,'la categoría'),quantity,date:d,start:from,end:to,endDate:overnightEnd(d,from,to),pause:number(l.pause??0,0,8),serviceType:text(l.serviceType,80)||'',notes:text(l.notes,300)};});
+   return {categoryId:required(l.categoryId,'la categoría'),quantity,date:d,start:from,end:to,endDate:overnightEnd(d,from,to),pause:number(l.pause??0,0,8),serviceType:text(l.serviceType,80)||'',notes:text(l.notes,300),needsVehicle:l.needsVehicle===true||l.needsVehicle==='true'};});
  }
 
  async function op(db,actor,name,b){
@@ -63,7 +74,7 @@ export function createClientArea(h){
    if(old&&(old.clientId!==client.id||old.archived))fail('Petición no encontrada.',404);
    if(old&&!STATUS_OPEN.includes(old.status))fail('Esta petición ya está gestionada. Pide el cambio sobre el presupuesto o el servicio.',409);
    if(old)revision(old,r);
-   const ls=cleanLines(r.lines),card=await rateCard(db,client);for(const l of ls){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;}
+   const ls=cleanLines(r.lines),card=clientCards(await rateCard(db,client));for(const l of ls){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;l.needsVehicle=!!t.runner&&!!l.needsVehicle;}
    const dates=ls.map(l=>l.date).sort();
    const value={...(old||{}),id:old?.id||uid(),clientId:client.id,type:'quote',status:'pending',title:required(r.title,'el nombre del evento').slice(0,200),venue:text(r.venue,200),address:text(r.address,400),venueLat:Number.isFinite(Number(r.venueLat))&&r.venueLat!==''&&r.venueLat!==null?Number(r.venueLat):null,venueLng:Number.isFinite(Number(r.venueLng))&&r.venueLng!==''&&r.venueLng!==null?Number(r.venueLng):null,contactName:required(r.contactName,'la persona de contacto').slice(0,120),contactPhone:required(r.contactPhone,'el teléfono de contacto').slice(0,40),contactOnSite:text(r.contactOnSite,200),notes:text(r.notes,3000),lines:ls,dateFrom:dates[0],dateTo:ls.map(l=>l.endDate).sort().slice(-1)[0],
     createdAt:old?.createdAt||now(),createdBy:old?.createdBy||actor.id,updatedAt:now(),revision:(old?.revision||0)+1,changedByClient:!!old};
@@ -79,8 +90,9 @@ export function createClientArea(h){
    const s=await record(db,'services',required(b.serviceId,'el servicio'));if(s.clientId!==client.id||s.archived)fail('Servicio no encontrado.',404);
    const type=b.type==='names'?'names':'change';const message=text(b.message,3000);
    let lines=[],before=[];
-   if(type==='change'&&Array.isArray(b.lines)){lines=cleanLines(b.lines);const card=await rateCard(db,client);for(const l of lines){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;}
-    const cur=(await rows(db,'orderLines')).filter(l=>l.serviceId===s.id&&!l.archived&&l.status!=='cancelled');const m=new Map();for(const l of cur){const k=[l.date,l.start,l.end,l.categoryId,l.serviceType||'',Number(l.pause||0)].join('|');const x=m.get(k)||{categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:Number(l.pause||0),serviceType:l.serviceType||'',quantity:0};x.quantity++;m.set(k,x);}before=[...m.values()].sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));}
+   if(type==='change'&&Array.isArray(b.lines)){lines=cleanLines(b.lines);const card=clientCards(await rateCard(db,client));for(const l of lines){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;l.needsVehicle=!!t.runner&&!!l.needsVehicle;}
+    const v=(await view(db,actor)).services.find(x=>x.id===s.id);before=(v?.positions||[]).map(({location,...x})=>x);
+    await db.put(key('services',s.id),{...s,clientPlan:lines.map(l=>({needsVehicle:l.needsVehicle,categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:l.pause,serviceType:l.serviceType,quantity:l.quantity,location:''})),clientPlanUpdatedAt:now()});}
    if(type==='change'&&!message&&!lines.length)fail('Describe el cambio que necesitas.');
    const value={id:uid(),clientId:client.id,type,status:'pending',serviceId:s.id,title:(type==='names'?'Nombres del personal · ':'Cambio de turnos · ')+s.name,notes:message||(type==='names'?'El cliente solicita conocer los nombres del personal asignado.':''),lines,before,createdAt:now(),createdBy:actor.id,revision:1};
    await db.put(key('clientRequests',value.id),value);await audit(db,actor,'client-'+type,'services',s.id,message.slice(0,200));return {record:value};

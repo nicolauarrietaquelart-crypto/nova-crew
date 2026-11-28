@@ -129,3 +129,4 @@ dialog#cl-modal{border:0;border-radius:22px;padding:0;width:min(560px,94vw);box-
 .dd{height:44px;border:1px solid var(--line);background:#fff;border-radius:11px;font-weight:700;cursor:pointer;transition:all .12s}.dd:hover{border-color:var(--o2)}.dd.today{border-color:#15171b}.dd.on{background:var(--o);border-color:var(--o);color:#fff;transform:scale(1.04)}.dd[disabled]{opacity:.3;cursor:default}
 .day-block{border:1px solid #ffe0c2;background:#fffdfa;border-radius:18px;padding:14px;margin-bottom:14px}.day-block-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.day-block-h b{font-size:15.5px}.day-block-h b::first-letter{text-transform:uppercase}.day-block .add-line{width:100%}
 .turno{background:#fff}
+.veh{flex-direction:row!important;align-items:center;gap:8px!important;margin-top:6px;font-weight:600!important;color:#b45200!important}.veh input{width:18px;height:18px}
