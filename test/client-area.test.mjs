@@ -40,13 +40,17 @@ test('v59 · client registers, fills fiscal data, requests a quote, accepts it; 
  const ok=await call('client-quote-respond',{id:cq.id,status:'accepted',revision:cq.revision},c);assert.equal(ok.status,200,JSON.stringify(ok.body));
  const gs2=(await call('state',null,g)).body;assert.equal(gs2.quotes.find(x=>x.id===cq.id).status,'accepted');assert.ok(gs2.clientRequests.some(r=>r.type==='quote-response'));
  // service from quote, assign a worker: client sees coverage but not the name until enabled
- const sc=await call('service-create',{quoteId:cq.id,service:{}},g);assert.equal(sc.status,200,JSON.stringify(sc.body));
+ const gs3=(await call('state',null,g)).body;const svc=gs3.services.find(x=>x.clientId===cq.customer?.id||gs3.quotes.find(q=>q.id===cq.id).serviceId===x.id);assert.ok(svc,'service auto-created on acceptance');
+ assert.equal(gs3.orderLines.filter(l=>l.serviceId===svc.id).length,4,'positions created from the request');
+ assert.ok(!gs3.clientRequests.some(r=>r.type!=='signup'&&['pending','in_review'].includes(r.status)),'nothing left to attend');
  const w=(await call('save',{kind:'workers',record:{name:'Persona Secreta',costRate:10,createAccess:false}},g)).body.record;
- const pos=sc.body.positions[0];const a=await call('save',{kind:'assignments',record:{serviceId:sc.body.record.id,orderLineId:pos.id,workerId:w.id,categoryId:cat,costRate:9,chargeRate:18}},g);assert.equal(a.status,200,JSON.stringify(a.body));
+ const pos=gs3.orderLines.find(l=>l.serviceId===svc.id);const sc={body:{record:svc}};const a=await call('save',{kind:'assignments',record:{serviceId:svc.id,orderLineId:pos.id,workerId:w.id,categoryId:cat,costRate:9,chargeRate:18}},g);assert.equal(a.status,200,JSON.stringify(a.body));
  st=(await call('state',null,c)).body;const sv=st.services[0];assert.ok(sv.positions.some(p=>p.covered));assert.ok(!JSON.stringify(st).includes('Persona Secreta'));
  await call('client-service-request',{serviceId:sv.id,type:'names'},c);
  assert.equal((await call('client-names-toggle',{serviceId:sv.id,show:true},g)).status,200);
  st=(await call('state',null,c)).body;assert.ok(JSON.stringify(st.services).includes('Persona Secreta'));
+ const ch=await call('client-service-request',{serviceId:sv.id,type:'change',message:'Uno más',lines:[{categoryId:cat,quantity:5,date:'2027-03-01',start:'21:00',end:'06:00'}]},c);assert.equal(ch.status,200,JSON.stringify(ch.body));
+ assert.equal(ch.body.record.before[0].quantity,4);assert.equal(ch.body.record.lines[0].quantity,5);
  const login=await call('login',{username:'eventosdemo',password:'client-pass-1234'});assert.equal(login.status,200);
 });
 test('v59 · gestor creates a client access',async()=>{

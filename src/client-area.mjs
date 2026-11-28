@@ -3,7 +3,7 @@
    salvo que la gestoría lo active), facturas emitidas y sus datos fiscales. Nunca ve costes internos. */
 
 export function createClientArea(h){
- const {rows,key,record,fail,uid,now,text,money,audit,saveEntity,tariffCatalog,settings,date,time,number,required,revision,onCallPhone}=h;
+ const {serviceFromQuote,rows,key,record,fail,uid,now,text,money,audit,saveEntity,tariffCatalog,settings,date,time,number,required,revision,onCallPhone}=h;
 
  const STATUS_OPEN=['pending','in_review'];
  const clientOf=async(db,actor)=>{const c=await record(db,'clients',actor.clientId);if(c.archived||c.active===false)fail('La cuenta de cliente está desactivada.',403);return c;};
@@ -32,7 +32,7 @@ export function createClientArea(h){
   const workers=new Map((await rows(db,'workers')).map(w=>[w.id,w]));
   const services=svcs.map(s=>{
    const pos=lines.filter(l=>l.serviceId===s.id).map(l=>{const a=asg.find(x=>x.orderLineId===l.id);const bk=blocks.find(b=>b.id===l.blockId);
-    return {id:l.id,date:l.date,endDate:l.endDate,start:l.start,end:l.end,pause:l.pause||0,role:l.role,serviceType:bk?.serviceType||l.serviceType||'',team:bk?.team||'',location:bk?.locationName||'',covered:!!a,present:!!a?.checkIn,worker:s.showWorkerNames&&a?(workers.get(a.workerId)?.name||''):''};})
+    return {id:l.id,categoryId:l.categoryId||'',date:l.date,endDate:l.endDate,start:l.start,end:l.end,pause:l.pause||0,role:l.role,serviceType:bk?.serviceType||l.serviceType||'',team:bk?.team||'',location:bk?.locationName||'',covered:!!a,present:!!a?.checkIn,worker:s.showWorkerNames&&a?(workers.get(a.workerId)?.name||''):''};})
     .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
    return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status,showWorkerNames:!!s.showWorkerNames,positions:pos,quoteId:s.quoteId||''};
   }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
@@ -77,8 +77,12 @@ export function createClientArea(h){
   if(name==='client-service-request'){
    /* Cambios en un servicio ya confirmado, o pedir los nombres del personal. Llegan a la gestoría como petición. */
    const s=await record(db,'services',required(b.serviceId,'el servicio'));if(s.clientId!==client.id||s.archived)fail('Servicio no encontrado.',404);
-   const type=b.type==='names'?'names':'change';const message=text(b.message,3000);if(type==='change'&&!message)fail('Describe el cambio que necesitas.');
-   const value={id:uid(),clientId:client.id,type,status:'pending',serviceId:s.id,title:(type==='names'?'Nombres del personal · ':'Cambio · ')+s.name,notes:message||'El cliente solicita conocer los nombres del personal asignado.',lines:[],createdAt:now(),createdBy:actor.id,revision:1};
+   const type=b.type==='names'?'names':'change';const message=text(b.message,3000);
+   let lines=[],before=[];
+   if(type==='change'&&Array.isArray(b.lines)){lines=cleanLines(b.lines);const card=await rateCard(db,client);for(const l of lines){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;}
+    const cur=(await rows(db,'orderLines')).filter(l=>l.serviceId===s.id&&!l.archived&&l.status!=='cancelled');const m=new Map();for(const l of cur){const k=[l.date,l.start,l.end,l.categoryId,l.serviceType||'',Number(l.pause||0)].join('|');const x=m.get(k)||{categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:Number(l.pause||0),serviceType:l.serviceType||'',quantity:0};x.quantity++;m.set(k,x);}before=[...m.values()].sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));}
+   if(type==='change'&&!message&&!lines.length)fail('Describe el cambio que necesitas.');
+   const value={id:uid(),clientId:client.id,type,status:'pending',serviceId:s.id,title:(type==='names'?'Nombres del personal · ':'Cambio de turnos · ')+s.name,notes:message||(type==='names'?'El cliente solicita conocer los nombres del personal asignado.':''),lines,before,createdAt:now(),createdBy:actor.id,revision:1};
    await db.put(key('clientRequests',value.id),value);await audit(db,actor,'client-'+type,'services',s.id,message.slice(0,200));return {record:value};
   }
   if(name==='client-quote-respond'){
@@ -86,7 +90,15 @@ export function createClientArea(h){
    if(q.status!=='issued')fail('Este presupuesto ya está respondido.',409);if(!['accepted','rejected'].includes(b.status))fail('Respuesta no válida.');
    const comment=text(b.comment,2000);const value={...q,status:b.status,clientRespondedAt:now(),clientRespondedBy:actor.name,clientComment:comment,revision:q.revision+1,updatedAt:now()};
    await db.put(key('quotes',q.id),value);
-   const note={id:uid(),clientId:client.id,type:'quote-response',status:'pending',quoteId:q.id,title:(b.status==='accepted'?'Presupuesto ACEPTADO · ':'Presupuesto rechazado · ')+(q.ref||q.number||'')+(q.serviceName?' · '+q.serviceName:''),notes:comment,lines:[],createdAt:now(),createdBy:actor.id,revision:1};
+   /* v61 · Al aceptar: se crea el servicio con sus puestos desde el presupuesto y la petición sale de «Por atender». */
+   let service=null;
+   if(b.status==='accepted'&&!q.serviceId&&(q.staffPlan||[]).length){
+    const rq=q.requestId?await db.get(key('clientRequests',q.requestId)):null;
+    const notes=[q.contactName?'Contacto del cliente: '+q.contactName+(q.contactPhone?' · '+q.contactPhone:''):'',rq?.notes||''].filter(Boolean).join('\n');
+    const res=await serviceFromQuote(db,{...actor,role:'manager',name:'Área Clientes · '+client.name},{quoteId:q.id,service:{notes}});service=res.record;
+    const sv=await db.get(key('services',service.id));await db.put(key('services',service.id),{...sv,fromClientArea:true,contactName:q.contactName||'',contactPhone:q.contactPhone||''});
+   }
+   const note={id:uid(),clientId:client.id,type:'quote-response',status:service?'done':'pending',serviceId:service?.id||'',managerNote:service?'Servicio creado automáticamente en Servicios: falta asignar el personal.':'',quoteId:q.id,title:(b.status==='accepted'?'Presupuesto ACEPTADO · ':'Presupuesto rechazado · ')+(q.ref||q.number||'')+(q.serviceName?' · '+q.serviceName:''),notes:comment,lines:[],createdAt:now(),createdBy:actor.id,revision:1};
    await db.put(key('clientRequests',note.id),note);
    for(const r of (await rows(db,'clientRequests')).filter(r=>r.quoteId===q.id&&r.type==='quote'&&r.status==='quoted'))await db.put(key('clientRequests',r.id),{...r,status:b.status==='accepted'?'accepted':'rejected',updatedAt:now(),revision:r.revision+1});
    await audit(db,actor,'quote-status','quotes',q.id,(b.status==='accepted'?'Aceptado':'Rechazado')+' por el cliente desde su área');return {record:value};

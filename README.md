@@ -1,5 +1,12 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v61
+
+- Cuando el cliente **acepta un presupuesto** en su área, se crea solo el **servicio** en Gestoría → Servicios, con todos los puestos de la petición (días, horarios, perfiles y personas) listos para asignar personal. La respuesta pasa a «Atendidas» y ya no queda pendiente en Peticiones. El contacto del cliente queda en las notas del servicio.
+- Área Clientes · Servicios: el servicio aceptado sale en **En curso** hasta que se emite su factura; entonces pasa a «Finalizados y facturados» y la factura se descarga desde ahí.
+- Área Clientes: botón **Modificar turnos y horarios** en cada servicio en curso (mismo calendario de días y turnos). El cambio llega a Gestoría → Peticiones con una comparación clara (nuevo / quitar / cambia personas / igual).
+- Área Clientes: el detalle del servicio agrupa los turnos iguales (p. ej. «12 personas · 0/12 cubiertos»).
+
 ## Novedades v60
 
 - Inicio de sesión: el botón se llama solo «Área Clientes».
