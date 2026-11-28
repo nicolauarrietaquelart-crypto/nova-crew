@@ -1,5 +1,9 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v64
+
+- La aplicación se llama **NOVA**, con tres ramas: **NOVA Office** (gestoría, `/`), **NOVA Crew** (trabajadores, `/empleado`) y **NOVA Clientes** (clientes, `/cliente`). Marca, títulos de pestaña y cabeceras actualizados.
+
 ## Novedades v63
 
 - Área Clientes: el cliente ve los turnos reales del servicio, con los cambios que haga la gestoría (días, horarios, personas y perfiles). Sigue sin ver coberturas, asignaciones ni nombres. Si tiene un cambio pedido sin aplicar, se le avisa.
