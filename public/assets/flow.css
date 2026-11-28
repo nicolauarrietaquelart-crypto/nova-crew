@@ -942,3 +942,5 @@ html,body,button,input,select,textarea,.btn,table{font-family:"Plus Jakarta Sans
 .auth-client{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;height:44px;border-radius:12px;border:1px solid #e3e4e8;font-weight:700;text-decoration:none;color:#15171b;background:#fff;transition:background .15s,border-color .15s}
 .auth-client:hover{border-color:#ff9a3d;background:#fff7ef}
 .cr-diff tr.d-same td{color:#9aa0a8}.cr-diff tr.d-add td:first-child b{color:#0f8a4a}.cr-diff tr.d-del td{text-decoration:line-through;color:#b42323}.cr-diff tr.d-del td:first-child{text-decoration:none}.cr-diff tr.d-qty td:first-child b{color:#b45200}
+.from-client{color:#ff6a00}
+.client-ask{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:700;background:#fff1e3;color:#b45200;border-radius:99px;padding:3px 10px}

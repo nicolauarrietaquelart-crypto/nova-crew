@@ -300,7 +300,7 @@ test('quote plan links multiple days, venue locations and categories when conver
  ]}});
  assert.equal(q.status,200,JSON.stringify(q.body));
  assert.equal(q.body.record.staffPlan.length,2);
- assert.equal(q.body.record.lines.length,2);
+ assert.equal(q.body.record.lines.length,3,'una línea por trabajador');
  assert.equal(q.body.record.total>0,true);
  const cfg=await f.call('settings',{record:{name:'Penny Wise',taxId:'B00000000',address:'Barcelona',invoicePrefix:'PW',vat:21,paymentDays:30}});
  assert.equal(cfg.status,200);
