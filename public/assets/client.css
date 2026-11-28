@@ -130,3 +130,4 @@ dialog#cl-modal{border:0;border-radius:22px;padding:0;width:min(560px,94vw);box-
 .day-block{border:1px solid #ffe0c2;background:#fffdfa;border-radius:18px;padding:14px;margin-bottom:14px}.day-block-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.day-block-h b{font-size:15.5px}.day-block-h b::first-letter{text-transform:uppercase}.day-block .add-line{width:100%}
 .turno{background:#fff}
 .veh{flex-direction:row!important;align-items:center;gap:8px!important;margin-top:6px;font-weight:600!important;color:#b45200!important}.veh input{width:18px;height:18px}
+.brand-branch{font-style:normal;font-weight:800;font-size:.62em;letter-spacing:.14em;color:#ff7a00;margin-left:.45em;vertical-align:.12em}
