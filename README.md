@@ -1,5 +1,9 @@
 # NOVA Crew · Operaciones y personal
 
+## Novedades v63
+
+- Área Clientes: el cliente ve los turnos reales del servicio, con los cambios que haga la gestoría (días, horarios, personas y perfiles). Sigue sin ver coberturas, asignaciones ni nombres. Si tiene un cambio pedido sin aplicar, se le avisa.
+
 ## Novedades v62
 
 - Presupuestos: **una línea por trabajador** con sus horas (y si lleva dieta o no). Al final, las **dietas agrupadas por turno** y, si toca, el **extra de vehículo**. La gestoría marca en cada bloque las dietas a cobrar por trabajador y el extra de vehículo; al crear el servicio, los puestos heredan las dietas.
