@@ -40,12 +40,14 @@ export function createClientArea(h){
   const quotesById=new Map((await rows(db,'quotes')).map(q=>[q.id,q]));
   const services=svcs.map(s=>{
    const q=quotesById.get(s.quoteId)||[...quotesById.values()].find(x=>x.serviceId===s.id);
-   let plan=s.clientPlan||(q?.staffPlan||[]).map(x=>({needsVehicle:!!x.needsVehicle||Number(x.vehicleExtra||0)>0,categoryId:x.categoryId,role:x.role,date:x.date,start:x.start,end:x.end,pause:x.pause||0,serviceType:x.serviceType,quantity:x.quantity,location:x.locationName||''}));
-   if(!plan.length){const m=new Map();for(const l of lines.filter(l=>l.serviceId===s.id)){const bk=blocks.find(b=>b.id===l.blockId);const k=[l.date,l.start,l.end,l.categoryId,bk?.serviceType||l.serviceType].join('|');const x=m.get(k)||{categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:Number(l.pause||0),serviceType:bk?.serviceType||l.serviceType||'',quantity:0,location:bk?.locationName||''};x.quantity++;m.set(k,x);}plan=[...m.values()];}
+   /* v63 · El cliente ve el plan real del servicio (incluidos los cambios de la gestoría), sin coberturas ni nombres. */
+   let plan=[];const sl=lines.filter(l=>l.serviceId===s.id);
+   if(!sl.length)plan=(q?.staffPlan||[]).map(x=>({needsVehicle:!!x.needsVehicle||Number(x.vehicleExtra||0)>0,categoryId:x.categoryId,role:x.role,date:x.date,start:x.start,end:x.end,pause:x.pause||0,serviceType:x.serviceType,quantity:x.quantity,location:x.locationName||''}));
+   else{const m=new Map();for(const l of sl){const bk=blocks.find(b=>b.id===l.blockId);const k=[l.date,l.start,l.end,l.categoryId,bk?.serviceType||l.serviceType].join('|');const x=m.get(k)||{needsVehicle:false,categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:Number(l.pause||0),serviceType:bk?.serviceType||l.serviceType||'',quantity:0,location:bk?.locationName||''};x.quantity++;m.set(k,x);}plan=[...m.values()];}
    plan=plan.map(p=>{const hand=isHand(p.role);return {...p,categoryId:hand?'HAND':p.categoryId,role:clientRole(p.role,p.needsVehicle)};});
    plan=plan.slice().sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
    const names=s.showWorkerNames?asg.filter(a=>a.serviceId===s.id).map(a=>workers.get(a.workerId)?.name).filter(Boolean).sort():[];
-   return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status==='cancelled'?'cancelled':'active',showWorkerNames:!!s.showWorkerNames,workerNames:names,positions:plan,quoteId:q?.id||''};
+   return {id:s.id,ref:s.ref||'',name:s.name,venue:s.venue||'',date:s.date,endDate:s.endDate||s.date,status:s.status==='cancelled'?'cancelled':'active',showWorkerNames:!!s.showWorkerNames,workerNames:names,positions:plan,quoteId:q?.id||'',pendingChange:requests.some(r=>r.serviceId===s.id&&r.type==='change'&&['pending','in_review'].includes(r.status))};
   }).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const {passwordHash,salt,iterations,...user}=actor;
   /* El cliente nunca ve la tarifa aplicada: solo nombres de perfil, sin precios. Los importes llegan en el presupuesto emitido. */
@@ -92,7 +94,7 @@ export function createClientArea(h){
    let lines=[],before=[];
    if(type==='change'&&Array.isArray(b.lines)){lines=cleanLines(b.lines);const card=clientCards(await rateCard(db,client));for(const l of lines){const t=card.find(x=>x.id===l.categoryId);if(!t)fail('Categoría no disponible.');l.role=t.name;l.needsVehicle=!!t.runner&&!!l.needsVehicle;}
     const v=(await view(db,actor)).services.find(x=>x.id===s.id);before=(v?.positions||[]).map(({location,...x})=>x);
-    await db.put(key('services',s.id),{...s,clientPlan:lines.map(l=>({needsVehicle:l.needsVehicle,categoryId:l.categoryId,role:l.role,date:l.date,start:l.start,end:l.end,pause:l.pause,serviceType:l.serviceType,quantity:l.quantity,location:''})),clientPlanUpdatedAt:now()});}
+}
    if(type==='change'&&!message&&!lines.length)fail('Describe el cambio que necesitas.');
    const value={id:uid(),clientId:client.id,type,status:'pending',serviceId:s.id,title:(type==='names'?'Nombres del personal · ':'Cambio de turnos · ')+s.name,notes:message||(type==='names'?'El cliente solicita conocer los nombres del personal asignado.':''),lines,before,createdAt:now(),createdBy:actor.id,revision:1};
    await db.put(key('clientRequests',value.id),value);await audit(db,actor,'client-'+type,'services',s.id,message.slice(0,200));return {record:value};
